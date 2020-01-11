@@ -75,7 +75,7 @@ def identity_block(X, f, filters, stage, block):
     return X
 
 def res_net50(input_shape, output_size):
-    input_tensor = Input((227, 227, 3))
+    input_tensor = Input(input_shape)
 
     X = ZeroPadding2D((3, 3))(input_tensor)
     
