@@ -1,11 +1,23 @@
 import pickle
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 from google.colab.patches import cv2_imshow
 
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
+
+def plot_history(H, save=True):
+    plt.figure(figsize=(10, 7))
+    plt.plot(H.history['loss'])
+    plt.plot(H.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.savefig(DIR + 'hist.png')
+    plt.show()
 
 def pickle_save(object, path):
     with open(path, "wb") as f:
