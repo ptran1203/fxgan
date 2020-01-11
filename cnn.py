@@ -83,7 +83,7 @@ def res_net50(input_shape, output_size):
     X = Conv2D(32, (7, 7), strides = (2, 2), name = 'conv1')(X)
     X = BatchNormalization(axis = 3, name = 'bn_conv1')(X)
     X = Activation('relu')(X)
-    X = MaxPooling2D((3, 3), strides=(2, 2), dim_ordering="th")(X)
+    X = MaxPooling2D((3, 3), strides=(2, 2))(X)
 
     # Stage 2
     X = convolutional_block(X, f = 3, filters = [32, 32, 256], stage = 2, block='a', s = 1)
@@ -130,7 +130,6 @@ def alex_net():
                     input_shape=(227,227,3)))
     model.add(MaxPooling2D(pool_size=(2, 2),
                         strides=(2, 2),
-                        dim_ordering="th",
                         padding='valid'))
     model.add(BatchNormalization())
     model.add(Conv2D(filters=256,
@@ -140,7 +139,6 @@ def alex_net():
                     activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2),
                         strides=(2, 2),
-                        dim_ordering="th",
                         padding='valid'))
     model.add(BatchNormalization())
     model.add(Conv2D(filters=384,
@@ -160,7 +158,6 @@ def alex_net():
                     activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2),
                         strides=(2, 2),
-                        dim_ordering="th",
                         padding='valid'))
     model.add(Flatten())
     # fully connected
