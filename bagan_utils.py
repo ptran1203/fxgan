@@ -8,17 +8,6 @@ from google.colab.patches import cv2_imshow
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 
-def plot_history(H, save=True):
-    plt.figure(figsize=(10, 7))
-    plt.plot(H.history['loss'])
-    plt.plot(H.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.savefig(DIR + 'hist.png')
-    plt.show()
-
 def pickle_save(object, path):
     with open(path, "wb") as f:
         return pickle.dump(object, f)
@@ -31,12 +20,26 @@ def pickle_load(path):
     except:
         return None
 
+def add_padding(img):
+    w, h, _ = img.shape
+    size = abs(w - h) // 2
+    value= [0, 0, 0]
+    if w < h:
+        return cv2.copyMakeBorder(img, size, size, 0, 0,
+                                    cv2.BORDER_CONSTANT,
+                                    value=value)
+    return cv2.copyMakeBorder(img, 0, 0, size, size,
+                                    cv2.BORDER_CONSTANT,
+                                    value=value)
+
 def save_ds(imgs, rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
+    print('saving ', path)
     pickle_save(imgs, path)
 
 def load_ds(rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
+    print('loading ', path)
     return pickle_load(path)
 
 def save_image_array(img_array, fname):
@@ -70,18 +73,19 @@ def path(path):
 
 def get_img(path, rst):
     img = cv2.imread(path)
+    img = add_padding(img)
     img = cv2.resize(img, (rst, rst))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return img.tolist()
 
-def load_train_data(resolution=52):
+def load_train_data(s=0,  resolution=52):
     imgs = []
     labels = []
     i = 0
     res = load_ds(resolution, 'train')
     if res:
         return res
-    for file in os.listdir(DS_DIR + '/train/NORMAL'):
+    for file in os.listdir(DS_DIR + '/train/NORMAL')[:s if s > 0 else 1349]:
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
@@ -92,7 +96,7 @@ def load_train_data(resolution=52):
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
+    for file in os.listdir(DS_DIR + '/train/PNEUMONIA')[:s if s > 0 else 3884]:
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
@@ -107,13 +111,13 @@ def load_train_data(resolution=52):
     save_ds(res, resolution, 'train')
     return res
 
-def load_test_data(resolution = 52):
+def load_test_data(s=0, resolution = 52):
     imgs = []
     labels = []
     res = load_ds(resolution, 'test')
     if res:
         return res
-    for file in os.listdir(DS_DIR + '/test/NORMAL'):
+    for file in os.listdir(DS_DIR + '/test/NORMAL')[:s if s > 0 else 234]:
         path = DS_DIR + '/test/NORMAL/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -121,7 +125,7 @@ def load_test_data(resolution = 52):
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/test/PNEUMONIA'):
+    for file in os.listdir(DS_DIR + '/test/PNEUMONIA')[:s if s > 0 else 390]:
         path = DS_DIR + '/test/PNEUMONIA/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -132,8 +136,6 @@ def load_test_data(resolution = 52):
     save_ds(res, resolution, 'test')
     return res
 
-
-# for bagan
 class BatchGenerator:
 
     TRAIN = 1
