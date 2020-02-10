@@ -2,7 +2,7 @@
 import csv
 from collections import defaultdict
 import keras.backend as K
-K.set_image_dim_ordering('th')
+K.common.set_image_dim_ordering('th')
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Convolution2D, Conv2D, Conv2DTranspose
