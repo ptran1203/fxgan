@@ -17,7 +17,7 @@ import sys
 import re
 import numpy as np
 
-from bagan_utils import save_image_array
+from utils import save_image_array
 
 class BalancingGAN:
     def plot_his(self):
