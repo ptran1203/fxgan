@@ -22,6 +22,7 @@ import cv2
 import matplotlib.pyplot as plt
 
 from google.colab.patches import cv2_imshow
+from PIL import Image
 
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
