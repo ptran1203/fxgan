@@ -27,15 +27,22 @@ DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 
 def pickle_save(object, path):
-    with open(path, "wb") as f:
-        return pickle.dump(object, f)
+    try:
+        print('save data to {} successfully'.format(path))
+        with open(path, "wb") as f:
+            return pickle.dump(object, f)
+    except:
+        print('save data to {} failed'.format(path))
+
 
 
 def pickle_load(path):
     try:
+        print('load data from {} successfully'.format(path))
         with open(path, "rb") as f:
             return pickle.load(f)
-    except:
+    except Exception as e:
+        print(str(e))
         return None
 
 def add_padding(img):
@@ -52,15 +59,13 @@ def add_padding(img):
 
 def save_ds(imgs, rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    print('saving ', path)
     pickle_save(imgs, path)
 
 def load_ds(rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    print('loading ', path)
     return pickle_load(path)
 
-def save_image_array(img_array, fname):
+def save_image_array(img_array, fname=None):
     channels = img_array.shape[2]
     resolution = img_array.shape[-1]
     img_rows = img_array.shape[0]
@@ -80,30 +85,30 @@ def save_image_array(img_array, fname):
     else:
         img = np.rollaxis(img, 0, 3)
 
-    try:
-        cv2_imshow(img)
-    except Exception as e:
-        print('[save fail] ', str(e))
+    if not fname:
+        try:
+            cv2_imshow(img)
+        except Exception as e:
+            print('[show fail] ', str(e))
+    else:
         Image.fromarray(img).save(fname)
-
-def path(path):
-    return os.path.join(BASE_DIR, path)
 
 def get_img(path, rst):
     img = cv2.imread(path)
     img = add_padding(img)
     img = cv2.resize(img, (rst, rst))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # why? Can we optimize this?
     return img.tolist()
 
-def load_train_data(s=0,  resolution=52):
+def load_train_data(resolution=52):
     imgs = []
     labels = []
     i = 0
     res = load_ds(resolution, 'train')
     if res:
         return res
-    for file in os.listdir(DS_DIR + '/train/NORMAL')[:s if s > 0 else 1349]:
+    for file in os.listdir(DS_DIR + '/train/NORMAL'):
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
@@ -114,7 +119,7 @@ def load_train_data(s=0,  resolution=52):
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/train/PNEUMONIA')[:s if s > 0 else 3884]:
+    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
@@ -129,13 +134,13 @@ def load_train_data(s=0,  resolution=52):
     save_ds(res, resolution, 'train')
     return res
 
-def load_test_data(s=0, resolution = 52):
+def load_test_data(resolution = 52):
     imgs = []
     labels = []
     res = load_ds(resolution, 'test')
     if res:
         return res
-    for file in os.listdir(DS_DIR + '/test/NORMAL')[:s if s > 0 else 234]:
+    for file in os.listdir(DS_DIR + '/test/NORMAL'):
         path = DS_DIR + '/test/NORMAL/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -143,7 +148,7 @@ def load_test_data(s=0, resolution = 52):
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/test/PNEUMONIA')[:s if s > 0 else 390]:
+    for file in os.listdir(DS_DIR + '/test/PNEUMONIA'):
         path = DS_DIR + '/test/PNEUMONIA/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -155,14 +160,12 @@ def load_test_data(s=0, resolution = 52):
     return res
 
 class BatchGenerator:
-
     TRAIN = 1
     TEST = 0
 
-    def __init__(self, data_src, batch_size=5, class_to_prune=None, unbalance=0, dataset='MNIST', rst=64):
+    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64):
         self.batch_size = batch_size
         self.data_src = data_src
-
         # Load data
         if dataset == 'MNIST':
             mnist = input_data.read_data_sets("dataset/mnist", one_hot=False)
@@ -191,32 +194,28 @@ class BatchGenerator:
             else:
                 self.dataset_x = x_test
                 self.dataset_y = y_test
-
             # Arrange x: channel first
             self.dataset_x = np.transpose(self.dataset_x, axes=(0, 3, 1, 2))
-
             # Normalize between -1 and 1
             self.dataset_x = self.dataset_x/255 - 0.5
-
             # Y 1D format
             self.dataset_y = self.dataset_y[:, 0]
+
         else:
             if self.data_src == self.TEST:
-                x, y = load_test_data(0, rst)
+                x, y = load_test_data(rst)
                 self.dataset_x = x
                 self.dataset_y = y
             else:
-                x_test, y_test = load_train_data(0, rst)
+                x_test, y_test = load_train_data(rst)
                 self.dataset_x = x_test
                 self.dataset_y = y_test
 
             # Arrange x: channel first
             self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
             # Normalize between -1 and 1
-            self.dataset_x = self.dataset_x/255 - 0.5
+            self.dataset_x = (self.dataset_x - 127.5) / 127.5
             self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
-            # Y 1D format
-            # self.dataset_y = self.dataset_y[:, 0]
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
@@ -226,24 +225,6 @@ class BatchGenerator:
         per_class_count = list()
         for c in classes:
             per_class_count.append(np.sum(np.array(self.dataset_y == c)))
-
-        # Prune if needed!
-        if class_to_prune is not None:
-            all_ids = list(np.arange(len(self.dataset_x)))
-
-            mask = [class_to_prune == lc for lc in self.dataset_y]
-            all_ids_c = np.array(all_ids)[mask]
-            np.random.shuffle(all_ids_c)
-
-            other_class_count = np.array(per_class_count)
-            other_class_count = np.delete(other_class_count, class_to_prune)
-            to_keep = int(np.ceil(unbalance * max(
-                other_class_count)))
-
-            to_delete = all_ids_c[to_keep: len(all_ids_c)]
-
-            self.dataset_x = np.delete(self.dataset_x, to_delete, axis=0)
-            self.dataset_y = np.delete(self.dataset_y, to_delete, axis=0)
 
         # Recount after pruning
         per_class_count = list()
@@ -604,8 +585,6 @@ class BalancingGAN:
         multivariate_prelearnt = False
 
         # Preload the autoencoders
-        print(os.path.exists(generator_fname), os.path.exists(reconstructor_fname))
-        print(generator_fname, reconstructor_fname)
         if os.path.exists(generator_fname) and os.path.exists(reconstructor_fname):
             print("BAGAN: loading autoencoder: ", generator_fname, reconstructor_fname)
             self.generator.load_weights(generator_fname)
@@ -642,15 +621,12 @@ class BalancingGAN:
             self.reconstructor.save(reconstructor_fname)
 
         layers_r = self.reconstructor.layers
-        print(layers_r)
         layers_d = self.discriminator.layers
 
         for l in range(1, len(layers_r)-1):
             layers_d[l].set_weights( layers_r[l].get_weights() )
 
         # Organize multivariate distribution
-        print("nclasses: ", self.nclasses)
-        print("classes: " , bg_train.per_class_ids.keys())
         if not multivariate_prelearnt:
             print("BAGAN: computing multivariate")
             self.covariances = []
@@ -696,7 +672,6 @@ class BalancingGAN:
         epoch, generator_fname = self._get_lst_bck_name("generator")
 
         new_e, discriminator_fname = self._get_lst_bck_name("discriminator")
-        print(new_e, epoch)
         if new_e != epoch:  # Reload error, restart from scratch
             return 0
 
@@ -737,9 +712,6 @@ class BalancingGAN:
 
             # Class balancing ratio
             self._set_class_ratios()
-            # print("uratio set to: {}".format(self.class_uratio))
-            # print("dratio set to: {}".format(self.class_dratio))
-            # print("gratio set to: {}".format(self.class_gratio))
 
             # Initialization
             print("BAGAN init_autoenc")
@@ -750,30 +722,28 @@ class BalancingGAN:
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-            g1, g2 = self.generator.predict(
-                        self.reconstructor.predict(
-                            act_img_samples
-                        )
-                    ), self.generate_samples(crt_c, 10, bg_train)
             img_samples = np.array([
                 [
                     act_img_samples,
-                    g1,
-                    g2,
+                    self.generator.predict(
+                        self.reconstructor.predict(
+                            act_img_samples
+                        )
+                    ),
+                    self.generate_samples(crt_c, 10, bg_train)
                 ]
             ])
             for crt_c in range(1, self.nclasses):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                g1, g2 = self.generator.predict(
-                    self.reconstructor.predict(
-                        act_img_samples
-                    )
-                ), self.generate_samples(crt_c, 10, bg_train)
                 new_samples = np.array([
                     [
                         act_img_samples,
-                        g1,
-                        g2,
+                        self.generator.predict(
+                            self.reconstructor.predict(
+                                act_img_samples
+                            )
+                        ),
+                        self.generate_samples(crt_c, 10, bg_train)
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -781,16 +751,12 @@ class BalancingGAN:
             shape = img_samples.shape
             img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
 
-            save_image_array(
-                img_samples,
-                '{}/cmp_class_{}_init.png'.format(self.res_dir, self.target_class_id)
-            )
+            save_image_array(img_samples)
 
             # Train
             for e in range(start_e, epochs):
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
-                # train_disc_loss, train_gen_loss = self._train_one_epoch(copy.deepcopy(bg_train))
                 train_disc_loss, train_gen_loss = self._train_one_epoch(bg_train)
 
                 # Test: # generate a new batch of noise
@@ -876,10 +842,7 @@ class BalancingGAN:
                     shape = img_samples.shape
                     img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
 
-                    save_image_array(
-                        img_samples,
-                        '{}/cmp_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e)
-                    )
+                    save_image_array(img_samples)
 
             self.trained = True
 
