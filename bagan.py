@@ -797,7 +797,7 @@ class BalancingGAN:
                 # self.plot_his()
 
                 # Save sample images
-                if e % 10 == 9:
+                if e % 100 == 0:
                     img_samples = np.array([
                         self.generate_samples(c, 10, bg_train)
                         for c in range(0,self.nclasses)
