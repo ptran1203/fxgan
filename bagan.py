@@ -807,10 +807,10 @@ class BalancingGAN:
                         img_samples,
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e)
                     )
-                    self.plot_his()
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
                 if e % 10 == 5:
+                    self.plot_his()
                     self.backup_point(e)
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
