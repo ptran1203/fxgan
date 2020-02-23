@@ -172,7 +172,7 @@ class BatchGenerator:
     def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64, remove_size=0):
         self.batch_size = batch_size
         self.data_src = data_src
-        elif dataset == 'CIFAR10':
+        if dataset == 'CIFAR10':
             ((x, y), (x_test, y_test)) = tf.keras.datasets.cifar10.load_data()
 
             if self.data_src == self.TEST:
