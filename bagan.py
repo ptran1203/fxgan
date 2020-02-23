@@ -102,14 +102,19 @@ def get_img(path, rst):
     # why? Can we optimize this?
     return img.tolist()
 
-def load_train_data(resolution=52):
+def bound(list, s):
+    if s == 0:
+        return list
+    return list[:s]
+
+def load_train_data(resolution=52, size=0):
     imgs = []
     labels = []
     i = 0
     res = load_ds(resolution, 'train')
     if res:
         return res
-    for file in os.listdir(DS_DIR + '/train/NORMAL'):
+    for file in bound(os.listdir(DS_DIR + '/train/NORMAL'), size):
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
@@ -120,7 +125,7 @@ def load_train_data(resolution=52):
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
+    for file in bound(os.listdir(DS_DIR + '/train/PNEUMONIA'), size):
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
@@ -141,7 +146,7 @@ def load_test_data(resolution = 52):
     res = load_ds(resolution, 'test')
     if res:
         return res
-    for file in os.listdir(DS_DIR + '/test/NORMAL'):
+    for file in bound(os.listdir(DS_DIR + '/test/NORMAL'),size):
         path = DS_DIR + '/test/NORMAL/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -149,7 +154,7 @@ def load_test_data(resolution = 52):
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/test/PNEUMONIA'):
+    for file in bound(os.listdir(DS_DIR + '/test/PNEUMONIA'), size):
         path = DS_DIR + '/test/PNEUMONIA/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -164,28 +169,9 @@ class BatchGenerator:
     TRAIN = 1
     TEST = 0
 
-    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64):
+    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64, remove_size=0):
         self.batch_size = batch_size
         self.data_src = data_src
-        # Load data
-        if dataset == 'MNIST':
-            mnist = input_data.read_data_sets("dataset/mnist", one_hot=False)
-
-            assert self.batch_size > 0, 'Batch size has to be a positive integer!'
-
-            if self.data_src == self.TEST:
-                self.dataset_x = mnist.test.images
-                self.dataset_y = mnist.test.labels
-            else:
-                self.dataset_x = mnist.train.images
-                self.dataset_y = mnist.train.labels
-
-            # Normalize between -1 and 1
-            self.dataset_x = (np.reshape(self.dataset_x, (self.dataset_x.shape[0], 28, 28)) - 0.5) * 2
-
-            # Include 1 single color channel
-            self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
-
         elif dataset == 'CIFAR10':
             ((x, y), (x_test, y_test)) = tf.keras.datasets.cifar10.load_data()
 
@@ -208,9 +194,9 @@ class BatchGenerator:
                 self.dataset_x = x
                 self.dataset_y = y
             else:
-                x_test, y_test = load_train_data(rst)
-                self.dataset_x = x_test
-                self.dataset_y = y_test
+                x, y = load_train_data(rst, remove_size)
+                self.dataset_x = x
+                self.dataset_y = y
 
             # Arrange x: channel first
             self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
