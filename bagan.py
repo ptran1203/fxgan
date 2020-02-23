@@ -113,8 +113,8 @@ def load_train_data(resolution=52, size=0):
     i = 0
     res = load_ds(resolution, 'train')
     if res:
-        return res
-    for file in bound(os.listdir(DS_DIR + '/train/NORMAL'), size):
+        return (bound(res[0], size), bound(res[1], size))
+    for file in os.listdir(DS_DIR + '/train/NORMAL'):
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
@@ -125,7 +125,7 @@ def load_train_data(resolution=52, size=0):
         except:
             pass
 
-    for file in bound(os.listdir(DS_DIR + '/train/PNEUMONIA'), size):
+    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
@@ -145,8 +145,8 @@ def load_test_data(resolution = 52):
     labels = []
     res = load_ds(resolution, 'test')
     if res:
-        return res
-    for file in bound(os.listdir(DS_DIR + '/test/NORMAL'),size):
+        return (bound(res[0], size), bound(res[1], size))
+    for file in os.listdir(DS_DIR + '/test/NORMAL'):
         path = DS_DIR + '/test/NORMAL/' + file
         try:
             imgs.append(get_img(path, resolution))
@@ -154,7 +154,7 @@ def load_test_data(resolution = 52):
         except:
             pass
 
-    for file in bound(os.listdir(DS_DIR + '/test/PNEUMONIA'), size):
+    for file in os.listdir(DS_DIR + '/test/PNEUMONIA'):
         path = DS_DIR + '/test/PNEUMONIA/' + file
         try:
             imgs.append(get_img(path, resolution))
