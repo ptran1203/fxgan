@@ -145,7 +145,7 @@ def load_test_data(resolution = 52):
     labels = []
     res = load_ds(resolution, 'test')
     if res:
-        res
+        return res
     for file in os.listdir(DS_DIR + '/test/NORMAL'):
         path = DS_DIR + '/test/NORMAL/' + file
         try:
