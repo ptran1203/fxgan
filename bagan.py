@@ -3,6 +3,7 @@ import csv
 from collections import defaultdict
 import keras.backend as K
 K.common.set_image_dim_ordering('th')
+import tensorflow as tf
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Convolution2D, Conv2D, Conv2DTranspose
