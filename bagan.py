@@ -821,7 +821,7 @@ class BalancingGAN:
                     for crt_c in range(1, self.nclasses):
                         new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
-                        labels = np.concatenate(np.ones(1000), labels, axis=0)
+                        labels = np.concatenate((np.ones(1000), labels), axis=0)
                     
                     labels = np_utils.to_categorical(labels, len(self.nclasses))
                     _, accuracy = self.classifier.evaluate(img_samples, labels)
