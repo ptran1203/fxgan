@@ -823,13 +823,14 @@ class BalancingGAN:
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
                         labels = np.concatenate((np.ones(1000), labels), axis=0)
                     
-                    labels = np_utils.to_categorical(labels, len(self.nclasses))
+                    labels = np_utils.to_categorical(labels, self.nclasses)
                     _, accuracy = self.classifier.evaluate(img_samples, labels)
 
                     self.classifier_acc.append(accuracy)
 
                     pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
-                    shape = img_samples.shape
+                    print('classifier accuracy: {:.2f}%'.format(accuracy*100))
+                    # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
                     # save_image_array(img_samples)
 
