@@ -7,7 +7,7 @@ import tensorflow as tf
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Convolution2D, Conv2D, Conv2DTranspose
-from keras.models import Sequential, Model
+from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
 from keras.layers import Input, Dense, Reshape, Flatten, Embedding, Dropout, BatchNormalization, Activation, ZeroPadding2D
 from keras.layers import multiply as kmultiply
