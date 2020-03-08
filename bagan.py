@@ -12,6 +12,7 @@ from keras.optimizers import Adam
 from keras.layers import Input, Dense, Reshape, Flatten, Embedding, Dropout, BatchNormalization, Activation, ZeroPadding2D
 from keras.layers import multiply as kmultiply
 from keras.layers import add as kadd
+from keras.utils import np_utils
 
 import os
 import sys
@@ -27,6 +28,16 @@ from PIL import Image
 
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
+CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
+
+def load_classifier():
+    json_file = open(CLASSIFIER_DIR + '/model.json', 'r')
+    model = json_file.read()
+    json_file.close()
+    model = model_from_json(model)
+    # load weights into new model
+    model.load_weights(CLASSIFIER_DIR + '/weights.h5')
+    return model
 
 def pickle_save(object, path):
     try:
@@ -408,6 +419,10 @@ class BalancingGAN:
             exit(1)
 
         self.min_latent_res = min_latent_res
+        self.classifier = load_classifier()
+        self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
+            metrics=['accuracy'])
+        self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
 
         # Initialize learning variables
         self.adam_lr = adam_lr 
@@ -800,37 +815,26 @@ class BalancingGAN:
                     self.plot_his()
                     self.backup_point(e)
                     crt_c = 0
-                    act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    img_samples = np.array([
-                        [
-                            act_img_samples,
-                            self.generator.predict(
-                                self.reconstructor.predict(
-                                    act_img_samples
-                                )
-                            ),
-                            self.generate_samples(crt_c, 10, bg_train)
-                        ]
-                    ])
+                    sample_size = 700
+                    labels = np.zeros(sample_size)
+                    img_samples = self.generate_samples(crt_c, sample_size, bg_train)
                     for crt_c in range(1, self.nclasses):
-                        act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        new_samples = np.array([
-                            [
-                                act_img_samples,
-                                self.generator.predict(
-                                    self.reconstructor.predict(
-                                        act_img_samples
-                                    )
-                                ),
-                                self.generate_samples(crt_c, 10, bg_train)
-                            ]
-                        ])
+                        new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                        labels = np.concatenate(np.ones(1000), labels, axis=0)
+                    
+                    labels = np_utils.to_categorical(labels, len(self.nclasses))
+                    _, accuracy = self.classifier.evaluate(img_samples, labels)
 
+                    self.classifier_acc.append(accuracy)
+
+                    pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
                     shape = img_samples.shape
-                    img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+                    # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+                    # save_image_array(img_samples)
 
-                    save_image_array(img_samples)
+                    
+
 
             self.trained = True
 
