@@ -78,7 +78,7 @@ def load_ds(rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
     return pickle_load(path)
 
-def save_image_array(img_array, fname=None):
+def save_image_array(img_array, fname=None, show=None):
     channels = img_array.shape[2]
     resolution = img_array.shape[-1]
     img_rows = img_array.shape[0]
@@ -98,12 +98,12 @@ def save_image_array(img_array, fname=None):
     else:
         img = np.rollaxis(img, 0, 3)
 
-    if not fname:
+    if show:
         try:
             cv2_imshow(img)
         except Exception as e:
             print('[show fail] ', str(e))
-    else:
+    if fname:
         Image.fromarray(img).save(fname)
 
 def get_img(path, rst):
@@ -754,7 +754,7 @@ class BalancingGAN:
             shape = img_samples.shape
             img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
 
-            save_image_array(img_samples)
+            save_image_array(img_samples, None, True)
 
             # Train
             for e in range(start_e, epochs):
@@ -808,6 +808,7 @@ class BalancingGAN:
                     save_image_array(
                         img_samples,
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e)
+                        show=True
                     )
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
@@ -818,10 +819,12 @@ class BalancingGAN:
                     sample_size = 700
                     labels = np.zeros(sample_size)
                     img_samples = self.generate_samples(crt_c, sample_size, bg_train)
+                    five_imgs = img_samples[:5]
                     for crt_c in range(1, self.nclasses):
                         new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
                         labels = np.concatenate((np.ones(sample_size), labels), axis=0)
+                        five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
                     
                     labels = np_utils.to_categorical(labels, self.nclasses)
                     img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
@@ -833,11 +836,7 @@ class BalancingGAN:
                     print('classifier accuracy: {:.2f}%'.format(accuracy*100))
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-                    # save_image_array(img_samples)
-
-                    
-
-
+                    save_image_array(five_imgs, None, True)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
