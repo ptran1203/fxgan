@@ -807,7 +807,7 @@ class BalancingGAN:
 
                     save_image_array(
                         img_samples,
-                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e)
+                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
                     )
 
