@@ -210,7 +210,7 @@ class BatchGenerator:
                 self.dataset_x = x
                 self.dataset_y = y
             else:
-                x, y = load_train_data(rst, remove_size)
+                x, y = load_train_data(rst)
                 self.dataset_x = x
                 self.dataset_y = y
 
