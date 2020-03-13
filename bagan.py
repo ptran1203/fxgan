@@ -461,7 +461,7 @@ class BalancingGAN:
         self.build_generator(latent_size, init_resolution=min_latent_res)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics=['accuracy'],
+            # metrics=['accuracy'],
             loss='sparse_categorical_crossentropy'
         )
 
@@ -494,6 +494,7 @@ class BalancingGAN:
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics=['accuracy'],
             loss='sparse_categorical_crossentropy'
         )
 
@@ -554,8 +555,7 @@ class BalancingGAN:
             sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            loss, acc = self.combined.train_on_batch(
-                latent_gen, sampled_labels)
+            loss, acc = self.combined.train_on_batch(latent_gen, sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
