@@ -111,7 +111,7 @@ def get_img(path, rst):
     img = add_padding(img)
     img = cv2.resize(img, (rst, rst))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # why? Can we optimize this?
+    return np.expand_dims(img, axis=0)
     return img.tolist()
 
 def bound(list, s):
@@ -119,31 +119,35 @@ def bound(list, s):
         return list
     return list[:s]
 
-def load_train_data(resolution=52, size=0):
-    imgs = []
+def load_train_data(resolution=52):
     labels = []
     i = 0
     res = load_ds(resolution, 'train')
     if res:
-        return (bound(res[0], size), bound(res[1], size))
-    for file in os.listdir(DS_DIR + '/train/NORMAL'):
+        return res
+
+    files =  os.listdir(DS_DIR + '/train/NORMAL')
+    imgs = np.array(get_img(DS_DIR + '/train/NORMAL/' + files[0], resolution))
+    for file in files[1:]:
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
             print(len(labels), end=',')
         try:
-            imgs.append(get_img(path, resolution))
+            imgs = np.concatenate((imgs, get_img(path, resolution)))
             labels.append(0)
         except:
             pass
 
-    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
+    files =  os.listdir(DS_DIR + '/train/PNEUMONIA')
+    imgs = np.concatenate((imgs,get_img(DS_DIR + '/train/PNEUMONIA/' + files[0], resolution)))
+    for file in files[1:]:
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
             print(len(labels), end=',')
         try:
-            imgs.append(get_img(path, resolution))
+            imgs = np.concatenate((imgs, get_img(path, resolution)))
             labels.append(1)
         except:
             pass
@@ -282,20 +286,40 @@ class BatchGenerator:
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
 class BalancingGAN:
-    def plot_his(self):
+    def plot_loss_his(self):
         train_d = self.train_history['disc_loss']
         train_g = self.train_history['gen_loss']
         test_d = self.test_history['disc_loss']
         test_g = self.test_history['gen_loss']
-        plt.plot(train_d, label='train_d')
-        plt.plot(train_g, label='train_g')
-        plt.plot(test_d, label='test_d')
-        plt.plot(test_g, label='test_g')
+        plt.plot(train_d, label='train_d_loss')
+        plt.plot(train_g, label='train_g_loss')
+        plt.plot(test_d, label='test_d_loss')
+        plt.plot(test_g, label='test_g_loss')
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend()
         plt.show()
 
+    def plot_acc_his(self):
+        train_d = self.train_history['disc_acc']
+        train_g = self.train_history['gen_acc']
+        test_d = self.test_history['disc_acc']
+        test_g = self.test_history['gen_acc']
+        plt.plot(train_d, label='train_d_acc')
+        plt.plot(train_g, label='train_g_acc')
+        plt.plot(test_d, label='test_d_acc')
+        plt.plot(test_g, label='test_g_acc')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend()
+        plt.show()
+    
+    def plot_classifier_acc(self):
+        plt.plot(self.classifier_acc, label='classifier_acc')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch(x5)')
+        plt.legend()
+        plt.show()
 
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
@@ -437,6 +461,7 @@ class BalancingGAN:
         self.build_generator(latent_size, init_resolution=min_latent_res)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics=['accuracy'],
             loss='sparse_categorical_crossentropy'
         )
 
@@ -446,6 +471,7 @@ class BalancingGAN:
         self.build_discriminator(min_latent_res=min_latent_res)
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics=['accuracy'],
             loss='sparse_categorical_crossentropy'
         )
 
@@ -503,11 +529,11 @@ class BalancingGAN:
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
         epoch_gen_loss = []
+        epoch_disc_acc = []
+        epoch_gen_acc = []
 
         for image_batch, label_batch in bg_train.next_batch():
-
             crt_batch_size = label_batch.shape[0]
-
             ################## Train Discriminator ##################
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
     
@@ -520,19 +546,25 @@ class BalancingGAN:
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
 
-            epoch_disc_loss.append(self.discriminator.train_on_batch(X, aux_y))
+            loss, acc = self.discriminator.train_on_batch(X, aux_y)
+            epoch_disc_loss.append(loss)
+            epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
             sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            epoch_gen_loss.append(self.combined.train_on_batch(
-                latent_gen, sampled_labels))
+            loss, acc = self.combined.train_on_batch(
+                latent_gen, sampled_labels)
+            epoch_gen_loss.append(loss)
+            epoch_gen_acc.append(acc)
 
         # return statistics: generator loss,
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
-            np.mean(np.array(epoch_gen_loss), axis=0)
+            np.mean(np.array(epoch_gen_loss), axis=0),
+            np.mean(np.array(epoch_dics_acc), axis=0),
+            np.mean(np.array(epoch_gen_acc), axis=0),
         )
 
     def _set_class_ratios(self):
@@ -607,6 +639,7 @@ class BalancingGAN:
         else:
             print("BAGAN: training autoencoder")
             autoenc_train_loss = []
+            self.autoenc_epochs = 100
             for e in range(self.autoenc_epochs):
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []
@@ -705,10 +738,11 @@ class BalancingGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
+        pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
-            self.autoenc_epochs = epochs
+            self.autoenc_epochs = 100
 
             # Class actual ratio
             self.class_aratio = bg_train.get_class_probability()
@@ -760,7 +794,7 @@ class BalancingGAN:
             for e in range(start_e, epochs):
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
-                train_disc_loss, train_gen_loss = self._train_one_epoch(bg_train)
+                train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
 
                 # Test: # generate a new batch of noise
                 nb_test = bg_test.get_num_samples()
@@ -776,14 +810,14 @@ class BalancingGAN:
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
             
                 # see if the discriminator can figure itself out...
-                test_disc_loss = self.discriminator.evaluate(
+                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
             
                 # make new latent
                 sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
 
-                test_gen_loss = self.combined.evaluate(
+                test_gen_loss, test_gen_acc = self.combined.evaluate(
                     latent_gen,
                     sampled_labels, verbose=False)
 
@@ -792,14 +826,19 @@ class BalancingGAN:
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
                 self.test_history['gen_loss'].append(test_gen_loss)
-                print("trainD {},trainG {},testD {},testG {} - {}".format(
-                    train_disc_loss, train_gen_loss, test_disc_loss, test_gen_loss,
+                # accuracy
+                self.train_history['disc_acc'].append(train_disc_acc)
+                self.train_history['gen_acc'].append(train_gen_acc)
+                self.test_history['disc_acc'].append(test_disc_acc)
+                self.test_history['gen_acc'].append(test_gen_acc)
+                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
+                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
                     datetime.datetime.now() - start_time
                 ))
                 # self.plot_his()
 
                 # Save sample images
-                if e % 100 == 0:
+                if e % 15 == 0:
                     img_samples = np.array([
                         self.generate_samples(c, 10, bg_train)
                         for c in range(0,self.nclasses)
@@ -813,7 +852,8 @@ class BalancingGAN:
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
                 if e % 10 == 5:
-                    self.plot_his()
+                    self.plot_loss_his()
+                    self.plot_acc_his()
                     self.backup_point(e)
                     crt_c = 0
                     sample_size = 700
@@ -832,8 +872,8 @@ class BalancingGAN:
 
                     self.classifier_acc.append(accuracy)
 
-                    pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
                     print('classifier accuracy: {:.2f}%'.format(accuracy*100))
+                    self.plot_classifier_acc()
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
                     save_image_array(five_imgs, None, True)
