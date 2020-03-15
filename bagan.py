@@ -185,40 +185,23 @@ class BatchGenerator:
     TRAIN = 1
     TEST = 0
 
-    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64, remove_size=0):
+    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64, prune_classes=None):
         self.batch_size = batch_size
         self.data_src = data_src
-        if dataset == 'CIFAR10':
-            ((x, y), (x_test, y_test)) = tf.keras.datasets.cifar10.load_data()
-
-            if self.data_src == self.TEST:
-                self.dataset_x = x
-                self.dataset_y = y
-            else:
-                self.dataset_x = x_test
-                self.dataset_y = y_test
-            # Arrange x: channel first
-            self.dataset_x = np.transpose(self.dataset_x, axes=(0, 3, 1, 2))
-            # Normalize between -1 and 1
-            self.dataset_x = self.dataset_x/255 - 0.5
-            # Y 1D format
-            self.dataset_y = self.dataset_y[:, 0]
-
+        if self.data_src == self.TEST:
+            x, y = load_test_data(rst)
+            self.dataset_x = x
+            self.dataset_y = y
         else:
-            if self.data_src == self.TEST:
-                x, y = load_test_data(rst)
-                self.dataset_x = x
-                self.dataset_y = y
-            else:
-                x, y = load_train_data(rst)
-                self.dataset_x = x
-                self.dataset_y = y
+            x, y = load_train_data(rst)
+            self.dataset_x = x
+            self.dataset_y = y
 
-            # Arrange x: channel first
-            self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
-            # Normalize between -1 and 1
-            self.dataset_x = (self.dataset_x - 127.5) / 127.5
-            self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
+        # Arrange x: channel first
+        self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
+        # Normalize between -1 and 1
+        self.dataset_x = (self.dataset_x - 127.5) / 127.5
+        self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
@@ -228,6 +211,19 @@ class BatchGenerator:
         per_class_count = list()
         for c in classes:
             per_class_count.append(np.sum(np.array(self.dataset_y == c)))
+
+        # Prune
+        if prune_classes:
+            for class_to_prune in range(len(classes)):
+                remove_size = prune_classes[class_to_prune]
+                all_ids = list(np.arange(len(self.dataset_x)))
+                mask = [lc == class_to_prune for lc in self.dataset_y]
+                all_ids_c = np.array(all_ids)[mask]
+                np.random.shuffle(all_ids_c)
+                to_delete  = all_ids_c[:remove_size]
+                self.dataset_x = np.delete(self.dataset_x, to_delete, axis=0)
+                self.dataset_y = np.delete(self.dataset_y, to_delete, axis=0)
+                print('Remove {} items in class {}'.format(remove_size, class_to_prune))
 
         # Recount after pruning
         per_class_count = list()
@@ -413,6 +409,7 @@ class BalancingGAN:
         return res
 
     def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
+        
         res = np.array([
             np.random.multivariate_normal(self.means[e], self.covariances[e])
             for e in c
