@@ -13,7 +13,7 @@ from keras.layers import Input, Dense, Reshape, Flatten, Embedding, Dropout, Bat
 from keras.layers import multiply as kmultiply
 from keras.layers import add as kadd
 from keras.utils import np_utils
-from keras import losses import mean_squared_error
+from keras.losses import mean_absolute_error
 
 import os
 import sys
