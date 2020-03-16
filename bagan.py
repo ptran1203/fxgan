@@ -13,7 +13,6 @@ from keras.layers import Input, Dense, Reshape, Flatten, Embedding, Dropout, Bat
 from keras.layers import multiply as kmultiply
 from keras.layers import add as kadd
 from keras.utils import np_utils
-from keras.losses import mean_absolute_error
 
 import os
 import sys
@@ -321,7 +320,11 @@ class BalancingGAN:
     def perceptual_loss(self, y, y_pred):
         feature_y = self.feature_model.predict(y)
         feature_y_pred = self.feature_model.predict(y_pred)
-        return mean_squared_error(feature_y, feature_y_pred)
+        # print(y)
+        # print(feature_y)
+        return K.mean(
+            K.abs(K.constant(feature_y - feature_y_pred))
+        )
 
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
