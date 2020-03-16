@@ -452,9 +452,9 @@ class BalancingGAN:
         self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
 
         # 13 is flatten
-        print(self.classifier.layers[13].get_config())
+        print(self.classifier.layers[17].get_config())
         self.feature_model = Model(inputs = self.classifier.input,
-                              outputs=self.classifier.layers[13].output)
+                              outputs=self.classifier.layers[17].output)
 
 
         # Initialize learning variables
