@@ -13,6 +13,7 @@ from keras.layers import Input, Dense, Reshape, Flatten, Embedding, Dropout, Bat
 from keras.layers import multiply as kmultiply
 from keras.layers import add as kadd
 from keras.utils import np_utils
+from keras import losses import mean_squared_error
 
 import os
 import sys
@@ -317,6 +318,11 @@ class BalancingGAN:
         plt.legend()
         plt.show()
 
+    def perceptual_loss(self, y, y_pred):
+        feature_y = self.feature_model.predict(y)
+        feature_y_pred = self.feature_model.predict(y_pred)
+        return mean_squared_error(feature_y, feature_y_pred)
+
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
         channels = self.channels
@@ -445,6 +451,12 @@ class BalancingGAN:
             metrics=['accuracy'])
         self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
 
+        # 13 is flatten
+        print(self.classifier.layers[13].get_config())
+        self.feature_model = Model(inputs = self.classifier.input,
+                              outputs=self.classifier.layers[13].output)
+
+
         # Initialize learning variables
         self.adam_lr = adam_lr 
         self.adam_beta_1 = 0.5
@@ -458,8 +470,7 @@ class BalancingGAN:
         self.build_generator(latent_size, init_resolution=min_latent_res)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            # metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
+            loss=self.perceptual_loss
         )
 
         latent_gen = Input(shape=(latent_size, ))
@@ -485,14 +496,14 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        aux = self.discriminate(fake)
+        # aux = self.discriminate(fake)
 
-        self.combined = Model(inputs=latent_gen, outputs=aux)
+        self.combined = Model(inputs=latent_gen, outputs=fake)
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
+            # metrics=['accuracy'],
+            loss=self.perceptual_loss
         )
 
         # Define initializer for autoencoder
