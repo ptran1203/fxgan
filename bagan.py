@@ -522,7 +522,7 @@ class BalancingGAN:
         self.autoenc_0.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
-        )``
+        )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
         distribution = self.class_uratio
