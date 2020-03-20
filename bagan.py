@@ -506,7 +506,7 @@ class BalancingGAN:
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            # metrics=['accuracy'],
+            metrics=['accuracy'],
             # loss=self.perceptual_loss
             loss='sparse_categorical_crossentropy'
         )
