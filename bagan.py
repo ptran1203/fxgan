@@ -473,7 +473,8 @@ class BalancingGAN:
         self.build_generator(latent_size, init_resolution=min_latent_res)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss=self.perceptual_loss
+            # loss=self.perceptual_loss
+            loss='sparse_categorical_crossentropy'
         )
 
         latent_gen = Input(shape=(latent_size, ))
@@ -506,7 +507,8 @@ class BalancingGAN:
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             # metrics=['accuracy'],
-            loss=self.perceptual_loss
+            # loss=self.perceptual_loss
+            loss='sparse_categorical_crossentropy'
         )
 
         # Define initializer for autoencoder
