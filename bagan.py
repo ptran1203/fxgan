@@ -454,10 +454,10 @@ class BalancingGAN:
             metrics=['accuracy'])
         self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
 
-        # 13 is flatten
-        print(self.classifier.layers[17].get_config())
-        self.feature_model = Model(inputs = self.classifier.input,
-                              outputs=self.classifier.layers[17].output)
+        # # 13 is flatten
+        # print(self.classifier.layers[17].get_config())
+        # self.feature_model = Model(inputs = self.classifier.input,
+        #                       outputs=self.classifier.layers[17].output)
 
 
         # Initialize learning variables
@@ -499,9 +499,9 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        # aux = self.discriminate(fake)
+        aux = self.discriminate(fake)
 
-        self.combined = Model(inputs=latent_gen, outputs=fake)
+        self.combined = Model(inputs=latent_gen, outputs=aux)
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
