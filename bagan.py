@@ -31,12 +31,12 @@ DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
 def load_classifier(rst=256):
-    json_file = open(CLASSIFIER_DIR + '{}/model.json'.format(rst), 'r')
+    json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
     model = json_file.read()
     json_file.close()
     model = model_from_json(model)
     # load weights into new model
-    model.load_weights(CLASSIFIER_DIR + '{}/weights.h5'.format(rst))
+    model.load_weights(CLASSIFIER_DIR + '/{}/weights.h5'.format(rst))
     return model
 
 def pickle_save(object, path):
