@@ -9,7 +9,11 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import UpSampling2D, Convolution2D, Conv2D, Conv2DTranspose
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
-from keras.layers import Input, Dense, Reshape, Flatten, Embedding, Dropout, BatchNormalization, Activation, ZeroPadding2D
+from keras.layers import (
+    Input, Dense, Reshape, Flatten,
+    Embedding, Dropout, BatchNormalization,
+    Activation, ZeroPadding2D, GaussianNoise,
+)
 from keras.layers import multiply as kmultiply
 from keras.layers import add as kadd
 from keras.utils import np_utils
@@ -339,10 +343,14 @@ class BalancingGAN:
        
         crt_res = init_resolution
         # upsample
+        i = 0
         while crt_res < resolution/2:
+            i += 1
             cnn.add(Conv2DTranspose(
                 init_channels, kernel_size = 5, strides = 2, padding='same'))
             # cnn.add(BatchNormalization())
+            if i % 2 == 0:
+                cnn.add(GaussianNoise(0.01))
             cnn.add(LeakyReLU(alpha=0.02))
             init_channels //= 2
             crt_res = crt_res * 2
