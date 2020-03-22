@@ -426,9 +426,9 @@ class BalancingGAN:
         return res
 
     def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
-        
+        noise = np.random.normal(0, 0.01, self.latent_size)
         res = np.array([
-            np.random.multivariate_normal(self.means[e], self.covariances[e])
+            np.random.multivariate_normal(self.means[e], self.covariances[e]) + noise
             for e in c
         ])
 
@@ -660,7 +660,7 @@ class BalancingGAN:
         else:
             print("BAGAN: training autoencoder")
             autoenc_train_loss = []
-            self.autoenc_epochs = 100
+            self.autoenc_epochs = 300
             for e in range(self.autoenc_epochs):
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []
