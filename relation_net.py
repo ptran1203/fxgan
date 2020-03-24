@@ -125,7 +125,7 @@ def main():
     # Step 2: init neural networks
     print("init neural networks")
 
-    feature_encoder = CNNEncoder()
+         = CNNEncoder()
     relation_network = RelationNetwork(FEATURE_DIM,RELATION_DIM)
 
     feature_encoder.apply(weights_init)
