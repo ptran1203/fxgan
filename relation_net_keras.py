@@ -75,7 +75,3 @@ def relation_module(input_size, hidden_size):
     # relation score
     model.add(Activation('sigmoid'))
     return model
-
-
-
-
