@@ -61,7 +61,19 @@ def embedding_module(img_size, hidden_size):
     features = Flatten()(x)
     return Dense(hidden_size)(features)
 
-def relation_module():
+def relation_module(input_size, hidden_size):
     # input is vector
+    model = Sequential()
+    model.add(Dense(hidden_size, input_shape=(input_size,)))
+    model.add(Conv2D(64, (3, 3), strides = 2))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Conv2D(64, (3, 3)))
+    model.add(BatchNormalization())
+    model.add(Activation('relu'))
+    model.add(Flatten())
+    # relation score
+    model.add(Activation('sigmoid'))
+    return model
 
 
