@@ -30,7 +30,7 @@ import csv
 from PIL import Image
 from google.colab import drive
 
-drive.mount('/content/drive')
+# drive.mount('/content/drive')
 
 BASE_DIR = '/content/drive/My Drive/bagan'
 
@@ -53,10 +53,12 @@ def generate_data(dataset, n_way, k_shot):
                 size = (query_size,)
                 )
     
-    query_imgs = train_x[idx]
-    train_x = np.delete(train_x, idx)
-    train_y = np.delete(train_y, idx)
+    train_y = np_utils.to_categorical(train_y, n_way)
     
+    query_imgs = train_x[idx], train_y[idx]
+    train_x = np.delete(train_x, idx, axis = 0)
+    train_y = np.delete(train_y, idx, axis = 0)
+
     idx0 = np.where(train_y == 0)[0]
     idx1 = np.where(train_y == 1)[0]
 
@@ -71,7 +73,7 @@ def generate_data(dataset, n_way, k_shot):
     train_x = train_x[c_idx]
     train_y = train_y[c_idx]
 
-    return (train_x, train_y), query_imgs
+    return (train_x, train_y), (query_imgs)
 
 class RelationNet():
     def __init__(self, img_rst, dataset):
@@ -108,44 +110,27 @@ class RelationNet():
         model.add(Activation('relu'))
         model.add(Flatten())
         # relation score
-        model.add(Dense(2, activation='sigmoid', name='sigmoid_output'))
+        model.add(Dense(1, activation='sigmoid', name='sigmoid_output'))
         return model
 
     def build_model(self):
         img_size = self.rst
-        # 2 classes
         c_way = 2
         k_shot = 5
         support_size = c_way * k_shot
 
-        # support set and 1 query img
-        # each 5 images related to 1 class
-        imgs = Input((support_size + 1, img_size, img_size, 1))
-        idx = 0
-        raw_features = [[], []]
+        img = Input((img_size, img_size, 1))
+        support_img = Input((img_size, img_size, 1))
 
-        for c in range(c_way):
-            for i in range(k_shot):
-                # print(type(embedding_net))
-                xx = self._embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(imgs))
-                raw_features[c].append(xx)
-                idx += 1
+        feature = self._embedding_module()(img)
+        support_feature = self._embedding_module()(support_img)
 
-        query_feature = self._embedding_module(Lambda(lambda x: x[:,-1,:,:,:])(imgs))
+        concat_feature = Concatenate()([feature, support_feature])
 
-        # one relation net give 1 relation score
-        features = Add()(raw_features[0])
-        # print(features)
-        features = Concatenate()([features, query_feature])
-        for i in range(1, c_way):
-            feature = Add()(raw_features[i])
-            feature = Concatenate()([feature, query_feature])
-            features = Concatenate()([features, feature])
-        
-        relation_scores = self._relation_module()(features)
+        relation_scores = self._relation_module()(concat_feature)
 
-        self.model = Model(inputs = imgs, outputs = relation_scores)
-        self.model.compile(optimizer = 'adam', loss = 'binary_cross_entropy')
+        self.model = Model(inputs = [imgs, support_img], outputs = relation_scores)
+        self.model.compile(optimizer = 'adam', loss = 'mse')
 
     def plot(self):
         plot_model(self.model, to_file='/content/drive/My Drive/bagan/rn_model.png')
@@ -161,15 +146,28 @@ class RelationNet():
             q_idx = np.random.randint(0, len(q_y) - 1)
             query_img = q_x[q_idx]
             query_label = q_y[q_idx]
+            
+            query_img = np.expand_dims(query_img, axis=0)
 
             train_x = np.concatenate((train_x, query_img))
             # train_x = np.concatenate((train_x, query_img))
 
-            loss = self.model.train_on_batch(train_x, np.array([0, 1]))
+            train_x = np.expand_dims(train_x, axis = 3)
+
+            train_x = np.expand_dims(train_x, axis = 0)
+
+            print(train_x.shape)
+
+            loss = self.model.train_on_batch(train_x, query_label)
 
 
 
 
 rn_model = RelationNet(64, '')
-rn_model.summary()
+# rn_model.summary()
 
+ds = load_ds(64, 'train')
+
+dataset, query_imgs = generate_data(ds, 2, 5)
+
+rn_model.train(dataset, query_imgs)
