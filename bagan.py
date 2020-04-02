@@ -660,7 +660,7 @@ class BalancingGAN:
         else:
             print("BAGAN: training autoencoder")
             autoenc_train_loss = []
-            self.autoenc_epochs = 300
+            self.autoenc_epochs = 100
             for e in range(self.autoenc_epochs):
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []

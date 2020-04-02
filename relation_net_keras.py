@@ -122,7 +122,7 @@ class RelationNet():
         img = Input((img_size, img_size, 1))
         support_img = Input((img_size, img_size, 1))
 
-        feature = self._embedding_module()(img)
+        feature = self._embedding_module()(img) 
         support_feature = self._embedding_module()(support_img)
 
         concat_feature = Concatenate()([feature, support_feature])
