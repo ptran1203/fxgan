@@ -482,7 +482,7 @@ class BalancingGAN:
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             # loss=self.perceptual_loss
-            loss='mean_squared_error'
+            loss='sparse_categorical_crossentropy'
         )
 
         latent_gen = Input(shape=(latent_size, ))
@@ -492,7 +492,7 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss='mean_squared_error'
+            loss='sparse_categorical_crossentropy'
         )
 
         # Build reconstructor
@@ -516,7 +516,7 @@ class BalancingGAN:
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
             # loss=self.perceptual_loss
-            loss='mean_squared_error'
+            loss='sparse_categorical_crossentropy'
         )
 
         # Define initializer for autoencoder
