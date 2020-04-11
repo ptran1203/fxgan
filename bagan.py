@@ -308,7 +308,7 @@ class BatchGenerator:
 
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
-    def.next_query_batch(self):
+    def next_query_batch(self):
         """
         Next support and query batch
         call:
