@@ -2,7 +2,7 @@
 import csv
 from collections import defaultdict
 import keras.backend as K
-K.common.set_image_dim_ordering('tf')
+K.common.set_image_dim_ordering('th')
 import tensorflow as tf
 
 from keras.layers.advanced_activations import LeakyReLU
@@ -308,6 +308,21 @@ class BatchGenerator:
 
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
+    def.next_query_batch(self):
+        """
+        Next support and query batch
+        call:
+            for query_x, query_y in BatchGen.next_query_batch():
+                # do business
+        """
+        indices = np.arange(self.query_x.shape[0])
+        np.random.shuffle(indices)
+        
+        for start_idx in range(0, self.query_x.shape[0] - self.batch_size + 1, self.batch_size):
+            access_pattern = indices[start_idx:start_idx + self.batch_size]
+
+            yield  self.query_x[access_pattern, :, :, :],  self.query_y[access_pattern]
+
     def build_dataset(self, query_size):
         idxs = []
         qidxs = []
@@ -316,6 +331,7 @@ class BatchGenerator:
             idx = np.where(train_y == i)[0]
             np.random.shuffle(idx)
             qidx = idx[self.k_shot: query_size + self.k_shot]
+
             idxs.append(idx[:self.k_shot])
             qidxs.append(qidx)
 
@@ -577,9 +593,9 @@ class BalancingGAN:
         latent_gen = Input(shape=(latent_size, ))
         support_images = Input(shape = (
             self.c_way * self.k_shot,
+            self.channels,
             self.resolution,
             self.resolution,
-            self.channels
         ))
 
         # Build discriminator
@@ -610,7 +626,6 @@ class BalancingGAN:
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            # loss=self.perceptual_loss
             loss='sparse_categorical_crossentropy'
         )
 
@@ -649,7 +664,9 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        for image_batch, label_batch in bg_train.next_batch():
+        support_images = bg_train.get_support_images()
+
+        for image_batch, label_batch in bg_train.next_query_batch():
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
@@ -665,7 +682,7 @@ class BalancingGAN:
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
 
-            loss, acc = self.discriminator.train_on_batch(X, aux_y)
+            loss, acc = self.discriminator.train_on_batch([support_images, X], aux_y)
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
