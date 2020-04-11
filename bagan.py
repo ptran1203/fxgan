@@ -2,21 +2,30 @@
 import csv
 from collections import defaultdict
 import keras.backend as K
-K.common.set_image_dim_ordering('th')
+K.common.set_image_dim_ordering('tf')
 import tensorflow as tf
 
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import UpSampling2D, Convolution2D, Conv2D, Conv2DTranspose
+from keras.layers.convolutional import (
+    UpSampling2D, Convolution2D,
+    Conv2D, Conv2DTranspose
+)
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
 from keras.layers import (
-    Input, Dense, Reshape, Flatten,
-    Embedding, Dropout, BatchNormalization,
-    Activation, ZeroPadding2D, GaussianNoise,
+    Input, Dense, Reshape,
+    Flatten, Embedding, Dropout,
+    BatchNormalization, Activation,
+    Lambda,Layer, Add, Concatenate,
+    Average,
+    MaxPooling2D, AveragePooling2D
 )
-from keras.layers import multiply as kmultiply
-from keras.layers import add as kadd
+
 from keras.utils import np_utils
+import sklearn.metrics as metrics
+from sklearn.model_selection import train_test_split
+from mlxtend.plotting import plot_confusion_matrix
+import matplotlib.pyplot as plt
 
 import os
 import sys
@@ -25,7 +34,6 @@ import numpy as np
 import datetime
 import pickle
 import cv2
-import matplotlib.pyplot as plt
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
@@ -247,6 +255,9 @@ class BatchGenerator:
         for c in classes:
             self.per_class_ids[c] = ids[self.labels == c]
 
+        if self.data_src == self.TRAIN:
+            self.build_dataset()
+
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
             samples = self.batch_size
@@ -285,6 +296,36 @@ class BatchGenerator:
 
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
+    def build_dataset(self, query_size):
+        idxs = []
+        qidxs = []
+        train_x, train_y = self.dataset_x, self.dataset_y
+        for i in range(self.c_way):
+            idx = np.where(train_y == i)[0]
+            np.random.shuffle(idx)
+            qidx = idx[self.k_shot: query_size + self.k_shot]
+            idxs.append(idx[:self.k_shot])
+            qidxs.append(qidx)
+
+        s_idx = np.concatenate(idxs)
+        q_idx = np.concatenate(qidxs)
+
+        np.random.shuffle(q_idx)
+
+        # if shuffle:
+        #     np.random.shuffle(s_idx)
+        #     print('shuffled !!')
+
+        self.query_x = train_x[q_idx]
+        self.query_y = train_y[q_idx]
+
+        self.support_x = train_x[s_idx]
+        self.support_y = train_y[s_idx]
+
+    def get_support_set(self):
+        # support_set = (s_x, s_y)
+        return self.support_set
+
 class BalancingGAN:
     def plot_loss_his(self):
         train_d = self.train_history['disc_loss']
@@ -321,15 +362,6 @@ class BalancingGAN:
         plt.legend()
         plt.show()
 
-    def perceptual_loss(self, y, y_pred):
-        feature_y = self.feature_model.predict(y)
-        feature_y_pred = self.feature_model.predict(y_pred)
-        # print(y)
-        # print(feature_y)
-        return K.mean(
-            K.abs(K.constant(feature_y - feature_y_pred))
-        )
-
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
         channels = self.channels
@@ -349,8 +381,6 @@ class BalancingGAN:
             cnn.add(Conv2DTranspose(
                 init_channels, kernel_size = 5, strides = 2, padding='same'))
             # cnn.add(BatchNormalization())
-            if i % 2 == 0:
-                cnn.add(GaussianNoise(0.01))
             cnn.add(LeakyReLU(alpha=0.02))
             init_channels //= 2
             crt_res = crt_res * 2
@@ -360,61 +390,108 @@ class BalancingGAN:
                     1, kernel_size = 5,
                     strides = 2, padding='same',
                     activation='tanh'))
-        # cnn.add(BatchNormalization())
-        # cnn.add(LeakyReLU(alpha=0.02))
-        # cnn.add(Conv2D(1, kernel_size=5, strides = 1, padding='same', activation='tanh'))
-        # cnn.add(Activation('tanh'))
+
         latent = Input(shape=(latent_size, ))
 
         fake_image_from_latent = cnn(latent)
         self.generator = Model(inputs=latent, outputs=fake_image_from_latent)
 
-    def _build_common_encoder(self, image, min_latent_res=8):
+    def _embedding_module(self):
         resolution = self.resolution
         channels = self.channels
 
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),input_shape=(channels, resolution, resolution)))
+        cnn.add(Conv2D(
+            32, (5, 5), padding='same',
+            strides=(2, 2),
+            input_shape=(channels, resolution, resolution)
+        ))
+
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
         size = 128
-        while cnn.output_shape[-1] > min_latent_res:
-            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
+        while cnn.output_shape[-1] > self.min_latent_res:
+            cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
             # cnn.add(BatchNormalization())
             cnn.add(LeakyReLU(alpha=0.2))
             cnn.add(Dropout(0.3))
             size *= 2
             
-
-        cnn.add(Flatten())
+        # Don't flatten
+        # cnn.add(Flatten())
 
         features = cnn(image)
         return features
+    
+    def _relation_module(self):
+        model = Sequential()
 
-    # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
-    def build_reconstructor(self, latent_size, min_latent_res=8):
+        model.add(Conv2D(filters=64,
+                        kernel_size=(3, 3),
+                        strides=(1, 1),
+                        padding='same',
+                        activation='relu'))
+        model.add(BatchNormalization())
+        model.add(MaxPooling2D())
+
+        model.add(Conv2D(filters=32,
+                        kernel_size=(3, 3),
+                        strides=(1, 1),
+                        padding='same',
+                        activation='relu'))
+        model.add(BatchNormalization())
+        # model.add(MaxPooling2D())
+
+        model.add(Flatten())
+        model.add(Dropout(0.2))
+
+        model.add(Dense(8, activation='relu' ))
+        model.add(Dense(1, activation='tanh'))
+        return model
+
+    def build_reconstructor(self, latent_size):
         resolution = self.resolution
         channels = self.channels
         image = Input(shape=(channels, resolution, resolution))
-        features = self._build_common_encoder(image, min_latent_res)
+        features = self._embedding_module(image, self.min_latent_res)
+        features = Flatten()(features)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
         self.reconstructor = Model(inputs=image, outputs=latent)
 
-    def build_discriminator(self, min_latent_res=8):
+    def build_discriminator(self, support_images):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(channels, resolution, resolution))
-        features = self._build_common_encoder(image, min_latent_res)
-        # Discriminator specific
-        features = Dropout(0.4)(features)
-        aux = Dense(
-            self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
-        )(features)
-        self.discriminator = Model(inputs=image, outputs=aux)
+
+        image = Input(shape = (channels, resolution, resolution))
+
+        embedding_module = self._embedding_module()
+        relation_module = self._relation_module()
+
+        features = embedding_module(image)
+        support_features = [[] for i in range(self.c_way)]
+
+        idx = 0
+        for classid in range(self.c_way):
+            for _ in range(self.k_shot):
+                support_features[classid].append(
+                    embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(support_images))
+                )
+                idx += 1
+
+        relation_scores = []
+
+        for classid in range(self.c_way):
+            sfeatures = Average()(support_features[classid])
+            concat_features = Concatenate()([sfeatures, features])
+            relation_scores.append(relation_module(concat_features))
+
+        outputs = Concatenate()(relation_scores)
+
+        self.discriminator = Model(inputs = [support_images, images], outputs = outputs)
 
     def generate_from_latent(self, latent):
         res = self.generator(latent)
@@ -452,6 +529,7 @@ class BalancingGAN:
         self.res_dir = res_dir
         self.channels = image_shape[0]
         self.resolution = image_shape[1]
+        self.min_latent_res = min_latent_res
         if self.resolution != image_shape[2]:
             print("Error: only squared images currently supported by balancingGAN")
             exit(1)
@@ -478,25 +556,30 @@ class BalancingGAN:
         self.trained = False
 
         # Build generator
-        self.build_generator(latent_size, init_resolution=min_latent_res)
+        self.build_generator(latent_size)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            # loss=self.perceptual_loss
-            loss='sparse_categorical_crossentropy'
+            loss='mean_squared_error'
         )
 
         latent_gen = Input(shape=(latent_size, ))
+        support_images = Input(shape = (
+            self.c_way * self.k_shot,
+            self.resolution,
+            self.resolution,
+            self.channels
+        ))
 
         # Build discriminator
-        self.build_discriminator(min_latent_res=min_latent_res)
+        self.build_discriminator(support_images)
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
+            loss='mean_squared_error'
         )
 
         # Build reconstructor
-        self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
+        self.build_reconstructor(latent_size)
         self.reconstructor.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
@@ -508,7 +591,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        aux = self.discriminate(fake)
+        aux = self.discriminate([support_images, fake])
 
         self.combined = Model(inputs=latent_gen, outputs=aux)
 
@@ -556,7 +639,9 @@ class BalancingGAN:
 
         for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
+
             ################## Train Discriminator ##################
+
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
     
             # sample some labels from p_c, then latent and images
