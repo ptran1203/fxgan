@@ -501,7 +501,7 @@ class BalancingGAN:
         for classid in range(self.c_way):
             for _ in range(self.k_shot):
                 support_features[classid].append(
-                    embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(support_images))
+                    embedding_module(Lambda(lambda x: x[:,idx,])(support_images))
                 )
                 idx += 1
 
