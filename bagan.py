@@ -197,9 +197,21 @@ class BatchGenerator:
     TRAIN = 1
     TEST = 0
 
-    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64, prune_classes=None):
+    def __init__(
+        self,
+        data_src,
+        batch_size=5,
+        dataset='MNIST',
+        rst=64,
+        prune_classes=None,
+        query_size = 95,
+        c_way = 2,
+        k_shot = 5,
+    ):
         self.batch_size = batch_size
         self.data_src = data_src
+        self.c_way = c_way
+        self.k_shot = k_shot
         if self.data_src == self.TEST:
             x, y = load_test_data(rst)
             self.dataset_x = x
@@ -256,7 +268,7 @@ class BatchGenerator:
             self.per_class_ids[c] = ids[self.labels == c]
 
         if self.data_src == self.TRAIN:
-            self.build_dataset()
+            self.build_dataset(query_size)
 
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
