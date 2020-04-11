@@ -514,7 +514,7 @@ class BalancingGAN:
         for classid in range(self.c_way):
             sfeatures = Average()(support_features[classid])
             concat_features = Concatenate()([sfeatures, features])
-            relation_scores.append(relation_module(concat_features))
+            relation_scores.append(relation_module()(concat_features))
 
         outputs = Concatenate()(relation_scores)
 
