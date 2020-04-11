@@ -543,13 +543,17 @@ class BalancingGAN:
         return self.discriminator(image)
 
     def __init__(self, classes, target_class_id,
-                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
-                 # No relevant difference noted
-                 dratio_mode="uniform", gratio_mode="uniform",
-                 adam_lr=0.00005, latent_size=100,
-                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
+                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
+                # No relevant difference noted
+                dratio_mode="uniform", gratio_mode="uniform",
+                adam_lr=0.00005, latent_size=100,
+                res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8,
+                c_way = 2,
+                k_shot = 5,):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
+        self.c_way = c_way
+        self.k_shot = k_shot
         self.classes = classes
         self.target_class_id = target_class_id  # target_class_id is used only during saving, not to overwrite other class results.
         self.nclasses = len(classes)
