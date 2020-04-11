@@ -425,33 +425,25 @@ class BalancingGAN:
         self.generator = Model(inputs=latent, outputs=fake_image_from_latent)
 
     def _embedding_module(self):
-        resolution = self.resolution
-        channels = self.channels
+        model = Sequential()
 
-        # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
-        cnn = Sequential()
+        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Activation('relu'))
+        model.add(BatchNormalization())
+        # model.add(MaxPooling2D())
+        model.add(Dropout(0.3))
+    
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Activation('relu'))
+        model.add(BatchNormalization())
+        # model.add(MaxPooling2D())
+        model.add(Dropout(0.3))
 
-        cnn.add(Conv2D(
-            32, (5, 5), padding='same',
-            strides=(2, 2),
-            input_shape=(channels, resolution, resolution)
-        ))
-
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
-
-        size = 128
-        for i in range(3):
-        # while cnn.output_shape[-1] > self.min_latent_res:
-            cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
-            # cnn.add(BatchNormalization())
-            cnn.add(LeakyReLU(alpha=0.2))
-            cnn.add(Dropout(0.3))
-            size *= 2
-            
-        # Don't flatten
-        # cnn.add(Flatten())
-        return cnn
+        # model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(Dropout(0.4))
+        return model
     
     def _relation_module(self):
         model = Sequential()
@@ -514,7 +506,7 @@ class BalancingGAN:
         for classid in range(self.c_way):
             sfeatures = Average()(support_features[classid])
             concat_features = Concatenate()([sfeatures, features])
-            relation_scores.append(relation_module()(concat_features))
+            relation_scores.append(relation_module(concat_features))
 
         outputs = Concatenate()(relation_scores)
 
