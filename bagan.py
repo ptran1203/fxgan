@@ -485,9 +485,16 @@ class BalancingGAN:
         latent = Dense(latent_size, activation='linear')(features)
         self.reconstructor = Model(inputs=image, outputs=latent)
 
-    def build_discriminator(self, support_images):
+    def build_discriminator(self):
         resolution = self.resolution
         channels = self.channels
+
+        support_images = Input(shape = (
+            self.c_way * self.k_shot,
+            self.resolution,
+            self.resolution,
+            self.channels,
+        ))
 
         images = Input(shape = (resolution, resolution, channels))
 
@@ -501,7 +508,7 @@ class BalancingGAN:
         for classid in range(self.c_way):
             for _ in range(self.k_shot):
                 support_features[classid].append(
-                    embedding_module(Lambda(lambda x: x[:,idx,])(support_images))
+                    embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(support_images))
                 )
                 idx += 1
 
@@ -591,6 +598,7 @@ class BalancingGAN:
 
         latent_gen = Input(shape=(latent_size, ))
         support_images = Input(shape = (
+            None,
             self.c_way * self.k_shot,
             self.resolution,
             self.resolution,
@@ -598,7 +606,7 @@ class BalancingGAN:
         ))
 
         # Build discriminator
-        self.build_discriminator(support_images)
+        self.build_discriminator()
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
