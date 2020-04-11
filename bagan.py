@@ -441,8 +441,9 @@ class BalancingGAN:
         cnn.add(Dropout(0.3))
 
         size = 128
-        while cnn.output_shape[-1] > self.min_latent_res:
-            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
+        for i in range(3):
+        # while cnn.output_shape[-1] > self.min_latent_res:
+            cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
             # cnn.add(BatchNormalization())
             cnn.add(LeakyReLU(alpha=0.2))
             cnn.add(Dropout(0.3))
