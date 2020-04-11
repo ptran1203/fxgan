@@ -489,12 +489,12 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        image = Input(shape = (resolution, resolution, channels))
+        images = Input(shape = (resolution, resolution, channels))
 
         embedding_module = self._embedding_module()
         relation_module = self._relation_module()
 
-        features = embedding_module(image)
+        features = embedding_module(images)
         support_features = [[] for i in range(self.c_way)]
 
         idx = 0
