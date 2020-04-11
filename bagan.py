@@ -534,8 +534,8 @@ class BalancingGAN:
 
         return res
 
-    def discriminate(self, image):
-        return self.discriminator(image)
+    def discriminate(self, support_images, images):
+        return self.discriminator([support_images, images])
 
     def __init__(self, classes, target_class_id,
                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
@@ -618,7 +618,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        aux = self.discriminate([support_images, fake])
+        aux = self.discriminate(support_images, fake)
 
         self.combined = Model(inputs=latent_gen, outputs=aux)
 
