@@ -427,7 +427,12 @@ class BalancingGAN:
     def _embedding_module(self):
         model = Sequential()
 
-        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Conv2D(
+            filters=64,
+            kernel_size=(3, 3),
+            strides=(1, 1),
+            input_shape = (self.channels, self.resolution, self.resolution)
+        ))
         model.add(Activation('relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
