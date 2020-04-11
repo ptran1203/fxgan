@@ -442,7 +442,7 @@ class BalancingGAN:
 
         size = 128
         while cnn.output_shape[-1] > self.min_latent_res:
-            cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
+            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
             # cnn.add(BatchNormalization())
             cnn.add(LeakyReLU(alpha=0.2))
             cnn.add(Dropout(0.3))
@@ -484,7 +484,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
         image = Input(shape=(channels, resolution, resolution))
-        features = self._embedding_module(image, self.min_latent_res)
+        features = self._embedding_module()(image)
         features = Flatten()(features)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
