@@ -2,7 +2,7 @@
 import csv
 from collections import defaultdict
 import keras.backend as K
-K.common.set_image_dim_ordering('th')
+K.common.set_image_dim_ordering('tf')
 import tensorflow as tf
 
 from keras.layers.advanced_activations import LeakyReLU
@@ -222,7 +222,7 @@ class BatchGenerator:
             self.dataset_y = y
 
         # Arrange x: channel first
-        self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
+        # self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
         self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
@@ -321,7 +321,7 @@ class BatchGenerator:
         for start_idx in range(0, self.query_x.shape[0] - self.batch_size + 1, self.batch_size):
             access_pattern = indices[start_idx:start_idx + self.batch_size]
 
-            yield  self.query_x[access_pattern, :, :, :],  self.query_y[access_pattern]
+            yield  self.query_x[access_pattern],  self.query_y[access_pattern]
 
     def build_dataset(self, query_size):
         idxs = []
@@ -428,10 +428,9 @@ class BalancingGAN:
         model = Sequential()
 
         model.add(Conv2D(
-            filters=64,
+            64,
             kernel_size=(3, 3),
-            strides=(1, 1),
-            input_shape = (self.channels, self.resolution, self.resolution)
+            strides=(2, 2),
         ))
         model.add(Activation('relu'))
         model.add(BatchNormalization())
@@ -479,7 +478,7 @@ class BalancingGAN:
     def build_reconstructor(self, latent_size):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(channels, resolution, resolution))
+        image = Input(shape=(resolution, resolution, channels))
         features = self._embedding_module()(image)
         features = Flatten()(features)
         # Reconstructor specific
@@ -490,7 +489,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        image = Input(shape = (channels, resolution, resolution))
+        image = Input(shape = (resolution, resolution, channels))
 
         embedding_module = self._embedding_module()
         relation_module = self._relation_module()
@@ -593,9 +592,9 @@ class BalancingGAN:
         latent_gen = Input(shape=(latent_size, ))
         support_images = Input(shape = (
             self.c_way * self.k_shot,
+            self.resolution,
+            self.resolution,
             self.channels,
-            self.resolution,
-            self.resolution,
         ))
 
         # Build discriminator
@@ -634,7 +633,7 @@ class BalancingGAN:
         self.generator.trainable = True
         self.reconstructor.trainable = True
 
-        img_for_reconstructor = Input(shape=(self.channels, self.resolution, self.resolution,))
+        img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
         img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
         self.autoenc_0 = Model(inputs=img_for_reconstructor, outputs=img_reconstruct)
         self.autoenc_0.compile(
