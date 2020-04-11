@@ -451,9 +451,7 @@ class BalancingGAN:
             
         # Don't flatten
         # cnn.add(Flatten())
-
-        features = cnn(image)
-        return features
+        return cnn
     
     def _relation_module(self):
         model = Sequential()
