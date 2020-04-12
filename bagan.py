@@ -480,17 +480,11 @@ class BalancingGAN:
         latent = Dense(latent_size, activation='linear')(features)
         self.reconstructor = Model(inputs=image, outputs=latent)
 
-    def build_discriminator(self):
+    def build_discriminator(self, support_images):
         resolution = self.resolution
         channels = self.channels
 
         images = Input(shape = (resolution, resolution, channels))
-        support_images = Input(shape = (
-            self.c_way * self.k_shot,
-            self.resolution,
-            self.resolution,
-            self.channels,
-        ))
 
         embedding_module = self._embedding_module()
         relation_module = self._relation_module()
@@ -535,8 +529,8 @@ class BalancingGAN:
 
         return res
 
-    def discriminate(self, images):
-        return self.discriminator([self.support_images, images])
+    def discriminate(self, support_images, images):
+        return self.discriminator([support_images, images])
 
     def __init__(self, classes, target_class_id,
                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
@@ -544,7 +538,7 @@ class BalancingGAN:
                 dratio_mode="uniform", gratio_mode="uniform",
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8,
-                c_way = 2, k_shot = 5, support_images = None):
+                c_way = 2, k_shot = 5):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
         self.support_images = support_images
@@ -585,9 +579,15 @@ class BalancingGAN:
         )
 
         latent_gen = Input(shape=(latent_size, ))
+        support_images = Input(shape = (
+            self.c_way * self.k_shot + 1,
+            self.resolution,
+            self.resolution,
+            self.channels,
+        ))
 
         # Build discriminator
-        self.build_discriminator()
+        self.build_discriminator(support_images)
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
