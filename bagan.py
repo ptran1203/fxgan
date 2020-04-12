@@ -608,7 +608,7 @@ class BalancingGAN:
         self.generator.trainable = True
         aux = self.discriminate(support_images ,fake)
 
-        self.combined = Model(inputs=latent_gen, outputs=aux)
+        self.combined = Model(inputs=[latent_gen, support_images], outputs=aux)
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
