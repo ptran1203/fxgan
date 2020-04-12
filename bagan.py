@@ -535,7 +535,7 @@ class BalancingGAN:
 
         return res
 
-    def discriminate(self, support_images, images):
+    def discriminate(self, images):
         return self.discriminator([self.support_images, images])
 
     def __init__(self, classes, target_class_id,
