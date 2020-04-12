@@ -437,7 +437,7 @@ class BalancingGAN:
         # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
     
-        model.add(Conv2D(filters=32, kernel_size=(3, 3)))
+        model.add(Conv2D(filters=32, kernel_size=(3, 3),strides=(2, 2),))
         model.add(Activation('relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
@@ -455,6 +455,7 @@ class BalancingGAN:
         model.add(Conv2D(filters=64,
                         kernel_size=(3, 3),
                         padding='same',
+                        strides=(2, 2),
                         activation='relu'))
         model.add(BatchNormalization())
         model.add(MaxPooling2D())
@@ -462,6 +463,7 @@ class BalancingGAN:
         model.add(Conv2D(filters=32,
                         kernel_size=(3, 3),
                         padding='same',
+                        strides=(2, 2),
                         activation='relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
