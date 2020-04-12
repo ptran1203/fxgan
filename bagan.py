@@ -601,7 +601,7 @@ class BalancingGAN:
         ))
 
         # Build discriminator
-        self.build_discriminator()
+        self.build_discriminator(support_images)
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
