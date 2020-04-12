@@ -606,7 +606,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        aux = self.discriminate(fake)
+        aux = self.discriminate(support_images ,fake)
 
         self.combined = Model(inputs=latent_gen, outputs=aux)
 
