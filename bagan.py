@@ -547,6 +547,7 @@ class BalancingGAN:
                 c_way = 2, k_shot = 5, support_images = None):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
+        self.support_images = support_images
         self.c_way = c_way
         self.k_shot = k_shot
         self.classes = classes
