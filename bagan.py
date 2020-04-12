@@ -677,7 +677,7 @@ class BalancingGAN:
             sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            loss, acc = self.combined.train_on_batch(latent_gen, sampled_labels)
+            loss, acc = self.combined.train_on_batch([latent_gen, support_images], sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
@@ -781,8 +781,8 @@ class BalancingGAN:
         layers_r = self.reconstructor.layers
         layers_d = self.discriminator.layers
 
-        for l in range(1, len(layers_r)-1):
-            layers_d[l].set_weights( layers_r[l].get_weights() )
+        # for l in range(1, len(layers_r)-1):
+            # layers_d[l].set_weights( layers_r[l].get_weights() )
 
         # Organize multivariate distribution
         if not multivariate_prelearnt:
