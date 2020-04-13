@@ -421,7 +421,7 @@ class BalancingGAN:
         latent = Input(shape=(latent_size, ))
 
         fake_image_from_latent = cnn(latent)
-        self.generator = Model(inputs=latent, outputs=fake_image_from_latent)
+        self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
 
     def _embedding_module(self):
         model = Sequential()
@@ -478,7 +478,7 @@ class BalancingGAN:
         features = Flatten()(features)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
-        self.reconstructor = Model(inputs=image, outputs=latent)
+        self.reconstructor = Model(inputs=image, outputs=latent, name = 'reconstructor')
 
     def build_discriminator(self, support_images):
         resolution = self.resolution
@@ -509,7 +509,11 @@ class BalancingGAN:
 
         outputs = Concatenate()(relation_scores)
 
-        self.discriminator = Model(inputs = [support_images, images], outputs = outputs)
+        self.discriminator = Model(
+            inputs = [support_images, images],
+            outputs = outputs
+            name = 'Discriminator'
+        )
 
     def generate_from_latent(self, latent):
         res = self.generator(latent)
@@ -605,7 +609,11 @@ class BalancingGAN:
         self.generator.trainable = True
         aux = self.discriminate(support_images ,fake)
 
-        self.combined = Model(inputs=[latent_gen, support_images], outputs=aux)
+        self.combined = Model(
+            inputs=[latent_gen, support_images],
+            outputs=aux,
+            name = 'Combined'
+        )
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
@@ -620,7 +628,11 @@ class BalancingGAN:
 
         img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
         img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
-        self.autoenc_0 = Model(inputs=img_for_reconstructor, outputs=img_reconstruct)
+        self.autoenc_0 = Model(
+            inputs=img_for_reconstructor,
+            outputs=img_reconstruct,
+            name = 'autoencoder'
+        )
         self.autoenc_0.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
