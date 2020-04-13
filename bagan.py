@@ -475,9 +475,9 @@ class BalancingGAN:
         channels = self.channels
         image = Input(shape=(resolution, resolution, channels))
         features = self._embedding_module()(image)
-        features = Flatten()(features)
+        f_features = Flatten()(features)
         # Reconstructor specific
-        latent = Dense(latent_size, activation='linear')(features)
+        latent = Dense(latent_size, activation='linear')(f_features)
         self.reconstructor = Model(inputs=image, outputs=latent, name = 'reconstructor')
 
     def build_discriminator(self, support_images):
@@ -883,7 +883,7 @@ class BalancingGAN:
 
             # Initialization
             print("BAGAN init_autoenc")
-            self.init_autoenc(bg_train)
+            # self.init_autoenc(bg_train)
             print("BAGAN autoenc initialized, init gan")
             start_e = self.init_gan()
             print("BAGAN gan initialized, start_e: ", start_e)
