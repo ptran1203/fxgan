@@ -551,9 +551,6 @@ class BalancingGAN:
         self.channels = image_shape[0]
         self.resolution = image_shape[1]
         self.min_latent_res = min_latent_res
-        if self.resolution != image_shape[2]:
-            print("Error: only squared images currently supported by balancingGAN")
-            exit(1)
 
         self.min_latent_res = min_latent_res
         self.classifier = load_classifier(self.resolution)
