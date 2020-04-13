@@ -398,7 +398,7 @@ class BalancingGAN:
         cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
         cnn.add(BatchNormalization())
         cnn.add(LeakyReLU())
-        cnn.add(Reshape((init_channels, init_resolution, init_resolution)))
+        cnn.add(Reshape((init_resolution, init_resolution, init_channels)))
        
         crt_res = init_resolution
         # upsample
@@ -883,7 +883,7 @@ class BalancingGAN:
 
             # Initialization
             print("BAGAN init_autoenc")
-            # self.init_autoenc(bg_train)
+            self.init_autoenc(bg_train)
             print("BAGAN autoenc initialized, init gan")
             start_e = self.init_gan()
             print("BAGAN gan initialized, start_e: ", start_e)
