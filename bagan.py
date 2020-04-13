@@ -221,10 +221,10 @@ class BatchGenerator:
             self.dataset_y = y
 
         # Arrange x: channel first
-        # self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
+        self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
-        self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
+        self.dataset_x = np.expand_dims(self.dataset_x, axis = -1)
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
