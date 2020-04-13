@@ -511,7 +511,7 @@ class BalancingGAN:
 
         self.discriminator = Model(
             inputs = [support_images, images],
-            outputs = outputs
+            outputs = outputs,
             name = 'Discriminator'
         )
 
