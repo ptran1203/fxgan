@@ -775,7 +775,6 @@ class BalancingGAN:
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []
                 for image_batch, label_batch in bg_train.next_batch():
-                    print(image_batch.shape)
                     autoenc_train_loss_crt.append(self.autoenc_0.train_on_batch(image_batch, image_batch))
                 autoenc_train_loss.append(np.mean(np.array(autoenc_train_loss_crt), axis=0))
 
