@@ -548,8 +548,8 @@ class BalancingGAN:
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
-        self.channels = image_shape[0]
-        self.resolution = image_shape[1]
+        self.channels = image_shape[-1]
+        self.resolution = image_shape[0]
         self.min_latent_res = min_latent_res
 
         self.min_latent_res = min_latent_res
