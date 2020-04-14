@@ -321,12 +321,8 @@ class BatchGenerator:
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
 
-    def get_support_set(self):
-        # support_set = (s_x, s_y)
-        return self.support_set
-
     def get_support_images(self):
-        return self.support_set[0]
+        return self.support_x
 
 class BalancingGAN:
     def plot_loss_his(self):
