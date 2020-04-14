@@ -321,8 +321,12 @@ class BatchGenerator:
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
 
-    def get_support_images(self):
-        return self.support_x
+    def get_support_images(self, repeats = None):
+        if repeats is None:
+            repeats = self.batch_size
+        return np.repeat(
+                    self.support_x, repeats, axis= 0
+                )
 
 class BalancingGAN:
     def plot_loss_his(self):
