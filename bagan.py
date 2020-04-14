@@ -324,8 +324,9 @@ class BatchGenerator:
     def get_support_images(self, repeats = None):
         if repeats is None:
             repeats = self.batch_size
+        imgs = np.expand_dims(self.support_x, axis = 0)
         return np.repeat(
-                    self.support_x, repeats, axis= 0
+                    imgs, repeats, axis= 0
                 )
 
 class BalancingGAN:
