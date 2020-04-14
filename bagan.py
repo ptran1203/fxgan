@@ -89,34 +89,6 @@ def load_ds(rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
     return pickle_load(path)
 
-def save_image_array(img_array, fname=None, show=None):
-    channels = img_array.shape[2]
-    resolution = img_array.shape[-1]
-    img_rows = img_array.shape[0]
-    img_cols = img_array.shape[1]
-
-    img = np.full([channels, resolution * img_rows, resolution * img_cols], 0.0)
-    for r in range(img_rows):
-        for c in range(img_cols):
-            img[:,
-            (resolution * r): (resolution * (r + 1)),
-            (resolution * (c % 10)): (resolution * ((c % 10) + 1))
-            ] = img_array[r, c]
-
-    img = (img * 127.5 + 127.5).astype(np.uint8)
-    if (img.shape[0] == 1):
-        img = img[0]
-    else:
-        img = np.rollaxis(img, 0, 3)
-
-    if show:
-        try:
-            cv2_imshow(img)
-        except Exception as e:
-            print('[show fail] ', str(e))
-    if fname:
-        Image.fromarray(img).save(fname)
-
 def get_img(path, rst):
     img = cv2.imread(path)
     img = add_padding(img)
@@ -918,7 +890,7 @@ class BalancingGAN:
             shape = img_samples.shape
             img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
 
-            save_image_array(img_samples, None, True)
+            self.save_image_array(img_samples, None, True)
 
             # Train
             for e in range(start_e, epochs):
@@ -974,7 +946,7 @@ class BalancingGAN:
                         for c in range(0,self.nclasses)
                     ])
 
-                    save_image_array(
+                    self.save_image_array(
                         img_samples,
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
@@ -1006,7 +978,7 @@ class BalancingGAN:
                     self.plot_classifier_acc()
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-                    save_image_array(five_imgs, None, True)
+                    self.save_image_array(five_imgs, None, True)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
@@ -1044,3 +1016,32 @@ class BalancingGAN:
     def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
         self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
         self.discriminator.load_weights(fname_discriminator)
+
+    def save_image_array(self, img_array, fname=None, show=None):
+    channels = img_array.shape[-1]
+    resolution = img_array.shape[2]
+    img_rows = img_array.shape[0]
+    img_cols = img_array.shape[1]
+
+    img = np.full([channels, resolution * img_rows, resolution * img_cols], 0.0)
+    for r in range(img_rows):
+        for c in range(img_cols):
+            img[:,
+            (resolution * r): (resolution * (r + 1)),
+            (resolution * (c % 10)): (resolution * ((c % 10) + 1))
+            ] = img_array[r, c]
+
+    img = (img * 127.5 + 127.5).astype(np.uint8)
+    if (img.shape[0] == 1):
+        img = img[0]
+    else:
+        img = np.rollaxis(img, 0, 3)
+
+    if show:
+        try:
+            cv2_imshow(img)
+        except Exception as e:
+            print('[show fail] ', str(e))
+    if fname:
+        Image.fromarray(img).save(fname)
+
