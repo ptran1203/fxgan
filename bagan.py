@@ -326,7 +326,7 @@ class BatchGenerator:
             repeats = self.batch_size
         imgs = np.expand_dims(self.support_x, axis = 0)
         return np.repeat(
-                    imgs, repeats, axis= 0
+                    imgs, repeats + 1, axis= 0
                 )
 
 class BalancingGAN:
