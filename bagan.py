@@ -303,7 +303,7 @@ class BatchGenerator:
             np.random.shuffle(idx)
             qidx = idx[self.k_shot: query_size + self.k_shot]
 
-            idxs.append(idx[:self.k_shot])
+            idxs.append(idx[:self.k_shot + 1])
             qidxs.append(qidx)
 
         s_idx = np.concatenate(idxs)
@@ -321,12 +321,13 @@ class BatchGenerator:
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
 
-    def get_support_images(self, repeats = None):
+    def merge_support_images(self, support_fakes ,repeats = None):
         if repeats is None:
             repeats = self.batch_size
+        imgs = np.concatenate((self.support_x, support_fakes))
         imgs = np.expand_dims(self.support_x, axis = 0)
         return np.repeat(
-                    imgs, repeats + 1, axis= 0
+                    imgs, repeats, axis= 0
                 )
 
 class BalancingGAN:
@@ -636,23 +637,24 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        support_images = bg_train.get_support_images()
-
         for image_batch, label_batch in bg_train.next_query_batch():
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
 
-            fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
+            fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses)) + self.k_shot
     
             # sample some labels from p_c, then latent and images
             sampled_labels = self._biased_sample_labels(fake_size, "d")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             generated_images = self.generator.predict(latent_gen, verbose=0)
+            fake_images = generated_images[:self.k_shot]
+            support_fakes = generated_images[self.k_shot:]
 
-            X = np.concatenate((image_batch, generated_images))
-            aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
+            X = np.concatenate((image_batch, fake_images))
+            support_images = bg_train.merge_support_images(support_fakes)
+            aux_y = np.concatenate((label_batch, np.full(len(fake_images) , self.nclasses )), axis=0)
 
             loss, acc = self.discriminator.train_on_batch([support_images, X], aux_y)
             epoch_disc_loss.append(loss)
