@@ -325,8 +325,10 @@ class BatchGenerator:
     def merge_support_images(self, support_fakes ,repeats = None):
         if repeats is None:
             repeats = self.batch_size
-        imgs = np.concatenate((self.support_x, support_fakes))
-        imgs = np.expand_dims(self.support_x, axis = 0)
+        imgs = np.concatenate((self.support_x, support_fakes, np.zeros(
+            (1,64,64,1)
+        )))
+        imgs = np.expand_dims(imgs, axis = 0)
         return np.repeat(
                     imgs, repeats, axis= 0
                 )
@@ -650,19 +652,21 @@ class BalancingGAN:
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             generated_images = self.generator.predict(latent_gen, verbose=0)
-            fake_images = generated_images[:self.k_shot]
-            support_fakes = generated_images[self.k_shot:]
+            fake_images = generated_images[self.k_shot:]
+            support_fakes = generated_images[:self.k_shot]
 
             X = np.concatenate((image_batch, fake_images))
-            support_images = bg_train.merge_support_images(support_fakes)
+            support_images = bg_train.merge_support_images(support_fakes, X.shape[0])
             aux_y = np.concatenate((label_batch, np.full(len(fake_images) , self.nclasses )), axis=0)
+            aux_y = np_utils.to_categorical(aux_y, self.nclasses + 1)
 
             loss, acc = self.discriminator.train_on_batch([support_images, X], aux_y)
+    
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
+            sampled_labels = self._biased_sample_labels(fake_size - self.k_shot + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             loss, acc = self.combined.train_on_batch([latent_gen, support_images], sampled_labels)
@@ -919,27 +923,18 @@ class BalancingGAN:
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
             
                 # see if the discriminator can figure itself out...
-                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                    X, aux_y, verbose=False)
+                # test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                #     [support_images, X], aux_y, verbose=False)
             
                 # make new latent
                 sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
 
-                test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    latent_gen,
-                    sampled_labels, verbose=False)
+                # test_gen_loss, test_gen_acc = self.combined.evaluate(
+                #     latent_gen,
+                #     sampled_labels, verbose=False)
 
-                # generate an epoch report on performance
-                self.train_history['disc_loss'].append(train_disc_loss)
-                self.train_history['gen_loss'].append(train_gen_loss)
-                self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append(test_gen_loss)
-                # accuracy
-                self.train_history['disc_acc'].append(train_disc_acc)
-                self.train_history['gen_acc'].append(train_gen_acc)
-                self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append(test_gen_acc)
+
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
                     train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
                     datetime.datetime.now() - start_time
@@ -965,26 +960,13 @@ class BalancingGAN:
                     self.plot_acc_his()
                     self.backup_point(e)
                     crt_c = 0
-                    sample_size = 700
-                    labels = np.zeros(sample_size)
+                    sample_size = 10
                     img_samples = self.generate_samples(crt_c, sample_size, bg_train)
                     five_imgs = img_samples[:5]
                     for crt_c in range(1, self.nclasses):
                         new_samples = self.generate_samples(crt_c, sample_size, bg_train)
-                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
-                        labels = np.concatenate((np.ones(sample_size), labels), axis=0)
                         five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
                     
-                    labels = np_utils.to_categorical(labels, self.nclasses)
-                    # img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
-                    # _, accuracy = self.classifier.evaluate(img_samples, labels)
-
-                    # self.classifier_acc.append(accuracy)
-
-                    # print('classifier accuracy: {:.2f}%'.format(accuracy*100))
-                    # self.plot_classifier_acc()
-                    # shape = img_samples.shape
-                    # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
                     self.save_image_array(five_imgs, None, True)
             self.trained = True
 
