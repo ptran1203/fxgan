@@ -303,9 +303,10 @@ class BatchGenerator:
             np.random.shuffle(idx)
             qidx = idx[self.k_shot: query_size + self.k_shot]
 
-            idxs.append(idx[:self.k_shot + 1])
+            idxs.append(idx[:self.k_shot])
             qidxs.append(qidx)
 
+        idx.append()
         s_idx = np.concatenate(idxs)
         q_idx = np.concatenate(qidxs)
 
@@ -403,39 +404,40 @@ class BalancingGAN:
     def _embedding_module(self):
         model = Sequential()
 
-        model.add(Conv2D(
-            64,
-            kernel_size=(3, 3),
-            strides=(2, 2),
-        ))
+        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
         model.add(Activation('relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
     
-        model.add(Conv2D(filters=32, kernel_size=(3, 3),strides=(2, 2),))
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1)))
         model.add(Activation('relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
 
+        # model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
+        # model.add(Activation('relu'))
+        # model.add(BatchNormalization())
+        # model.add(Dropout(0.4))
         return model
     
     def _relation_module(self):
+        def _relation_module(self):
         model = Sequential()
 
         model.add(Conv2D(filters=64,
                         kernel_size=(3, 3),
+                        strides=(1, 1),
                         padding='same',
-                        strides=(2, 2),
                         activation='relu'))
         model.add(BatchNormalization())
         model.add(MaxPooling2D())
 
         model.add(Conv2D(filters=32,
                         kernel_size=(3, 3),
+                        strides=(1, 1),
                         padding='same',
-                        strides=(2, 2),
                         activation='relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
@@ -975,13 +977,13 @@ class BalancingGAN:
                         five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
                     
                     labels = np_utils.to_categorical(labels, self.nclasses)
-                    img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
-                    _, accuracy = self.classifier.evaluate(img_samples, labels)
+                    # img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
+                    # _, accuracy = self.classifier.evaluate(img_samples, labels)
 
-                    self.classifier_acc.append(accuracy)
+                    # self.classifier_acc.append(accuracy)
 
-                    print('classifier accuracy: {:.2f}%'.format(accuracy*100))
-                    self.plot_classifier_acc()
+                    # print('classifier accuracy: {:.2f}%'.format(accuracy*100))
+                    # self.plot_classifier_acc()
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
                     self.save_image_array(five_imgs, None, True)
