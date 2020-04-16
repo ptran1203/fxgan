@@ -423,7 +423,6 @@ class BalancingGAN:
         return model
     
     def _relation_module(self):
-        def _relation_module(self):
         model = Sequential()
 
         model.add(Conv2D(filters=64,
