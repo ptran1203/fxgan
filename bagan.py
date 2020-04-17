@@ -661,7 +661,8 @@ class BalancingGAN:
             support_images = bg_train.merge_support_images(support_fakes, X.shape[0])
             aux_y = np.concatenate((label_batch, np.full(len(fake_images) , self.nclasses )), axis=0)
             aux_y = np_utils.to_categorical(aux_y, self.nclasses + 1)
-
+            
+            X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch([support_images, X], aux_y)
     
             epoch_disc_loss.append(loss)
@@ -672,6 +673,7 @@ class BalancingGAN:
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             sampled_labels = np_utils.to_categorical(sampled_labels, self.nclasses + 1)
+            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
             loss, acc = self.combined.train_on_batch([latent_gen, support_images], sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
@@ -683,6 +685,12 @@ class BalancingGAN:
             np.mean(np.array(epoch_disc_acc), axis=0),
             np.mean(np.array(epoch_gen_acc), axis=0),
         )
+
+    def shuffle_data(self, data_x, data_y):
+        rd_idx = np.arange(data_x.shape[0])
+        np.random.shuffle(rd_idx)
+        print(rd_idx)
+        return data_x[rd_idx], data_y[rd_idx]
 
     def _set_class_ratios(self):
         self.class_dratio = np.full(self.nclasses, 0.0)
