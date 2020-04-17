@@ -858,7 +858,7 @@ class BalancingGAN:
         pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def evaluate_d(self, support_x, test_x, test_y):
-        y_pre = self.model.predict([support_x, test_x])
+        y_pre = self.discriminator.predict([support_x, test_x])
         y_pre = np.argmax(y_pre, axis=1)
         test_y = np.argmax(test_y, axis=1)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
