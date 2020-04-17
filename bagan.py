@@ -671,6 +671,7 @@ class BalancingGAN:
             sampled_labels = self._biased_sample_labels(fake_size - self.k_shot + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
+            sampled_labels = np_utils.to_categorical(sampled_labels, self.nclasses + 1)
             loss, acc = self.combined.train_on_batch([latent_gen, support_images], sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
