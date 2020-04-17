@@ -322,6 +322,9 @@ class BatchGenerator:
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
 
+        print('Query size: ', self.query_x.shape[0])
+        print('Support size: ', self.support_x.shape[0])
+
     def merge_support_images(self, support_fakes ,repeats = None):
         if repeats is None:
             repeats = self.batch_size
@@ -658,7 +661,7 @@ class BalancingGAN:
             support_fakes = generated_images[:self.k_shot]
 
             X = np.concatenate((image_batch, fake_images))
-            support_images = bg_train.merge_support_images(support_fakes, X.shape[0])
+            support_images = bg_train.merge_support_images(self.support_fakes, X.shape[0])
             aux_y = np.concatenate((label_batch, np.full(len(fake_images) , self.nclasses )), axis=0)
             aux_y = np_utils.to_categorical(aux_y, self.nclasses + 1)
             
@@ -828,6 +831,10 @@ class BalancingGAN:
             return 0, None
 
     def init_gan(self):
+        self.support_fakes = self.generator.predict(
+                    self.generate_latent([0,0,0,1,1]), verbose=False)
+        print('Init support fakes ', self.support_fakes.shape[0])
+        
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
 
@@ -948,7 +955,7 @@ class BalancingGAN:
                 X = np.concatenate( (bg_test.dataset_x, fake_images) )
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(len(fake_images), self.nclasses )), axis=0)
                 aux_y = np_utils.to_categorical(aux_y, self.nclasses + 1)
-                support_images = bg_train.merge_support_images(support_fakes, X.shape[0])
+                support_images = bg_train.merge_support_images(self.support_fakes, X.shape[0])
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     [support_images, X], aux_y, verbose=False)
