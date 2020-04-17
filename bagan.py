@@ -302,19 +302,18 @@ class BatchGenerator:
             idx = np.where(train_y == i)[0]
             np.random.shuffle(idx)
             qidx = idx[self.k_shot: query_size + self.k_shot]
-
-            idxs.append(idx[:self.k_shot])
+            
+            if i == self.c_way - 1:
+                idxs.append(idx[:self.k_shot + 1])
+            else:
+                idxs.append(idx[:self.k_shot])
+            
             qidxs.append(qidx)
 
-        idx.append()
         s_idx = np.concatenate(idxs)
         q_idx = np.concatenate(qidxs)
 
         np.random.shuffle(q_idx)
-
-        # if shuffle:
-        #     np.random.shuffle(s_idx)
-        #     print('shuffled !!')
 
         self.query_x = train_x[q_idx]
         self.query_y = train_y[q_idx]
@@ -1061,7 +1060,7 @@ class BalancingGAN:
 
     def save_image_array(self, img_array, fname=None, show=None):
         # convert 1 channel to 3 channels
-        img_array = np.stack((img_array[:,:,:,:,0],)*3, axis=-1)
+        print(img_array.shape)
         channels = img_array.shape[-1]
         resolution = img_array.shape[2]
         img_rows = img_array.shape[0]
@@ -1086,5 +1085,8 @@ class BalancingGAN:
                 )
                 print('[show fail] ', str(e))
         if fname:
-            Image.fromarray(img).save(fname)
+            try:
+                Image.fromarray(img).save(fname)
+            except Exception as e:
+                print('Save image failed', str(e))
 
