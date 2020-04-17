@@ -600,7 +600,7 @@ class BalancingGAN:
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
+            loss='mse'
         )
 
         # Define initializer for autoencoder
