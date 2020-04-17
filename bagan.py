@@ -944,9 +944,13 @@ class BalancingGAN:
                 support_images = bg_train.merge_support_images(support_fakes,
                                                                sampled_labels.shape[0])
 
+
                 test_gen_loss, test_gen_acc = self.combined.evaluate(
                     [latent_gen, support_images],
-                    sampled_labels, verbose=False)
+                    np_utils.to_categorical(
+                        sampled_labels,
+                        self.nclasses + 1
+                    ), verbose=False)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
