@@ -689,7 +689,6 @@ class BalancingGAN:
     def shuffle_data(self, data_x, data_y):
         rd_idx = np.arange(data_x.shape[0])
         np.random.shuffle(rd_idx)
-        print(rd_idx)
         return data_x[rd_idx], data_y[rd_idx]
 
     def _set_class_ratios(self):
