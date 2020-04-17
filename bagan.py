@@ -422,6 +422,7 @@ class BalancingGAN:
         # model.add(Activation('relu'))
         # model.add(BatchNormalization())
         # model.add(Dropout(0.4))
+        model.name = 'embedding_module'
         return model
     
     def _relation_module(self):
@@ -448,6 +449,7 @@ class BalancingGAN:
 
         model.add(Dense(8, activation='relu' ))
         model.add(Dense(1, activation='tanh'))
+        model.name = 'relation_module'
         return model
 
     def build_reconstructor(self, latent_size):
@@ -758,6 +760,7 @@ class BalancingGAN:
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []
                 for image_batch, label_batch in bg_train.next_batch():
+
                     autoenc_train_loss_crt.append(self.autoenc_0.train_on_batch(image_batch, image_batch))
                 autoenc_train_loss.append(np.mean(np.array(autoenc_train_loss_crt), axis=0))
 
@@ -769,11 +772,11 @@ class BalancingGAN:
             self.generator.save(generator_fname)
             self.reconstructor.save(reconstructor_fname)
 
-        layers_r = self.reconstructor.layers
-        layers_d = self.discriminator.layers
+        layers_embedding = self.reconstructor.get_layer('embedding_module').layers
+        layers_d = self.discriminator.get_layer('embedding_module').layers
 
-        for l in range(1, len(layers_r)-1):
-            layers_d[l].set_weights( layers_r[l].get_weights() )
+        for l in range(1, len(layers_embedding)-1):
+            layers_d[l].set_weights( layers_embedding[l].get_weights())
 
         # Organize multivariate distribution
         if not multivariate_prelearnt:
