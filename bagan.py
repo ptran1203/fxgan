@@ -374,7 +374,7 @@ class BalancingGAN:
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
         channels = self.channels
-        init_channels = 256
+        init_channels  = 128
         cnn = Sequential()
 
         cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
@@ -408,13 +408,13 @@ class BalancingGAN:
     def _embedding_module(self):
         model = Sequential()
 
-        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Conv2D(filters=64, kernel_size=(5, 5), strides=(2, 2)))
         model.add(LeakyReLU())
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
     
-        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2)))
         model.add(LeakyReLU())
         model.add(BatchNormalization())
         model.add(Dropout(0.3))
@@ -425,7 +425,7 @@ class BalancingGAN:
     def _relation_module(self):
         model = Sequential()
 
-        model.add(Conv2D(filters=64,
+        model.add(Conv2D(filters=32,
                         kernel_size=(3, 3),
                         strides=(2, 2),
                         padding='same'))
@@ -617,6 +617,17 @@ class BalancingGAN:
         )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
+        all_labels = np.full(samples, 0)
+        splited = np.array_split(all_labels, self.nclasses)
+        all_labels = np.concatenate(
+            [
+                np.full(splited[classid].shape[0], classid) \
+                for classid in range(self.nclasses)
+            ]
+        )
+        np.random.shuffle(all_labels)
+        return all_labels
+
         distribution = self.class_uratio
         if target_distribution == "d":
             distribution = self.class_dratio
@@ -763,7 +774,7 @@ class BalancingGAN:
             for e in range(self.autoenc_epochs):
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []
-                for image_batch, label_batch in bg_train.next_batch():
+                for image_batch, label_batch in bg_train.next_query_batch():
 
                     autoenc_train_loss_crt.append(self.autoenc_0.train_on_batch(image_batch, image_batch))
                 autoenc_train_loss.append(np.mean(np.array(autoenc_train_loss_crt), axis=0))
