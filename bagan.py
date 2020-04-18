@@ -409,21 +409,16 @@ class BalancingGAN:
         model = Sequential()
 
         model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
-        model.add(Activation('relu'))
+        model.add(LeakyReLU())
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
     
         model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1)))
-        model.add(Activation('relu'))
+        model.add(LeakyReLU())
         model.add(BatchNormalization())
-        # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
 
-        # model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
-        # model.add(Activation('relu'))
-        # model.add(BatchNormalization())
-        # model.add(Dropout(0.4))
         model.name = 'embedding_module'
         return model
     
@@ -432,24 +427,23 @@ class BalancingGAN:
 
         model.add(Conv2D(filters=64,
                         kernel_size=(3, 3),
-                        strides=(1, 1),
-                        padding='same',
-                        activation='relu'))
+                        strides=(2, 2),
+                        padding='same'))
+
         model.add(BatchNormalization())
-        model.add(MaxPooling2D())
+        model.add(LeakyReLU())
 
         model.add(Conv2D(filters=32,
                         kernel_size=(3, 3),
-                        strides=(1, 1),
-                        padding='same',
-                        activation='relu'))
+                        strides=(2, 2),
+                        padding='same'))
         model.add(BatchNormalization())
-        # model.add(MaxPooling2D())
+        model.add(LeakyReLU())
 
         model.add(Flatten())
-        model.add(Dropout(0.2))
+        model.add(Dropout(0.4))
 
-        model.add(Dense(8, activation='relu' ))
+        # model.add(Dense(8, activation='relu' ))
         model.add(Dense(1, activation='sigmoid'))
         model.name = 'relation_module'
         return model
@@ -968,14 +962,12 @@ class BalancingGAN:
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     [support_images, X], aux_y, verbose=False)
 
-                if e % 5 == 0:
-                    self.evaluate_d(support_images, X, aux_y)
             
                 # make new latent
                 sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
 
-                support_images = bg_train.merge_support_images(support_fakes,
+                support_images_g = bg_train.merge_support_images(self.support_fakes,
                                                                sampled_labels.shape[0])
 
 
@@ -984,10 +976,14 @@ class BalancingGAN:
                         self.nclasses + 1
                     )
                 test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    [latent_gen, support_images],
+                    [latent_gen, support_images_g],
                     test_y, verbose=False)
 
-                self.evaluate_g(support_images, latent_gen, test_y)
+                if e % 5 == 0:
+                    print('Evaluate D')
+                    self.evaluate_d(support_images, X, aux_y)
+                    print('Evaluate G')
+                    self.evaluate_g(support_images_g, latent_gen, test_y)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
