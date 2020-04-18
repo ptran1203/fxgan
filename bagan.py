@@ -879,6 +879,15 @@ class BalancingGAN:
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
+    def evaluate_g(self, support_x, test_x, test_y):
+        y_pre = self.combined.predict([test_x, support_x])
+        y_pre = np.argmax(y_pre, axis=1)
+        test_y = np.argmax(test_y, axis=1)
+        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+        plt.figure()
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plt.show()
+
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
             self.autoenc_epochs = 100
@@ -970,12 +979,15 @@ class BalancingGAN:
                                                                sampled_labels.shape[0])
 
 
-                test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    [latent_gen, support_images],
-                    np_utils.to_categorical(
+                test_y = np_utils.to_categorical(
                         sampled_labels,
                         self.nclasses + 1
-                    ), verbose=False)
+                    )
+                test_gen_loss, test_gen_acc = self.combined.evaluate(
+                    [latent_gen, support_images],
+                    test_y, verbose=False)
+
+                self.evaluate_g(support_images, latent_gen, test_y)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
