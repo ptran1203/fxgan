@@ -576,13 +576,13 @@ class BalancingGAN:
         outputs = Concatenate()([
             relation_module(Concatenate()(
                 [Average()(support_features[0]), features]
-            ))
+            )),
             relation_module(Concatenate()(
                 [Average()(support_features[1]), features]
-            ))
+            )),
             relation_module(Concatenate()(
                 [Average()(support_features[2]), features]
-            ))
+            )),
         ])
 
         self.discriminator = Model(
