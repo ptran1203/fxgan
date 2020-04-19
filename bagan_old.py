@@ -70,6 +70,15 @@ def save_image_array(img_array, fname=None, show=None):
     if fname:
         Image.fromarray(img).save(fname)
 
+
+def show_samples(img_array):
+    shape = img_array.shape
+    img_samples = img_array.reshape(
+        (-1, shape[-4], shape[-3], shape[-2], shape[-1])
+    )
+    save_image_array(img_samples, None, True)
+
+
 def load_classifier(rst=256):
     json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
     model = json_file.read()
