@@ -41,6 +41,38 @@ DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
+def save_image_array(img_array, fname=None, show=None):
+        # convert 1 channel to 3 channels
+        print(img_array.shape)
+        channels = img_array.shape[-1]
+        resolution = img_array.shape[2]
+        img_rows = img_array.shape[0]
+        img_cols = img_array.shape[1]
+
+        img = np.full([resolution * img_rows, resolution * img_cols, channels], 0.0)
+        for r in range(img_rows):
+            for c in range(img_cols):
+                img[
+                (resolution * r): (resolution * (r + 1)),
+                (resolution * (c % 10)): (resolution * ((c % 10) + 1)),
+                :] = img_array[r, c]
+
+        img = (img * 127.5 + 127.5).astype(np.uint8)
+        if show:
+            try:
+                cv2_imshow(img)
+            except Exception as e:
+                fname = '/content/drive/My Drive/bagan/result/model_{}/img_{}.png'.format(
+                    resolution,
+                    datetime.datetime.now().strftime("%m/%d/%Y-%H%M%S")
+                )
+                print('[show fail] ', str(e))
+        if fname:
+            try:
+                Image.fromarray(img).save(fname)
+            except Exception as e:
+                print('Save image failed', str(e))
+
 def load_classifier(rst=256):
     json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
     model = json_file.read()
@@ -320,6 +352,9 @@ class BatchGenerator:
 
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
+
+        save_image_array(self.support_x, None, True)
+        print(self.support_y)
 
         print('Query size: ', self.query_x.shape[0])
         print('Support size: ', self.support_x.shape[0])
@@ -845,7 +880,8 @@ class BalancingGAN:
         self.support_fakes = self.generator.predict(
                     self.generate_latent([0,0,0,1,1]), verbose=False)
         print('Init support fakes ', self.support_fakes.shape[0])
-        
+        save_image_array(self.support_fakes, None, True)
+
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
 
@@ -948,7 +984,7 @@ class BalancingGAN:
             shape = img_samples.shape
             img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
 
-            self.save_image_array(img_samples, None, True)
+            save_image_array(img_samples, None, True)
 
             # Train
             for e in range(start_e, epochs):
@@ -1026,7 +1062,7 @@ class BalancingGAN:
                         for c in range(0,self.nclasses)
                     ])
 
-                    self.save_image_array(
+                    save_image_array(
                         img_samples,
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
@@ -1045,7 +1081,7 @@ class BalancingGAN:
                         new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
                     
-                    self.save_image_array(five_imgs, None, True)
+                    save_image_array(five_imgs, None, True)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
@@ -1084,35 +1120,4 @@ class BalancingGAN:
         self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
         self.discriminator.load_weights(fname_discriminator)
 
-    def save_image_array(self, img_array, fname=None, show=None):
-        # convert 1 channel to 3 channels
-        print(img_array.shape)
-        channels = img_array.shape[-1]
-        resolution = img_array.shape[2]
-        img_rows = img_array.shape[0]
-        img_cols = img_array.shape[1]
-
-        img = np.full([resolution * img_rows, resolution * img_cols, channels], 0.0)
-        for r in range(img_rows):
-            for c in range(img_cols):
-                img[
-                (resolution * r): (resolution * (r + 1)),
-                (resolution * (c % 10)): (resolution * ((c % 10) + 1)),
-                :] = img_array[r, c]
-
-        img = (img * 127.5 + 127.5).astype(np.uint8)
-        if show:
-            try:
-                cv2_imshow(img)
-            except Exception as e:
-                fname = '/content/drive/My Drive/bagan/result/model_{}/img_{}.png'.format(
-                    resolution,
-                    datetime.datetime.now().strftime("%m/%d/%Y-%H%M%S")
-                )
-                print('[show fail] ', str(e))
-        if fname:
-            try:
-                Image.fromarray(img).save(fname)
-            except Exception as e:
-                print('Save image failed', str(e))
 
