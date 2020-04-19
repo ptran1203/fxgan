@@ -361,9 +361,6 @@ class BatchGenerator:
 
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
-
-        show_samples(img_samples)
-
         print('Query size: ', self.query_x.shape[0])
         print('Support size: ', self.support_x.shape[0])
 
