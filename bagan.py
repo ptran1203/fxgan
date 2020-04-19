@@ -353,8 +353,9 @@ class BatchGenerator:
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
 
-        save_image_array(self.support_x, None, True)
-        print(self.support_y)
+        shape = self.support_x.shape
+        img_samples = self.support_x.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+        save_image_array(img_samples, None, True)
 
         print('Query size: ', self.query_x.shape[0])
         print('Support size: ', self.support_x.shape[0])
@@ -880,7 +881,10 @@ class BalancingGAN:
         self.support_fakes = self.generator.predict(
                     self.generate_latent([0,0,0,1,1]), verbose=False)
         print('Init support fakes ', self.support_fakes.shape[0])
-        save_image_array(self.support_fakes, None, True)
+
+        shape = self.support_fakes.shape
+        img_samples = self.support_fakes.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+        save_image_array(img_samples, None, True)
 
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
@@ -1062,6 +1066,9 @@ class BalancingGAN:
                         for c in range(0,self.nclasses)
                     ])
 
+                    shape = img_samples.shape
+                    img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+
                     save_image_array(
                         img_samples,
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
@@ -1074,14 +1081,14 @@ class BalancingGAN:
                     self.plot_acc_his()
                     self.backup_point(e)
                     crt_c = 0
-                    sample_size = 10
-                    img_samples = self.generate_samples(crt_c, sample_size, bg_train)
-                    five_imgs = img_samples[:5]
+                    img_samples = self.generate_samples(crt_c, 5, bg_train)
                     for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, sample_size, bg_train)
-                        five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
+                        new_samples = self.generate_samples(crt_c, 5, bg_train)
+                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
                     
-                    save_image_array(five_imgs, None, True)
+                    shape = img_samples.shape
+                    img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+                    save_image_array(img_samples, None, True)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
