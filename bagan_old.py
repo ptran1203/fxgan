@@ -790,9 +790,7 @@ class BalancingGAN:
     def evaluate_d(self, test_x, test_y):
         loss, acc  = self.discriminator.evaluate(test_x, test_y)
         y_pre = self.discriminator.predict(test_x)
-        print(y_pre)
-        y_pre = np.argmax(y_pre, axis=0)
-        test_y = np.argmax(test_y, axis=0)
+        y_pre = np.argmax(y_pre, axis=1)
         print('ACC: {}%'.format(acc))
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
@@ -802,9 +800,7 @@ class BalancingGAN:
     def evaluate_g(self, test_x, test_y):
         loss, acc  = self.combined.evaluate(test_x, test_y)
         y_pre = self.combined.predict(test_x)
-        print(y_pre)
-        y_pre = np.argmax(y_pre, axis=0)
-        test_y = np.argmax(test_y, axis=0)
+        y_pre = np.argmax(y_pre, axis=1)
         print('ACC: {}%'.format(acc))
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
@@ -928,7 +924,7 @@ class BalancingGAN:
                 if e % 10 == 5:
                     self.plot_loss_his()
                     self.plot_acc_his()
-                    self.backup_point(e)
+                    # self.backup_point(e)
                     crt_c = 0
                     img_samples = self.generate_samples(crt_c, 5, bg_train)
                     for crt_c in range(1, self.nclasses):
