@@ -1,21 +1,30 @@
+
 import csv
 from collections import defaultdict
 import keras.backend as K
-K.common.set_image_dim_ordering('th')
 import tensorflow as tf
 
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import UpSampling2D, Convolution2D, Conv2D, Conv2DTranspose
+from keras.layers.convolutional import (
+    UpSampling2D, Convolution2D,
+    Conv2D, Conv2DTranspose
+)
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
 from keras.layers import (
-    Input, Dense, Reshape, Flatten,
-    Embedding, Dropout, BatchNormalization,
-    Activation, ZeroPadding2D, GaussianNoise,
+    Input, Dense, Reshape,
+    Flatten, Embedding, Dropout,
+    BatchNormalization, Activation,
+    Lambda,Layer, Add, Concatenate,
+    Average,
+    MaxPooling2D, AveragePooling2D
 )
-from keras.layers import multiply as kmultiply
-from keras.layers import add as kadd
+
 from keras.utils import np_utils
+import sklearn.metrics as metrics
+from sklearn.model_selection import train_test_split
+from mlxtend.plotting import plot_confusion_matrix
+import matplotlib.pyplot as plt
 
 import os
 import sys
@@ -24,7 +33,6 @@ import numpy as np
 import datetime
 import pickle
 import cv2
-import matplotlib.pyplot as plt
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
@@ -32,6 +40,35 @@ from PIL import Image
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
+
+
+def save_image_array(img_array, fname=None, show=None):
+    channels = img_array.shape[2]
+    resolution = img_array.shape[-1]
+    img_rows = img_array.shape[0]
+    img_cols = img_array.shape[1]
+
+    img = np.full([channels, resolution * img_rows, resolution * img_cols], 0.0)
+    for r in range(img_rows):
+        for c in range(img_cols):
+            img[:,
+            (resolution * r): (resolution * (r + 1)),
+            (resolution * (c % 10)): (resolution * ((c % 10) + 1))
+            ] = img_array[r, c]
+
+    img = (img * 127.5 + 127.5).astype(np.uint8)
+    if (img.shape[0] == 1):
+        img = img[0]
+    else:
+        img = np.rollaxis(img, 0, 3)
+
+    if show:
+        try:
+            cv2_imshow(img)
+        except Exception as e:
+            print('[show fail] ', str(e))
+    if fname:
+        Image.fromarray(img).save(fname)
 
 def load_classifier(rst=256):
     json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
@@ -80,34 +117,6 @@ def save_ds(imgs, rst, opt):
 def load_ds(rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
     return pickle_load(path)
-
-def save_image_array(img_array, fname=None, show=None):
-    channels = img_array.shape[2]
-    resolution = img_array.shape[-1]
-    img_rows = img_array.shape[0]
-    img_cols = img_array.shape[1]
-
-    img = np.full([channels, resolution * img_rows, resolution * img_cols], 0.0)
-    for r in range(img_rows):
-        for c in range(img_cols):
-            img[:,
-            (resolution * r): (resolution * (r + 1)),
-            (resolution * (c % 10)): (resolution * ((c % 10) + 1))
-            ] = img_array[r, c]
-
-    img = (img * 127.5 + 127.5).astype(np.uint8)
-    if (img.shape[0] == 1):
-        img = img[0]
-    else:
-        img = np.rollaxis(img, 0, 3)
-
-    if show:
-        try:
-            cv2_imshow(img)
-        except Exception as e:
-            print('[show fail] ', str(e))
-    if fname:
-        Image.fromarray(img).save(fname)
 
 def get_img(path, rst):
     img = cv2.imread(path)
@@ -188,7 +197,14 @@ class BatchGenerator:
     TRAIN = 1
     TEST = 0
 
-    def __init__(self, data_src, batch_size=5, dataset='MNIST', rst=64, prune_classes=None):
+    def __init__(
+        self,
+        data_src,
+        batch_size=5,
+        dataset='MNIST',
+        rst=64,
+        prune_classes=None,
+    ):
         self.batch_size = batch_size
         self.data_src = data_src
         if self.data_src == self.TEST:
@@ -204,7 +220,7 @@ class BatchGenerator:
         self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
-        self.dataset_x = np.expand_dims(self.dataset_x, axis=1)
+        self.dataset_x = np.expand_dims(self.dataset_x, axis = -1)
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
@@ -320,15 +336,6 @@ class BalancingGAN:
         plt.legend()
         plt.show()
 
-    def perceptual_loss(self, y, y_pred):
-        feature_y = self.feature_model.predict(y)
-        feature_y_pred = self.feature_model.predict(y_pred)
-        # print(y)
-        # print(feature_y)
-        return K.mean(
-            K.abs(K.constant(feature_y - feature_y_pred))
-        )
-
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
         channels = self.channels
@@ -338,7 +345,7 @@ class BalancingGAN:
         cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
         cnn.add(BatchNormalization())
         cnn.add(LeakyReLU())
-        cnn.add(Reshape((init_channels, init_resolution, init_resolution)))
+        cnn.add(Reshape((init_resolution, init_resolution, init_channels)))
        
         crt_res = init_resolution
         # upsample
@@ -348,8 +355,6 @@ class BalancingGAN:
             cnn.add(Conv2DTranspose(
                 init_channels, kernel_size = 5, strides = 2, padding='same'))
             # cnn.add(BatchNormalization())
-            if i % 2 == 0:
-                cnn.add(GaussianNoise(0.01))
             cnn.add(LeakyReLU(alpha=0.02))
             init_channels //= 2
             crt_res = crt_res * 2
@@ -359,23 +364,21 @@ class BalancingGAN:
                     1, kernel_size = 5,
                     strides = 2, padding='same',
                     activation='tanh'))
-        # cnn.add(BatchNormalization())
-        # cnn.add(LeakyReLU(alpha=0.02))
-        # cnn.add(Conv2D(1, kernel_size=5, strides = 1, padding='same', activation='tanh'))
-        # cnn.add(Activation('tanh'))
+
         latent = Input(shape=(latent_size, ))
 
         fake_image_from_latent = cnn(latent)
-        self.generator = Model(inputs=latent, outputs=fake_image_from_latent)
+        self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
 
-    def _build_common_encoder(self, image, min_latent_res=8):
+     def _build_common_encoder(self, image, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
 
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),input_shape=(channels, resolution, resolution)))
+        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),
+        input_shape=(resolution, resolution,channels)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
@@ -397,7 +400,7 @@ class BalancingGAN:
     def build_reconstructor(self, latent_size, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(channels, resolution, resolution))
+        image = Input(shape=(resolution, resolution,channels))
         features = self._build_common_encoder(image, min_latent_res)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
@@ -406,7 +409,7 @@ class BalancingGAN:
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(channels, resolution, resolution))
+        image = Input(shape=(resolution, resolution,channels))
         features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
@@ -414,6 +417,7 @@ class BalancingGAN:
             self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
         )(features)
         self.discriminator = Model(inputs=image, outputs=aux)
+
 
     def generate_from_latent(self, latent):
         res = self.generator(latent)
@@ -437,11 +441,11 @@ class BalancingGAN:
         return self.discriminator(image)
 
     def __init__(self, classes, target_class_id,
-                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
-                 # No relevant difference noted
-                 dratio_mode="uniform", gratio_mode="uniform",
-                 adam_lr=0.00005, latent_size=100,
-                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
+                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
+                # No relevant difference noted
+                dratio_mode="uniform", gratio_mode="uniform",
+                adam_lr=0.00005, latent_size=100,
+                res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
         self.classes = classes
@@ -449,24 +453,10 @@ class BalancingGAN:
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
-        self.channels = image_shape[0]
-        self.resolution = image_shape[1]
-        if self.resolution != image_shape[2]:
-            print("Error: only squared images currently supported by balancingGAN")
-            exit(1)
+        self.channels = image_shape[-1]
+        self.resolution = image_shape[0]
 
         self.min_latent_res = min_latent_res
-        self.classifier = load_classifier(self.resolution)
-        self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
-            metrics=['accuracy'])
-        self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
-
-        # # 13 is flatten
-        # print(self.classifier.layers[17].get_config())
-        # self.feature_model = Model(inputs = self.classifier.input,
-        #                       outputs=self.classifier.layers[17].output)
-
-
         # Initialize learning variables
         self.adam_lr = adam_lr 
         self.adam_beta_1 = 0.5
@@ -480,7 +470,6 @@ class BalancingGAN:
         self.build_generator(latent_size, init_resolution=min_latent_res)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            # loss=self.perceptual_loss
             loss='sparse_categorical_crossentropy'
         )
 
@@ -509,12 +498,15 @@ class BalancingGAN:
         self.generator.trainable = True
         aux = self.discriminate(fake)
 
-        self.combined = Model(inputs=latent_gen, outputs=aux)
+        self.combined = Model(
+            inputs=latent_gen,
+            outputs=aux,
+            name = 'Combined'
+        )
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            # loss=self.perceptual_loss
             loss='sparse_categorical_crossentropy'
         )
 
@@ -523,15 +515,30 @@ class BalancingGAN:
         self.generator.trainable = True
         self.reconstructor.trainable = True
 
-        img_for_reconstructor = Input(shape=(self.channels, self.resolution, self.resolution,))
+        img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
         img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
-        self.autoenc_0 = Model(inputs=img_for_reconstructor, outputs=img_reconstruct)
+        self.autoenc_0 = Model(
+            inputs=img_for_reconstructor,
+            outputs=img_reconstruct,
+            name = 'autoencoder'
+        )
         self.autoenc_0.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
         )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
+        all_labels = np.full(samples, 0)
+        splited = np.array_split(all_labels, self.nclasses)
+        all_labels = np.concatenate(
+            [
+                np.full(splited[classid].shape[0], classid) \
+                for classid in range(self.nclasses)
+            ]
+        )
+        np.random.shuffle(all_labels)
+        return all_labels
+
         distribution = self.class_uratio
         if target_distribution == "d":
             distribution = self.class_dratio
@@ -566,7 +573,8 @@ class BalancingGAN:
 
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
-
+            
+            X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
@@ -575,6 +583,7 @@ class BalancingGAN:
             sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
+            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
             loss, acc = self.combined.train_on_batch(latent_gen, sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
@@ -586,6 +595,11 @@ class BalancingGAN:
             np.mean(np.array(epoch_disc_acc), axis=0),
             np.mean(np.array(epoch_gen_acc), axis=0),
         )
+
+    def shuffle_data(self, data_x, data_y):
+        rd_idx = np.arange(data_x.shape[0])
+        np.random.shuffle(rd_idx)
+        return data_x[rd_idx], data_y[rd_idx]
 
     def _set_class_ratios(self):
         self.class_dratio = np.full(self.nclasses, 0.0)
@@ -758,7 +772,31 @@ class BalancingGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
-        pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
+        # pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
+
+    def evaluate_d(self, test_x, test_y):
+        loss, acc  = self.discriminator.evaluate(test_x, test_y)
+        y_pre = self.discriminator.predict(test_x)
+        print(y_pre)
+        y_pre = np.argmax(y_pre, axis=1)
+        test_y = np.argmax(test_y, axis=1)
+        print('ACC: {}%'.format(acc))
+        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+        plt.figure()
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plt.show()
+
+    def evaluate_g(self, test_x, test_y):
+        loss, acc  = self.combined.evaluate(test_x, test_y)
+        y_pre = self.combined.predict(test_x)
+        print(y_pre)
+        y_pre = np.argmax(y_pre, axis=1)
+        test_y = np.argmax(test_y, axis=1)
+        print('ACC: {}%'.format(acc))
+        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+        plt.figure()
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plt.show()
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
@@ -805,10 +843,7 @@ class BalancingGAN:
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-            shape = img_samples.shape
-            img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-
-            save_image_array(img_samples, None, True)
+            show_samples(img_samples)
 
             # Train
             for e in range(start_e, epochs):
@@ -825,14 +860,14 @@ class BalancingGAN:
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
                     latent_gen, verbose=False)
-            
+
                 X = np.concatenate( (bg_test.dataset_x, generated_images) )
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
-            
+
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
-            
+
                 # make new latent
                 sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
@@ -841,7 +876,17 @@ class BalancingGAN:
                     latent_gen,
                     sampled_labels, verbose=False)
 
-                # generate an epoch report on performance
+                if e % 5 == 0:
+                    print('Evaluate D')
+                    self.evaluate_d(support_images, X, aux_y)
+                    print('Evaluate G')
+                    self.evaluate_g(support_images_g, latent_gen, test_y)
+
+
+                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
+                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
+                    datetime.datetime.now() - start_time
+                ))
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
@@ -851,10 +896,6 @@ class BalancingGAN:
                 self.train_history['gen_acc'].append(train_gen_acc)
                 self.test_history['disc_acc'].append(test_disc_acc)
                 self.test_history['gen_acc'].append(test_gen_acc)
-                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
-                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
-                    datetime.datetime.now() - start_time
-                ))
                 # self.plot_his()
 
                 # Save sample images
@@ -876,27 +917,12 @@ class BalancingGAN:
                     self.plot_acc_his()
                     self.backup_point(e)
                     crt_c = 0
-                    sample_size = 700
-                    labels = np.zeros(sample_size)
-                    img_samples = self.generate_samples(crt_c, sample_size, bg_train)
-                    five_imgs = img_samples[:5]
+                    img_samples = self.generate_samples(crt_c, 5, bg_train)
                     for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, sample_size, bg_train)
+                        new_samples = self.generate_samples(crt_c, 5, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
-                        labels = np.concatenate((np.ones(sample_size), labels), axis=0)
-                        five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
                     
-                    labels = np_utils.to_categorical(labels, self.nclasses)
-                    img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
-                    _, accuracy = self.classifier.evaluate(img_samples, labels)
-
-                    self.classifier_acc.append(accuracy)
-
-                    print('classifier accuracy: {:.2f}%'.format(accuracy*100))
-                    self.plot_classifier_acc()
-                    # shape = img_samples.shape
-                    # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-                    save_image_array(five_imgs, None, True)
+                    show_samples(img_samples)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
