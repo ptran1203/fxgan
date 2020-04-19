@@ -324,12 +324,16 @@ class BatchGenerator:
         print('Query size: ', self.query_x.shape[0])
         print('Support size: ', self.support_x.shape[0])
 
-    def merge_support_images(self, support_fakes ,repeats = None):
+    def merge_support_images(self, support_fakes ,repeats = None, is_d = False):
         if repeats is None:
             repeats = self.batch_size
-        imgs = np.concatenate((self.support_x, support_fakes, np.zeros(
-            (1,64,64,1)
-        )))
+
+        if is_d:
+            imgs = np.concatenate((self.support_x, support_fakes))
+        else:
+            imgs = np.concatenate((self.support_x, support_fakes, np.zeros(
+                (1,64,64,1)
+            )))
         imgs = np.expand_dims(imgs, axis = 0)
         return np.repeat(
                     imgs, repeats, axis= 0
