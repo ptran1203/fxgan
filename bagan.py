@@ -41,6 +41,7 @@ DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
+
 def save_image_array(img_array, fname=None, show=None):
         # convert 1 channel to 3 channels
         print(img_array.shape)
@@ -72,6 +73,14 @@ def save_image_array(img_array, fname=None, show=None):
                 Image.fromarray(img).save(fname)
             except Exception as e:
                 print('Save image failed', str(e))
+
+def show_samples(img_array):
+    shape = img_array.shape
+    img_samples = img_array.reshape(
+        (-1, shape[-4], shape[-3], shape[-2], shape[-1])
+    )
+    save_image_array(img_samples, None, True)
+
 
 def load_classifier(rst=256):
     json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
@@ -353,9 +362,7 @@ class BatchGenerator:
         self.support_x = train_x[s_idx]
         self.support_y = train_y[s_idx]
 
-        shape = self.support_x.shape
-        img_samples = self.support_x.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-        save_image_array(img_samples, None, True)
+        show_samples(img_samples)
 
         print('Query size: ', self.query_x.shape[0])
         print('Support size: ', self.support_x.shape[0])
@@ -883,9 +890,7 @@ class BalancingGAN:
                     self.generate_latent([0,0,0,1,1]), verbose=False)
         print('Init support fakes ', self.support_fakes.shape[0])
 
-        shape = self.support_fakes.shape
-        img_samples = self.support_fakes.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-        save_image_array(img_samples, None, True)
+        show_samples(self.support_fakes)
 
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
@@ -992,10 +997,7 @@ class BalancingGAN:
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-            shape = img_samples.shape
-            img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-
-            save_image_array(img_samples, None, True)
+            show_samples(img_samples)
 
             # Train
             for e in range(start_e, epochs):
@@ -1093,9 +1095,7 @@ class BalancingGAN:
                         new_samples = self.generate_samples(crt_c, 5, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
                     
-                    shape = img_samples.shape
-                    img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-                    save_image_array(img_samples, None, True)
+                    show_samples(img_samples)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
