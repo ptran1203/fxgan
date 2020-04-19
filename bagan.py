@@ -628,10 +628,10 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        aux = self.discriminate(support_images ,fake)
+        aux = self.discriminator([support_images, images])
 
         self.combined = Model(
-            inputs=[latent_gen, support_images],
+            inputs=[support_images, latent_gen],
             outputs=aux,
             name = 'Combined'
         )
@@ -723,8 +723,9 @@ class BalancingGAN:
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             sampled_labels = np_utils.to_categorical(sampled_labels, self.nclasses + 1)
+
             latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
-            loss, acc = self.combined.train_on_batch([latent_gen, support_images], sampled_labels)
+            loss, acc = self.combined.train_on_batch([support_images, latent_gen], sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
@@ -923,18 +924,24 @@ class BalancingGAN:
         pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def evaluate_d(self, support_x, test_x, test_y):
+        loss, acc  = self.discriminator.evaluate([support_x, test_x], test_y)
         y_pre = self.discriminator.predict([support_x, test_x])
+        print(y_pre)
         y_pre = np.argmax(y_pre, axis=1)
         test_y = np.argmax(test_y, axis=1)
+        print('ACC: {}%'.format(acc))
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
     def evaluate_g(self, support_x, test_x, test_y):
-        y_pre = self.combined.predict([test_x, support_x])
+        loss, acc  = self.combined.evaluate([support_x, test_x], test_y)
+        y_pre = self.combined.predict([support_x, test_x])
+        print(y_pre)
         y_pre = np.argmax(y_pre, axis=1)
         test_y = np.argmax(test_y, axis=1)
+        print('ACC: {}%'.format(acc))
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
@@ -1034,7 +1041,7 @@ class BalancingGAN:
                         self.nclasses + 1
                     )
                 test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    [latent_gen, support_images_g],
+                    [support_images_g, latent_gen],
                     test_y, verbose=False)
 
                 if e % 5 == 0:
