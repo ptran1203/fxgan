@@ -396,7 +396,7 @@ class BalancingGAN:
         cnn.add(Dropout(0.3))
 
         size = 128
-        while cnn.output_shape[-1] > min_latent_res:
+        while cnn.output_shape[1] > min_latent_res:
             cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
             # cnn.add(BatchNormalization())
             cnn.add(LeakyReLU(alpha=0.2))
@@ -893,7 +893,7 @@ class BalancingGAN:
                     print('Evaluate D')
                     self.evaluate_d(X, aux_y)
                     print('Evaluate G')
-                    self.evaluate_g(latent_gen, test_y)
+                    self.evaluate_g(latent_gen, sampled_labels)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
