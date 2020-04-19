@@ -43,32 +43,36 @@ CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
 
 def save_image_array(img_array, fname=None, show=None):
-    channels = img_array.shape[2]
-    resolution = img_array.shape[-1]
-    img_rows = img_array.shape[0]
-    img_cols = img_array.shape[1]
+        # convert 1 channel to 3 channels
+        print(img_array.shape)
+        channels = img_array.shape[-1]
+        resolution = img_array.shape[2]
+        img_rows = img_array.shape[0]
+        img_cols = img_array.shape[1]
 
-    img = np.full([channels, resolution * img_rows, resolution * img_cols], 0.0)
-    for r in range(img_rows):
-        for c in range(img_cols):
-            img[:,
-            (resolution * r): (resolution * (r + 1)),
-            (resolution * (c % 10)): (resolution * ((c % 10) + 1))
-            ] = img_array[r, c]
+        img = np.full([resolution * img_rows, resolution * img_cols, channels], 0.0)
+        for r in range(img_rows):
+            for c in range(img_cols):
+                img[
+                (resolution * r): (resolution * (r + 1)),
+                (resolution * (c % 10)): (resolution * ((c % 10) + 1)),
+                :] = img_array[r, c]
 
-    img = (img * 127.5 + 127.5).astype(np.uint8)
-    if (img.shape[0] == 1):
-        img = img[0]
-    else:
-        img = np.rollaxis(img, 0, 3)
-
-    if show:
-        try:
-            cv2_imshow(img)
-        except Exception as e:
-            print('[show fail] ', str(e))
-    if fname:
-        Image.fromarray(img).save(fname)
+        img = (img * 127.5 + 127.5).astype(np.uint8)
+        if show:
+            try:
+                cv2_imshow(img)
+            except Exception as e:
+                fname = '/content/drive/My Drive/bagan/result/model_{}/img_{}.png'.format(
+                    resolution,
+                    datetime.datetime.now().strftime("%m/%d/%Y-%H%M%S")
+                )
+                print('[show fail] ', str(e))
+        if fname:
+            try:
+                Image.fromarray(img).save(fname)
+            except Exception as e:
+                print('Save image failed', str(e))
 
 
 def show_samples(img_array):
