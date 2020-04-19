@@ -343,11 +343,8 @@ class BatchGenerator:
             idx = np.where(train_y == i)[0]
             np.random.shuffle(idx)
             qidx = idx[self.k_shot: query_size + self.k_shot]
-            
-            if i == self.c_way - 1:
-                idxs.append(idx[:self.k_shot + 1])
-            else:
-                idxs.append(idx[:self.k_shot])
+
+            idxs.append(idx[:self.k_shot])
             
             qidxs.append(qidx)
 
@@ -368,9 +365,7 @@ class BatchGenerator:
         if repeats is None:
             repeats = self.batch_size
 
-        imgs = np.concatenate((self.support_x, support_fakes, np.zeros(
-            (1,64,64,1)
-        )))
+        imgs = np.concatenate((self.support_x, support_fakes))
         imgs = np.expand_dims(imgs, axis = 0)
         return np.repeat(
                     imgs, repeats, axis= 0
@@ -503,7 +498,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
         support_images = Input(shape = (
-            self.c_way * self.k_shot + 1,
+            self.c_way * self.k_shot,
             self.resolution,
             self.resolution,
             self.channels,
@@ -516,23 +511,79 @@ class BalancingGAN:
 
         features = embedding_module(images)
         support_features = [[] for i in range(self.c_way)]
-
-        idx = 0
-        for classid in range(self.c_way):
-            for _ in range(self.k_shot):
-                support_features[classid].append(
-                    embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(support_images))
+        
+        support_features[0].append(
+                    embedding_module(Lambda(lambda x: x[:,0,:,:,:])(support_images))
                 )
-                idx += 1
+        support_features[0].append(
+                    embedding_module(Lambda(lambda x: x[:,1,:,:,:])(support_images))
+                )
+        support_features[0].append(
+                    embedding_module(Lambda(lambda x: x[:,2,:,:,:])(support_images))
+                )
+        support_features[0].append(
+                    embedding_module(Lambda(lambda x: x[:,3,:,:,:])(support_images))
+                )
+        support_features[0].append(
+                    embedding_module(Lambda(lambda x: x[:,4,:,:,:])(support_images))
+                )
+        
+        support_features[1].append(
+                    embedding_module(Lambda(lambda x: x[:,5,:,:,:])(support_images))
+                )
+        support_features[1].append(
+                    embedding_module(Lambda(lambda x: x[:,6,:,:,:])(support_images))
+                )
+        support_features[1].append(
+                    embedding_module(Lambda(lambda x: x[:,7,:,:,:])(support_images))
+                )
+        support_features[1].append(
+                    embedding_module(Lambda(lambda x: x[:,8,:,:,:])(support_images))
+                )
+        support_features[1].append(
+                    embedding_module(Lambda(lambda x: x[:,9,:,:,:])(support_images))
+                )
+        support_features[2].append(
+                    embedding_module(Lambda(lambda x: x[:,10,:,:,:])(support_images))
+                )
+        support_features[2].append(
+                    embedding_module(Lambda(lambda x: x[:,11,:,:,:])(support_images))
+                )
+        support_features[2].append(
+                    embedding_module(Lambda(lambda x: x[:,12,:,:,:])(support_images))
+                )
+        support_features[2].append(
+                    embedding_module(Lambda(lambda x: x[:,13,:,:,:])(support_images))
+                )
+        support_features[2].append(
+                    embedding_module(Lambda(lambda x: x[:,14,:,:,:])(support_images))
+                )
+        # idx = 0
+        # for classid in range(self.c_way):
+        #     for _ in range(self.k_shot):
+        #         support_features[classid].append(
+        #             embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(support_images))
+        #         )
+        #         idx += 1
 
-        relation_scores = []
+        # relation_scores = []
 
-        for classid in range(self.c_way):
-            sfeatures = Average()(support_features[classid])
-            concat_features = Concatenate()([sfeatures, features])
-            relation_scores.append(relation_module(concat_features))
+        # for classid in range(self.c_way):
+        #     sfeatures = Average()(support_features[classid])
+        #     concat_features = Concatenate()([sfeatures, features])
+        #     relation_scores.append(relation_module(concat_features))
 
-        outputs = Concatenate()(relation_scores)
+        outputs = Concatenate()([
+            relation_module(Concatenate()(
+                [Average()(support_features[0]), features]
+            ))
+            relation_module(Concatenate()(
+                [Average()(support_features[1]), features]
+            ))
+            relation_module(Concatenate()(
+                [Average()(support_features[2]), features]
+            ))
+        ])
 
         self.discriminator = Model(
             inputs = [support_images, images],
@@ -582,10 +633,10 @@ class BalancingGAN:
         self.min_latent_res = min_latent_res
 
         self.min_latent_res = min_latent_res
-        self.classifier = load_classifier(self.resolution)
-        self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
-            metrics=['accuracy'])
-        self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
+        # self.classifier = load_classifier(self.resolution)
+        # self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
+        #     metrics=['accuracy'])
+        # self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
 
         # Initialize learning variables
         self.adam_lr = adam_lr 
@@ -605,7 +656,7 @@ class BalancingGAN:
 
         latent_gen = Input(shape=(latent_size, ))
         support_images = Input(shape = (
-            self.c_way * self.k_shot + 1,
+            self.c_way * self.k_shot,
             self.resolution,
             self.resolution,
             self.channels,
@@ -923,7 +974,7 @@ class BalancingGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
-        pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
+        # pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def evaluate_d(self, support_x, test_x, test_y):
         loss, acc  = self.discriminator.evaluate([support_x, test_x], test_y)

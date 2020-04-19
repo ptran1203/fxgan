@@ -17,12 +17,6 @@ from keras.layers import multiply as kmultiply
 from keras.layers import add as kadd
 from keras.utils import np_utils
 
-from keras.utils import np_utils
-import sklearn.metrics as metrics
-from sklearn.model_selection import train_test_split
-from mlxtend.plotting import plot_confusion_matrix
-import matplotlib.pyplot as plt
-
 import os
 import sys
 import re
@@ -30,6 +24,7 @@ import numpy as np
 import datetime
 import pickle
 import cv2
+import matplotlib.pyplot as plt
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
@@ -765,15 +760,6 @@ class BalancingGAN:
         self.discriminator.save(discriminator_fname)
         pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
-    def evaluate_d(self, test_x, test_y):
-        y_pre = self.discriminator.predict(test_x)
-        y_pre = np.argmax(y_pre, axis=1)
-        test_y = np.argmax(test_y, axis=1)
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
-        plt.show()
-
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
             self.autoenc_epochs = 100
@@ -846,8 +832,6 @@ class BalancingGAN:
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
-
-                self.evaluate_d(X, aux_y)
             
                 # make new latent
                 sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
