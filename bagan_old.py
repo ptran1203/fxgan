@@ -891,9 +891,9 @@ class BalancingGAN:
 
                 if e % 5 == 0:
                     print('Evaluate D')
-                    self.evaluate_d(support_images, X, aux_y)
+                    self.evaluate_d(X, aux_y)
                     print('Evaluate G')
-                    self.evaluate_g(support_images_g, latent_gen, test_y)
+                    self.evaluate_g(latent_gen, test_y)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
