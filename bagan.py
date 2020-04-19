@@ -466,7 +466,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
         support_images = Input(shape = (
-            self.c_way * self.k_shot,
+            self.c_way * self.k_shot + 1,
             self.resolution,
             self.resolution,
             self.channels,
