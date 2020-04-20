@@ -444,16 +444,18 @@ class BalancingGAN:
     def _embedding_module(self):
         model = Sequential()
 
-        model.add(Conv2D(filters=64, kernel_size=(5, 5), strides=(2, 2)))
-        model.add(LeakyReLU())
+        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Activation('relu'))
         model.add(BatchNormalization())
         # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
     
-        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(2, 2)))
-        model.add(LeakyReLU())
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1)))
+        model.add(Activation('relu'))
         model.add(BatchNormalization())
+        # model.add(MaxPooling2D())
         model.add(Dropout(0.3))
+
 
         model.name = 'embedding_module'
         return model
@@ -461,25 +463,26 @@ class BalancingGAN:
     def _relation_module(self):
         model = Sequential()
 
+        model.add(Conv2D(filters=64,
+                        kernel_size=(3, 3),
+                        strides=(1, 1),
+                        padding='same',
+                        activation='relu'))
+        model.add(BatchNormalization())
+        model.add(MaxPooling2D())
+
         model.add(Conv2D(filters=32,
                         kernel_size=(3, 3),
-                        strides=(2, 2),
-                        padding='same'))
-
+                        strides=(1, 1),
+                        padding='same',
+                        activation='relu'))
         model.add(BatchNormalization())
-        model.add(LeakyReLU())
-
-        model.add(Conv2D(filters=32,
-                        kernel_size=(3, 3),
-                        strides=(2, 2),
-                        padding='same'))
-        model.add(BatchNormalization())
-        model.add(LeakyReLU())
+        # model.add(MaxPooling2D())
 
         model.add(Flatten())
-        model.add(Dropout(0.4))
+        model.add(Dropout(0.2))
 
-        # model.add(Dense(8, activation='relu' ))
+        model.add(Dense(8, activation='relu' ))
         model.add(Dense(1, activation='sigmoid'))
         model.name = 'relation_module'
         return model
