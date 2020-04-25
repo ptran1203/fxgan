@@ -600,7 +600,7 @@ class BalancingGAN:
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
-            loss, acc = self.combined.train_on_batch(image_batch, label_batch)
+            loss, acc = self.combined.train_on_batch(image_batch, label)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
@@ -885,14 +885,14 @@ class BalancingGAN:
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
 
                 test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    latent_gen,
-                    sampled_labels, verbose=False)
+                    bg_test.dataset_x,
+                    bg_test.dataset_y, verbose=False)
 
                 if e % 5 == 0:
                     print('Evaluate D')
                     self.evaluate_d(X, aux_y)
                     print('Evaluate G')
-                    self.evaluate_g(latent_gen, sampled_labels)
+                    self.evaluate_g(bg_test.dataset_x, bg_test.dataset_y)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
