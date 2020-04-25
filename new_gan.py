@@ -510,7 +510,7 @@ class BalancingGAN:
         )
 
         self.discriminator.trainable = False
-        self.reconstructor.trainable = False
+        self.reconstructor.trainable = True
         self.generator.trainable = True
         aux = self.discriminate(fake)
 
@@ -908,13 +908,16 @@ class BalancingGAN:
 
                 # Save sample images
                 if e % 15 == 0:
-                    save_image_array(
-                        self.generator.predict(
+                    show_samples(self.generator.predict(
                             self.reconstructor.predict(bg_test.dataset_x[:10])
-                        ),
-                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
-                        show=True
-                    )
+                        ))
+                    # save_image_array(
+                    #     self.generator.predict(
+                    #         self.reconstructor.predict(bg_test.dataset_x[:10])
+                    #     ),
+                    #     '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
+                    #     show=True
+                    # )
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
                 if e % 10 == 5:
