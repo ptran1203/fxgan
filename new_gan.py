@@ -916,7 +916,7 @@ class BalancingGAN:
                 if e % 15 == 0:
                     save_image_array(
                         self.generator.predict(
-                            self.reconstructor.predict(bg_test.dataset_x)
+                            self.reconstructor.predict(bg_test.dataset_x[:10])
                         ),
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
@@ -930,7 +930,7 @@ class BalancingGAN:
                     crt_c = 0
 
                     show_samples(self.generator.predict(
-                            self.reconstructor.predict(bg_test.dataset_x)
+                            self.reconstructor.predict(bg_test.dataset_x[:10])
                         ))
             self.trained = True
 
