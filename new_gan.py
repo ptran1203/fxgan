@@ -583,9 +583,11 @@ class BalancingGAN:
     
             # sample some labels from p_c, then latent and images
             sampled_labels = self._biased_sample_labels(fake_size, "d")
-            latent_gen = self.generate_latent(sampled_labels, bg_train)
+            # latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            generated_images = self.generator.predict(latent_gen, verbose=0)
+            generated_images = self.generator.predict(
+                self.reconstructor.predict(image_batch[:fake_size]), verbose=0
+            )
 
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
@@ -596,10 +598,10 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
-            latent_gen = self.generate_latent(sampled_labels, bg_train)
+            # sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
+            # latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
+            # latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
             loss, acc = self.combined.train_on_batch(image_batch, label_batch)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
@@ -837,7 +839,7 @@ class BalancingGAN:
                             act_img_samples
                         )
                     ),
-                    self.generate_samples(crt_c, 10, bg_train)
+                    # self.generate_samples(crt_c, 10, bg_train)
                 ]
             ])
             for crt_c in range(1, self.nclasses):
@@ -850,7 +852,7 @@ class BalancingGAN:
                                 act_img_samples
                             )
                         ),
-                        self.generate_samples(crt_c, 10, bg_train)
+                        # self.generate_samples(crt_c, 10, bg_train)
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -912,13 +914,10 @@ class BalancingGAN:
 
                 # Save sample images
                 if e % 15 == 0:
-                    img_samples = np.array([
-                        self.generate_samples(c, 10, bg_train)
-                        for c in range(0,self.nclasses)
-                    ])
-
                     save_image_array(
-                        img_samples,
+                        self.generator.predict(
+                            self.reconstructor.predict(bg_test.dataset_x)
+                        ),
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
                     )
@@ -929,12 +928,10 @@ class BalancingGAN:
                     self.plot_acc_his()
                     # self.backup_point(e)
                     crt_c = 0
-                    img_samples = self.generate_samples(crt_c, 5, bg_train)
-                    for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, 5, bg_train)
-                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
-                    
-                    show_samples(img_samples)
+
+                    show_samples(self.generator.predict(
+                            self.reconstructor.predict(bg_test.dataset_x)
+                        ))
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
