@@ -600,7 +600,7 @@ class BalancingGAN:
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
-            loss, acc = self.combined.train_on_batch(image_batch, label)
+            loss, acc = self.combined.train_on_batch(image_batch, label_batch)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
