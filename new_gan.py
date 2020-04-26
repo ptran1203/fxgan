@@ -539,7 +539,8 @@ class BalancingGAN:
 
         self.combined = Model(
             inputs=[latent_gen, real_images],
-            outputs=[aux, fake_features],
+            # outputs=[aux, fake_features],
+            outputs=fake_features,
             name = 'Combined'
         )
 
@@ -550,6 +551,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             # loss='sparse_categorical_crossentropy'
+            loss = 'mse'
             loss= ['sparse_categorical_crossentropy', 'mse']
         )
 
@@ -632,7 +634,9 @@ class BalancingGAN:
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
                 [latent_gen, real_images],
-                [sampled_labels, real_features]
+
+                # [sampled_labels, real_features]
+                real_features
             )
             epoch_gen_loss.append(loss)
             # epoch_gen_acc.append(acc)
