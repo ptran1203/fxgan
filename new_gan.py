@@ -454,12 +454,13 @@ class BalancingGAN:
         return self.discriminator(image)
 
     def features_from_d(self, image):
-        return self.discriminator.layers[-1](image)
+        return self.features_from_d_model(image)
 
     def build_features_from_d_model(self):
-        model_output = self.discriminator.get_output_at(-1)
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.discriminator.layers[-2](image)
         self.features_from_d_model = Model(
-            inputs = Input(shape=(self.resolution, self.resolution, self.channels)),
+            inputs = image,
             output = model_output
         )
 
@@ -562,16 +563,16 @@ class BalancingGAN:
         return K.abs(K.mean(y_pre), K.mean(y))
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
-        all_labels = np.full(samples, 0)
-        splited = np.array_split(all_labels, self.nclasses)
-        all_labels = np.concatenate(
-            [
-                np.full(splited[classid].shape[0], classid) \
-                for classid in range(self.nclasses)
-            ]
-        )
-        np.random.shuffle(all_labels)
-        return all_labels
+        # all_labels = np.full(samples, 0)
+        # splited = np.array_split(all_labels, self.nclasses)
+        # all_labels = np.concatenate(
+        #     [
+        #         np.full(splited[classid].shape[0], classid) \
+        #         for classid in range(self.nclasses)
+        #     ]
+        # )
+        # np.random.shuffle(all_labels)
+        # return all_labels
 
         distribution = self.class_uratio
         if target_distribution == "d":
@@ -614,7 +615,7 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
+            sampled_labels = self._biased_sample_labels(crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
             latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
