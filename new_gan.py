@@ -454,12 +454,12 @@ class BalancingGAN:
         return self.discriminator(image)
 
     def features_from_d(self, image):
-        return self.discriminator.layers[-2](image)
+        return self.discriminator.layers[-1](image)
 
     def build_features_from_d_model(self):
-        model_output = self.discriminator.layers[-2].output
+        model_output = self.discriminator.get_output_at(-1)
         self.features_from_d_model = Model(
-            inputs = Input(self.resolution, self.resolution, self.channels),
+            inputs = Input(shape=(self.resolution, self.resolution, self.channels)),
             output = model_output
         )
 
@@ -516,6 +516,7 @@ class BalancingGAN:
 
         # Define combined for training generator.
         fake = self.generator(latent_gen)
+        self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
@@ -524,7 +525,6 @@ class BalancingGAN:
 
         fake_features = self.features_from_d(fake)
         # real_features = self.features_from_d(real_images)
-        self.build_features_from_d_model()
 
         self.combined = Model(
             inputs=[latent_gen, real_images],
