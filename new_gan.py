@@ -627,7 +627,7 @@ class BalancingGAN:
                 [sampled_labels, real_features]
             )
             epoch_gen_loss.append(loss)
-            epoch_gen_acc.append(acc)
+            # epoch_gen_acc.append(acc)
 
         # return statistics: generator loss,
         return (
