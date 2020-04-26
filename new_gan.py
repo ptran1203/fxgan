@@ -478,7 +478,8 @@ class BalancingGAN:
                 # No relevant difference noted
                 dratio_mode="uniform", gratio_mode="uniform",
                 adam_lr=0.00005, latent_size=100,
-                res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
+                res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8,
+                g_lr = 0.000005):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
         self.classes = classes
@@ -488,6 +489,7 @@ class BalancingGAN:
         self.res_dir = res_dir
         self.channels = image_shape[-1]
         self.resolution = image_shape[0]
+        self.g_lr = g_lr
 
         self.min_latent_res = min_latent_res
         # Initialize learning variables
@@ -545,7 +547,7 @@ class BalancingGAN:
 
         self.combined.compile(
             optimizer=Adam(
-                lr=self.adam_lr,
+                lr=self.g_lr,
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
