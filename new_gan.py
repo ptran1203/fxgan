@@ -550,8 +550,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             # loss='sparse_categorical_crossentropy'
-            loss = 'mse',
-            # loss= ['sparse_categorical_crossentropy', 'mse']
+            loss= ['sparse_categorical_crossentropy', 'mse']
         )
 
         # Define initializer for autoencoder
