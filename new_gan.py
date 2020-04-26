@@ -456,7 +456,7 @@ class BalancingGAN:
     def features_from_d(self, image):
         return self.features_from_d_model(image)
 
-    def build_latent_encoder(self):
+    def build_latent_encoder():
         resolution = self.resolution
         channels = self.channels
         image = Input(shape=(resolution, resolution,channels))
@@ -526,20 +526,19 @@ class BalancingGAN:
         self.build_latent_encoder()
 
         # Define combined for training generator.
-        fake = self.generator(self.latent_encoder(real_images))
+        fake = self.generator(self.latent_encoder(real_image))
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        self.features_from_d_model.trainable = False
+        self.features_from_d.trainable = False
         aux = self.discriminate(fake)
 
         fake_features = self.features_from_d(fake)
 
         self.combined = Model(
-            # inputs=[latent_gen, real_images],
-            inputs = real_images,
+            inputs=[latent_gen, real_images],
             outputs=[aux, fake_features],
             name = 'Combined'
         )
@@ -632,9 +631,8 @@ class BalancingGAN:
             real_images = image_batch
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
-                # [latent_gen, real_images],
-                real_images,
-                [label_batch, real_features]
+                [latent_gen, real_images],
+                [sampled_labels, real_features]
             )
             epoch_gen_loss.append(loss)
             # epoch_gen_acc.append(acc)
@@ -955,11 +953,7 @@ class BalancingGAN:
                     ])
 
                     save_image_array(
-                        self.generator.predict(
-                            self.reconstructor.predict(
-                                bg_test.dataset_x[:10]
-                            )
-                        ),
+                        img_samples,
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
                     )
@@ -969,17 +963,13 @@ class BalancingGAN:
                     self.plot_loss_his()
                     self.plot_acc_his()
                     # self.backup_point(e)
-                    # crt_c = 0
-                    # img_samples = self.generate_samples(crt_c, 5, bg_train)
-                    # for crt_c in range(1, self.nclasses):
-                    #     new_samples = self.generate_samples(crt_c, 5, bg_train)
-                    #     img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                    crt_c = 0
+                    img_samples = self.generate_samples(crt_c, 5, bg_train)
+                    for crt_c in range(1, self.nclasses):
+                        new_samples = self.generate_samples(crt_c, 5, bg_train)
+                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
                     
-                    show_samples(self.generator.predict(
-                            self.reconstructor.predict(
-                                bg_test.dataset_x[:10]
-                            )
-                        ))
+                    show_samples(img_samples)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
