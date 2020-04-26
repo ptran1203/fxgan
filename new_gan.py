@@ -539,7 +539,7 @@ class BalancingGAN:
 
         self.combined = Model(
             # inputs=[latent_gen, real_images],
-            inputs = real_images
+            inputs = real_images,
             outputs=[aux, fake_features],
             name = 'Combined'
         )
