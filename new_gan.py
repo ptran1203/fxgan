@@ -955,7 +955,11 @@ class BalancingGAN:
                     ])
 
                     save_image_array(
-                        img_samples,
+                        self.generator.predict(
+                            self.reconstructor.predict(
+                                bg_test.dataset_x[:10]
+                            )
+                        ),
                         '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
                         show=True
                     )
@@ -965,13 +969,17 @@ class BalancingGAN:
                     self.plot_loss_his()
                     self.plot_acc_his()
                     # self.backup_point(e)
-                    crt_c = 0
-                    img_samples = self.generate_samples(crt_c, 5, bg_train)
-                    for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, 5, bg_train)
-                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                    # crt_c = 0
+                    # img_samples = self.generate_samples(crt_c, 5, bg_train)
+                    # for crt_c in range(1, self.nclasses):
+                    #     new_samples = self.generate_samples(crt_c, 5, bg_train)
+                    #     img_samples = np.concatenate((img_samples, new_samples), axis=0)
                     
-                    show_samples(img_samples)
+                    show_samples(self.generator.predict(
+                            self.reconstructor.predict(
+                                bg_test.dataset_x[:10]
+                            )
+                        ))
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
