@@ -456,6 +456,15 @@ class BalancingGAN:
     def features_from_d(self, image):
         return self.features_from_d_model(image)
 
+    def build_latent_encoder():
+        resolution = self.resolution
+        channels = self.channels
+        image = Input(shape=(resolution, resolution,channels))
+        features = self._build_common_encoder(image, self.min_latent_res)
+        # Reconstructor specific
+        latent = Dense(100, activation='linear')(features)
+        self.latent_encoder = Model(inputs=image, outputs=latent)
+
     def build_features_from_d_model(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         model_output = self.discriminator.layers[-2](image)
@@ -514,27 +523,32 @@ class BalancingGAN:
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
         )
+        self.build_latent_encoder()
 
         # Define combined for training generator.
-        fake = self.generator(latent_gen)
+        fake = self.generator(self.latent_encoder(real_images))
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
+        self.features_from_d.trainable = False
         aux = self.discriminate(fake)
 
         fake_features = self.features_from_d(fake)
-        # real_features = self.features_from_d(real_images)
 
         self.combined = Model(
-            inputs=[latent_gen, real_images],
+            # inputs=[latent_gen, real_images],
+            inputs = real_images
             outputs=[aux, fake_features],
             name = 'Combined'
         )
 
         self.combined.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            optimizer=Adam(
+                lr=self.adam_lr,
+                beta_1=self.adam_beta_1
+            ),
             metrics=['accuracy'],
             # loss='sparse_categorical_crossentropy'
             loss= ['sparse_categorical_crossentropy', 'mse']
@@ -557,22 +571,17 @@ class BalancingGAN:
             loss='mean_squared_error'
         )
 
-    def generator_loss(y_pre, y):
-        print(y_pre)
-        print(y)
-        return K.abs(K.mean(y_pre), K.mean(y))
-
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
-        # all_labels = np.full(samples, 0)
-        # splited = np.array_split(all_labels, self.nclasses)
-        # all_labels = np.concatenate(
-        #     [
-        #         np.full(splited[classid].shape[0], classid) \
-        #         for classid in range(self.nclasses)
-        #     ]
-        # )
-        # np.random.shuffle(all_labels)
-        # return all_labels
+        all_labels = np.full(samples, 0)
+        splited = np.array_split(all_labels, self.nclasses)
+        all_labels = np.concatenate(
+            [
+                np.full(splited[classid].shape[0], classid) \
+                for classid in range(self.nclasses)
+            ]
+        )
+        np.random.shuffle(all_labels)
+        return all_labels
 
         distribution = self.class_uratio
         if target_distribution == "d":
@@ -623,8 +632,9 @@ class BalancingGAN:
             real_images = image_batch
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
-                [latent_gen, real_images],
-                [sampled_labels, real_features]
+                # [latent_gen, real_images],
+                real_images,
+                [label_batch, real_features]
             )
             epoch_gen_loss.append(loss)
             # epoch_gen_acc.append(acc)
