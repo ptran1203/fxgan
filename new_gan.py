@@ -622,7 +622,7 @@ class BalancingGAN:
 
             real_images = image_batch
             real_features = self.features_from_d_model.predict(real_images)
-            loss, acc = self.combined.train_on_batch(
+            loss = self.combined.train_on_batch(
                 [latent_gen, real_images],
                 [sampled_labels, real_features]
             )
