@@ -453,6 +453,16 @@ class BalancingGAN:
     def discriminate(self, image):
         return self.discriminator(image)
 
+    def features_from_d(self, image):
+        return self.discriminator.layers[-2](image)
+
+    def build_features_from_d_model(self):
+        model_output = self.discriminator.layers[-2].output
+        self.features_from_d_model = Model(
+            inputs = Input(self.resolution, self.resolution, self.channels),
+            output = model_output
+        )
+
     def __init__(self, classes, target_class_id,
                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
                 # No relevant difference noted
@@ -487,7 +497,7 @@ class BalancingGAN:
         )
 
         latent_gen = Input(shape=(latent_size, ))
-        feed_image = Input(shape=(self.resolution, self.resolution, self.channels))
+        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
         # Build discriminator
         self.build_discriminator(min_latent_res=min_latent_res)
@@ -505,25 +515,28 @@ class BalancingGAN:
         )
 
         # Define combined for training generator.
-        fake = self.generator(
-            self.reconstructor(feed_image)
-        )
+        fake = self.generator(latent_gen)
 
         self.discriminator.trainable = False
-        self.reconstructor.trainable = True
+        self.reconstructor.trainable = False
         self.generator.trainable = True
         aux = self.discriminate(fake)
 
+        fake_features = self.features_from_d(fake)
+        # real_features = self.features_from_d(real_images)
+        self.build_features_from_d_model()
+
         self.combined = Model(
-            inputs=feed_image,
-            outputs=aux,
+            inputs=[latent_gen, real_images],
+            outputs=[aux, fake_features],
             name = 'Combined'
         )
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
+            # loss='sparse_categorical_crossentropy'
+            loss= self.generator_loss
         )
 
         # Define initializer for autoencoder
@@ -542,6 +555,11 @@ class BalancingGAN:
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
         )
+
+    def generator_loss(y_pre, y):
+        print(y_pre)
+        print(y)
+        return K.abs(K.mean(y_pre), K.mean(y))
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
         all_labels = np.full(samples, 0)
@@ -583,11 +601,9 @@ class BalancingGAN:
     
             # sample some labels from p_c, then latent and images
             sampled_labels = self._biased_sample_labels(fake_size, "d")
-            # latent_gen = self.generate_latent(sampled_labels, bg_train)
+            latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            generated_images = self.generator.predict(
-                self.reconstructor.predict(image_batch[:fake_size]), verbose=0
-            )
+            generated_images = self.generator.predict(latent_gen, verbose=0)
 
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
@@ -598,11 +614,17 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            # sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
-            # latent_gen = self.generate_latent(sampled_labels, bg_train)
+            sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
+            latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            # latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
-            loss, acc = self.combined.train_on_batch(image_batch, label_batch)
+            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
+
+            real_images = image_batch
+            real_features = self.features_from_d_model.predict(real_images)
+            loss, acc = self.combined.train_on_batch(
+                [latent_gen, real_images],
+                [sampled_labels, real_features]
+            )
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
@@ -839,7 +861,7 @@ class BalancingGAN:
                             act_img_samples
                         )
                     ),
-                    # self.generate_samples(crt_c, 10, bg_train)
+                    self.generate_samples(crt_c, 10, bg_train)
                 ]
             ])
             for crt_c in range(1, self.nclasses):
@@ -852,7 +874,7 @@ class BalancingGAN:
                                 act_img_samples
                             )
                         ),
-                        # self.generate_samples(crt_c, 10, bg_train)
+                        self.generate_samples(crt_c, 10, bg_train)
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -865,30 +887,38 @@ class BalancingGAN:
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
 
+                # Test: # generate a new batch of noise
+                nb_test = bg_test.get_num_samples()
+                fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
+                sampled_labels = self._biased_sample_labels(nb_test, "d")
+                latent_gen = self.generate_latent(sampled_labels, bg_test)
+            
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
-                    self.reconstructor.predict(bg_test.dataset_x),
-                    verbose=False
-                )
+                    latent_gen, verbose=False)
 
-                X = np.concatenate((bg_test.dataset_x, generated_images))
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
+                X = np.concatenate( (bg_test.dataset_x, generated_images) )
+                aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
 
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
 
                 # make new latent
+                sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
+                latent_gen = self.generate_latent(sampled_labels, bg_test)
 
-                test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    bg_test.dataset_x,
-                    bg_test.dataset_y, verbose=False)
+                # test_gen_loss, test_gen_acc = self.combined.evaluate(
+                #     latent_gen,
+                #     sampled_labels, verbose=False)
+
+                test_gen_loss, test_gen_acc = 0,0
 
                 if e % 5 == 0:
                     print('Evaluate D')
                     self.evaluate_d(X, aux_y)
-                    print('Evaluate G')
-                    self.evaluate_g(bg_test.dataset_x, bg_test.dataset_y)
+                    # print('Evaluate G')
+                    # self.evaluate_g(latent_gen, sampled_labels)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
@@ -908,16 +938,16 @@ class BalancingGAN:
 
                 # Save sample images
                 if e % 15 == 0:
-                    show_samples(self.generator.predict(
-                            self.reconstructor.predict(bg_test.dataset_x[:10])
-                        ))
-                    # save_image_array(
-                    #     self.generator.predict(
-                    #         self.reconstructor.predict(bg_test.dataset_x[:10])
-                    #     ),
-                    #     '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
-                    #     show=True
-                    # )
+                    img_samples = np.array([
+                        self.generate_samples(c, 10, bg_train)
+                        for c in range(0,self.nclasses)
+                    ])
+
+                    save_image_array(
+                        img_samples,
+                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
+                        show=True
+                    )
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
                 if e % 10 == 5:
@@ -925,10 +955,12 @@ class BalancingGAN:
                     self.plot_acc_his()
                     # self.backup_point(e)
                     crt_c = 0
-
-                    show_samples(self.generator.predict(
-                            self.reconstructor.predict(bg_test.dataset_x[:10])
-                        ))
+                    img_samples = self.generate_samples(crt_c, 5, bg_train)
+                    for crt_c in range(1, self.nclasses):
+                        new_samples = self.generate_samples(crt_c, 5, bg_train)
+                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                    
+                    show_samples(img_samples)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
