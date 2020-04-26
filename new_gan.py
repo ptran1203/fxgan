@@ -539,8 +539,7 @@ class BalancingGAN:
 
         self.combined = Model(
             inputs=[latent_gen, real_images],
-            # outputs=[aux, fake_features],
-            outputs=fake_features,
+            outputs=[aux, fake_features],
             name = 'Combined'
         )
 
@@ -634,9 +633,7 @@ class BalancingGAN:
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
                 [latent_gen, real_images],
-
-                # [sampled_labels, real_features]
-                real_features
+                [sampled_labels, real_features]
             )
             epoch_gen_loss.append(loss)
             # epoch_gen_acc.append(acc)
@@ -838,10 +835,10 @@ class BalancingGAN:
         plt.show()
 
     def evaluate_g(self, test_x, test_y):
-        loss, acc  = self.combined.evaluate(test_x, test_y)
-        y_pre = self.combined.predict(test_x)
+        loss  = self.combined.evaluate(test_x, test_y)
+        y_pre, _ = self.combined.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
-        print('ACC: {}%'.format(acc))
+        print('ACC: {}%'.format(loss[-1]))
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
@@ -918,7 +915,7 @@ class BalancingGAN:
                     X, aux_y, verbose=False)
 
                 # make new latent
-                sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
+                sampled_labels = self._biased_sample_labels(nb_test, "g")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
 
                 # test_gen_loss, test_gen_acc = self.combined.evaluate(
@@ -931,7 +928,10 @@ class BalancingGAN:
                     print('Evaluate D')
                     self.evaluate_d(X, aux_y)
                     # print('Evaluate G')
-                    # self.evaluate_g(latent_gen, sampled_labels)
+                    real_features = self.features_from_d_model.predict(bg_test.dataset_x)
+                    self.evaluate_g(
+                        [latent_gen, bg_test.dataset_x],
+                        bg_test.dataset_y, real_features)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
