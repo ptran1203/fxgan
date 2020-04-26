@@ -526,7 +526,7 @@ class BalancingGAN:
         self.build_latent_encoder()
 
         # Define combined for training generator.
-        fake = self.generator(self.latent_encoder(real_image))
+        fake = self.generator(latent_gen)
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
