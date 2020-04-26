@@ -456,7 +456,7 @@ class BalancingGAN:
     def features_from_d(self, image):
         return self.features_from_d_model(image)
 
-    def build_latent_encoder():
+    def build_latent_encoder(self):
         resolution = self.resolution
         channels = self.channels
         image = Input(shape=(resolution, resolution,channels))
