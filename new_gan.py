@@ -930,7 +930,7 @@ class BalancingGAN:
                     real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                     self.evaluate_g(
                         [latent_gen, bg_test.dataset_x],
-                        bg_test.dataset_y, real_features)
+                        [bg_test.dataset_y, real_features])
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
