@@ -395,7 +395,7 @@ class BalancingGAN:
             # up_conc = Concatenate(axis=-1, name="upConcatenate{}_1".format(i))([up_conv1, long_connection])
 
             #  Convolutions
-            up_conv2 = Conv(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conc)
+            up_conv2 = Conv(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conv1)
             if batch_norm:
                 up_conv2 = BatchNormalization(name="upBN{}_1".format(i))(up_conv2)
             up_act1 = Activation(activation, name="upAct{}_1".format(i))(up_conv2)
@@ -405,7 +405,7 @@ class BalancingGAN:
                 up_conv2 = BatchNormalization(name="upBN{}_2".format(i))(up_conv2)
 
             # Residual/Skip connection
-            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="upIdentity{}_1".format(i))(up_conc)
+            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="upIdentity{}_1".format(i))(up_conv1)
 
             resconnection = Add(name="upAdd{}_1".format(i))([res, up_conv2])
 
