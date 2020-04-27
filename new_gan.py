@@ -410,7 +410,7 @@ class BalancingGAN:
         # Final convolution
         output = Conv(n_class, 1, padding='same', activation=final_activation, name='output')(x)
 
-        self.generator = Model(latent, outputs=output, name='Res-UNet')
+        self.generator = Model(inputs = inputs, outputs=output, name='Res-UNet')
 
 
 
