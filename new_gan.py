@@ -652,7 +652,7 @@ class BalancingGAN:
         self.combined = Model(
             # inputs=[latent_gen, real_images],
             inputs = real_images,
-            outputs=[aux, fake_features],
+            outputs=[aux, fake],
             name = 'Combined'
         )
 
@@ -738,7 +738,7 @@ class BalancingGAN:
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
                 real_images,
-                [label_batch, real_features]
+                [label_batch, real_images]
             )
             epoch_gen_loss.append(loss)
             # epoch_gen_acc.append(acc)
