@@ -414,7 +414,35 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
         image = Input(shape=(resolution, resolution,channels))
-        features = self._build_common_encoder(image, min_latent_res)
+        x = image
+        for i in range(depth):
+            out_channel = 2**i * filter_root
+
+            # Residual/Skip connection
+            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_0".format(i))(x)
+
+            # First Conv Block with Conv, BN and activation
+            conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)
+            if batch_norm:
+                conv1 = BatchNormalization(name="BN{}_1".format(i))(conv1)
+            act1 = Activation(activation, name="Act{}_1".format(i))(conv1)
+
+            # Second Conv block with Conv and BN only
+            conv2 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_2".format(i))(act1)
+            if batch_norm:
+                conv2 = BatchNormalization(name="BN{}_2".format(i))(conv2)
+
+            resconnection = Add(name="Add{}_1".format(i))([res, conv2])
+
+            act2 = Activation(activation, name="Act{}_2".format(i))(resconnection)
+
+            # Max pooling
+            if i < depth - 1:
+                # long_connection_store[str(i)] = act2
+                x = MaxPooling(padding='same', name="MaxPooling{}_1".format(i))(act2)
+            else:
+                x = act2
+        features = Flatten()(x)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
         self.reconstructor = Model(inputs=image, outputs=latent)

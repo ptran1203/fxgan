@@ -8,7 +8,7 @@ def res_unet(
     filter_root,
     depth,
     n_class=2,
-    input_size=(256, 256, 1),
+    input_dim=(64, 64, 1),
     activation='relu',
     batch_norm=True,
     final_activation='softmax'
@@ -27,7 +27,7 @@ def res_unet(
     Returns:
         obj: keras model object
     """
-    inputs = Input(input_size)
+    inputs = Input(input_dim)
     x = inputs
     # Dictionary for long connections
     long_connection_store = {}
@@ -41,7 +41,7 @@ def res_unet(
         out_channel = 2**i * filter_root
 
         # Residual/Skip connection
-        res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_1".format(i))(x)
+        res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_0".format(i))(x)
 
         # First Conv Block with Conv, BN and activation
         conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)

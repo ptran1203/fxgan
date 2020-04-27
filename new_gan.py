@@ -324,21 +324,6 @@ class BalancingGAN:
         batch_norm=True,
         final_activation='tanh'
     ):
-        """
-        Build UNet model with ResBlock.
-        Args:
-            filter_root (int): Number of filters to start with in first convolution.
-            depth (int): How deep to go in UNet i.e. how many down and up sampling you want to do in the model. 
-                        Filter root and image size should be multiple of 2^depth.
-            n_class (int, optional): How many classes in the output layer. Defaults to 2.
-            img_size (tuple, optional): image size. Defaults to (256, 256, 1).
-            activation (str, optional): activation to use in each convolution. Defaults to 'relu'.
-            batch_norm (bool, optional): To use Batch normaliztion or not. Defaults to True.
-            final_activation (str, optional): activation for output layer. Defaults to 'softmax'.
-        Returns:
-            obj: keras model object
-        """
-
         latent = Input(shape = (100,))
         init_channels = 64
         init_resolution = 4
@@ -453,13 +438,12 @@ class BalancingGAN:
         fake_image_from_latent = cnn(latent)
         self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
 
-    def _build_common_encoder(self, image, min_latent_res=8):
+    def _build_common_encoder(self, image):
         resolution = self.resolution
         channels = self.channels
 
-        # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
+        
         cnn = Sequential()
-
         cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),
         input_shape=(resolution, resolution,channels)))
         cnn.add(LeakyReLU(alpha=0.2))
