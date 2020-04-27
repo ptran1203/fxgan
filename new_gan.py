@@ -339,12 +339,7 @@ class BalancingGAN:
             obj: keras model object
         """
 
-        latent = Input(shape = (100,))
-        inputs = Dense(input_size[0] * input_size[1] * input_size[2], input_dim=100)(latent)
-        inputs = BatchNormalization()(inputs)
-        inputs = LeakyReLU()(inputs)
-        inputs = Reshape(input_size)(inputs)
-
+        inputs = Input(shape = input_size)
         x = inputs
         # Dictionary for long connections
         long_connection_store = {}
@@ -638,7 +633,7 @@ class BalancingGAN:
         self.build_latent_encoder()
 
         # Define combined for training generator.
-        fake = self.generator(latent_gen)
+        fake = self.generator(real_images)
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
@@ -650,7 +645,8 @@ class BalancingGAN:
         fake_features = self.features_from_d(fake)
 
         self.combined = Model(
-            inputs=[latent_gen, real_images],
+            # inputs=[latent_gen, real_images],
+            inputs = real_images,
             outputs=[aux, fake_features],
             name = 'Combined'
         )
@@ -671,16 +667,17 @@ class BalancingGAN:
         self.reconstructor.trainable = True
 
         img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
-        img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
-        self.autoenc_0 = Model(
-            inputs=img_for_reconstructor,
-            outputs=img_reconstruct,
-            name = 'autoencoder'
-        )
-        self.autoenc_0.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss='mean_squared_error'
-        )
+
+        # img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
+        # self.autoenc_0 = Model(
+        #     inputs=img_for_reconstructor,
+        #     outputs=img_reconstruct,
+        #     name = 'autoencoder'
+        # )
+        # self.autoenc_0.compile(
+        #     optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+        #     loss='mean_squared_error'
+        # )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
         all_labels = np.full(samples, 0)
@@ -743,7 +740,7 @@ class BalancingGAN:
             real_images = image_batch
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
-                [latent_gen, real_images],
+                real_images,
                 [label_batch, real_features]
             )
             epoch_gen_loss.append(loss)
