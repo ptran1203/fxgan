@@ -410,6 +410,7 @@ class BalancingGAN:
         # Final convolution
         output = Conv(n_class, 1, padding='same', activation=final_activation, name='output')(x)
 
+        # back to: commit 4117c4c2ca5fb1566c2c8b2f3b7efaacdb82e674
         self.generator = Model(inputs = inputs, outputs=output, name='Res-UNet')
 
 
@@ -975,11 +976,8 @@ class BalancingGAN:
                 [
                     act_img_samples,
                     self.generator.predict(
-                        self.reconstructor.predict(
                             act_img_samples
-                        )
-                    ),
-                    self.generate_samples(crt_c, 10, bg_train)
+                    )
                 ]
             ])
             for crt_c in range(1, self.nclasses):
@@ -988,11 +986,8 @@ class BalancingGAN:
                     [
                         act_img_samples,
                         self.generator.predict(
-                            self.reconstructor.predict(
                                 act_img_samples
-                            )
-                        ),
-                        self.generate_samples(crt_c, 10, bg_train)
+                        )
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -1008,23 +1003,19 @@ class BalancingGAN:
                 # Test: # generate a new batch of noise
                 nb_test = bg_test.get_num_samples()
                 fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
-                sampled_labels = self._biased_sample_labels(nb_test, "d")
-                latent_gen = self.generate_latent(sampled_labels, bg_test)
             
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
-                    latent_gen, verbose=False)
+                    bg_test.dataset_x, verbose=False)
 
                 X = np.concatenate( (bg_test.dataset_x, generated_images) )
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
+                aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
 
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
 
                 # make new latent
-                sampled_labels = self._biased_sample_labels(nb_test, "g")
-                latent_gen = self.generate_latent(sampled_labels, bg_test)
 
                 # test_gen_loss, test_gen_acc = self.combined.evaluate(
                 #     latent_gen,
@@ -1038,7 +1029,7 @@ class BalancingGAN:
                     # print('Evaluate G')
                     real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                     self.evaluate_g(
-                        [latent_gen, bg_test.dataset_x],
+                        bg_test.dataset_x,
                         [bg_test.dataset_y, real_features])
 
 
@@ -1057,31 +1048,11 @@ class BalancingGAN:
                 self.test_history['gen_acc'].append(test_gen_acc)
                 # self.plot_his()
 
-                # Save sample images
-                if e % 15 == 0:
-                    img_samples = np.array([
-                        self.generate_samples(c, 10, bg_train)
-                        for c in range(0,self.nclasses)
-                    ])
-
-                    save_image_array(
-                        img_samples,
-                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
-                        show=True
-                    )
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
-                if e % 10 == 5:
-                    self.plot_loss_his()
-                    self.plot_acc_his()
-                    # self.backup_point(e)
-                    crt_c = 0
-                    img_samples = self.generate_samples(crt_c, 5, bg_train)
-                    for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, 5, bg_train)
-                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
-                    
-                    show_samples(img_samples)
+                if e % 5 == 5:
+                    show_samples(self.generator.predict(bg_test.dataset_x[:10], verbose = False))
+
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
