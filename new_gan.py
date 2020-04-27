@@ -16,7 +16,7 @@ from keras.layers import (
     Flatten, Embedding, Dropout,
     BatchNormalization, Activation,
     Lambda,Layer, Add, Concatenate,
-    Average,
+    Average,GaussianNoise,
     MaxPooling2D, AveragePooling2D
 )
 
@@ -353,7 +353,7 @@ class BalancingGAN:
             out_channel = 2**i * filter_root
 
             # Residual/Skip connection
-            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_1".format(i))(x)
+            res = Conv(out_channel, kernel_size=3, padding='same', use_bias=False, name="Identity{}_1".format(i))(x)
 
             # First Conv Block with Conv, BN and activation
             conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)
@@ -372,23 +372,27 @@ class BalancingGAN:
 
             # Max pooling
             if i < depth - 1:
-                long_connection_store[str(i)] = act2
+                # long_connection_store[str(i)] = act2
                 x = MaxPooling(padding='same', name="MaxPooling{}_1".format(i))(act2)
             else:
                 x = act2
+
+        # adding noise
+
+        x = GaussianNoise(0.01)(x)
 
         # Upsampling
         for i in range(depth - 2, -1, -1):
             out_channel = 2**(i) * filter_root
 
             # long connection from down sampling path.
-            long_connection = long_connection_store[str(i)]
+            # long_connection = long_connection_store[str(i)]
 
             up1 = UpSampling(name="UpSampling{}_1".format(i))(x)
             up_conv1 = Conv(out_channel, 2, activation='relu', padding='same', name="upConv{}_0".format(i))(up1)
 
             #  Concatenate.
-            up_conc = Concatenate(axis=-1, name="upConcatenate{}_1".format(i))([up_conv1, long_connection])
+            # up_conc = Concatenate(axis=-1, name="upConcatenate{}_1".format(i))([up_conv1, long_connection])
 
             #  Convolutions
             up_conv2 = Conv(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conc)
@@ -669,16 +673,16 @@ class BalancingGAN:
 
         img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
 
-        # img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
-        # self.autoenc_0 = Model(
-        #     inputs=img_for_reconstructor,
-        #     outputs=img_reconstruct,
-        #     name = 'autoencoder'
-        # )
-        # self.autoenc_0.compile(
-        #     optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-        #     loss='mean_squared_error'
-        # )
+        img_reconstruct = self.generator(img_for_reconstructor)
+        self.autoenc_0 = Model(
+            inputs=img_for_reconstructor,
+            outputs=img_reconstruct,
+            name = 'autoencoder'
+        )
+        self.autoenc_0.compile(
+            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            loss='mean_squared_error'
+        )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
         all_labels = np.full(samples, 0)
