@@ -723,7 +723,7 @@ class BalancingGAN:
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
     
             # sample some labels from p_c, then latent and images
-            generated_images = self.generator.predict(image_batch, verbose=0)
+            generated_images = self.generator.predict(image_batch[:fake_size], verbose=0)
 
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
