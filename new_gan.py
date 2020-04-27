@@ -719,13 +719,10 @@ class BalancingGAN:
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
     
             # sample some labels from p_c, then latent and images
-            sampled_labels = self._biased_sample_labels(fake_size, "d")
-            latent_gen = self.generate_latent(sampled_labels, bg_train)
-
-            generated_images = self.generator.predict(latent_gen, verbose=0)
+            generated_images = self.generator.predict(image_batch, verbose=0)
 
             X = np.concatenate((image_batch, generated_images))
-            aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
+            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
@@ -733,11 +730,6 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            sampled_labels = self._biased_sample_labels(crt_batch_size, "g")
-            latent_gen = self.generate_latent(sampled_labels, bg_train)
-
-            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
-
             real_images = image_batch
             real_features = self.features_from_d_model.predict(real_images)
             loss = self.combined.train_on_batch(
