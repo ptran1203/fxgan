@@ -319,7 +319,7 @@ class BalancingGAN:
         filter_root = 32,
         depth = 5,
         n_class=1,
-        input_size=(64, 64, 1),
+        img_size=(64, 64, 1),
         activation='relu',
         batch_norm=True,
         final_activation='tanh'
@@ -331,7 +331,7 @@ class BalancingGAN:
             depth (int): How deep to go in UNet i.e. how many down and up sampling you want to do in the model. 
                         Filter root and image size should be multiple of 2^depth.
             n_class (int, optional): How many classes in the output layer. Defaults to 2.
-            input_size (tuple, optional): Input image size. Defaults to (256, 256, 1).
+            img_size (tuple, optional): image size. Defaults to (256, 256, 1).
             activation (str, optional): activation to use in each convolution. Defaults to 'relu'.
             batch_norm (bool, optional): To use Batch normaliztion or not. Defaults to True.
             final_activation (str, optional): activation for output layer. Defaults to 'softmax'.
@@ -339,47 +339,16 @@ class BalancingGAN:
             obj: keras model object
         """
 
-        inputs = Input(shape = input_size)
+        inputs = Input(shape = (100,))
+        init_channels = 64
+        init_resolution = img_size[0]
+
+        inputs = Dense(init_channels * init_resolution * init_resolution, input_dim=100)(inputs)
+        inputs = BatchNormalization()(inputs)
+        inputs = LeakyReLU()(inputs)
+        inputs = Reshape((init_resolution, init_resolution, init_channels))(inputs)
+
         x = inputs
-        # Dictionary for long connections
-        long_connection_store = {}
-
-        Conv = Conv2D
-        MaxPooling = MaxPooling2D
-        UpSampling = UpSampling2D
-
-        # Down sampling
-        for i in range(depth):
-            out_channel = 2**i * filter_root
-
-            # Residual/Skip connection
-            res = Conv(out_channel, kernel_size=3, padding='same', use_bias=False, name="Identity{}_1".format(i))(x)
-
-            # First Conv Block with Conv, BN and activation
-            conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)
-            if batch_norm:
-                conv1 = BatchNormalization(name="BN{}_1".format(i))(conv1)
-            act1 = Activation(activation, name="Act{}_1".format(i))(conv1)
-
-            # Second Conv block with Conv and BN only
-            conv2 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_2".format(i))(act1)
-            if batch_norm:
-                conv2 = BatchNormalization(name="BN{}_2".format(i))(conv2)
-
-            resconnection = Add(name="Add{}_1".format(i))([res, conv2])
-
-            act2 = Activation(activation, name="Act{}_2".format(i))(resconnection)
-
-            # Max pooling
-            if i < depth - 1:
-                # long_connection_store[str(i)] = act2
-                x = MaxPooling(padding='same', name="MaxPooling{}_1".format(i))(act2)
-            else:
-                x = act2
-
-        # adding noise
-
-        x = GaussianNoise(0.01)(x)
 
         # Upsampling
         for i in range(depth - 2, -1, -1):
@@ -388,31 +357,27 @@ class BalancingGAN:
             # long connection from down sampling path.
             # long_connection = long_connection_store[str(i)]
 
-            up1 = UpSampling(name="UpSampling{}_1".format(i))(x)
-            up_conv1 = Conv(out_channel, 2, activation='relu', padding='same', name="upConv{}_0".format(i))(up1)
-
-            #  Concatenate.
-            # up_conc = Concatenate(axis=-1, name="upConcatenate{}_1".format(i))([up_conv1, long_connection])
+            up_conv1 = Conv2DTranspose(out_channel, 3, activation='relu',strides = 2)(x)
 
             #  Convolutions
-            up_conv2 = Conv(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conv1)
+            up_conv2 = Conv2D(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conv1)
             if batch_norm:
                 up_conv2 = BatchNormalization(name="upBN{}_1".format(i))(up_conv2)
             up_act1 = Activation(activation, name="upAct{}_1".format(i))(up_conv2)
 
-            up_conv2 = Conv(out_channel, 3, padding='same', name="upConv{}_2".format(i))(up_act1)
+            up_conv2 = Conv2D(out_channel, 3, padding='same', name="upConv{}_2".format(i))(up_act1)
             if batch_norm:
                 up_conv2 = BatchNormalization(name="upBN{}_2".format(i))(up_conv2)
 
             # Residual/Skip connection
-            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="upIdentity{}_1".format(i))(up_conv1)
+            res = Conv2D(out_channel, kernel_size=1, padding='same', use_bias=False, name="upIdentity{}_1".format(i))(up_conv1)
 
             resconnection = Add(name="upAdd{}_1".format(i))([res, up_conv2])
 
             x = Activation(activation, name="upAct{}_2".format(i))(resconnection)
 
         # Final convolution
-        output = Conv(n_class, 1, padding='same', activation=final_activation, name='output')(x)
+        output = Conv2D(n_class, 1, padding='same', activation=final_activation, name='output')(x)
 
         # back to: commit 4117c4c2ca5fb1566c2c8b2f3b7efaacdb82e674
         self.generator = Model(inputs = inputs, outputs=output, name='Res-UNet')
@@ -613,10 +578,10 @@ class BalancingGAN:
         # Build generator
         # self.build_generator(latent_size, init_resolution=min_latent_res)
         self.build_g_trigger()
-        self.generator.compile(
-            optimizer=Adam(lr=self.g_lr, beta_1=self.adam_beta_1),
-            loss='sparse_categorical_crossentropy'
-        )
+        # self.generator.compile(
+        #     optimizer=Adam(lr=self.g_lr, beta_1=self.adam_beta_1),
+        #     loss='sparse_categorical_crossentropy'
+        # )
 
         latent_gen = Input(shape=(latent_size, ))
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -631,14 +596,13 @@ class BalancingGAN:
 
         # Build reconstructor
         self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
-        self.reconstructor.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss='mean_squared_error'
-        )
-        self.build_latent_encoder()
+        # self.reconstructor.compile(
+        #     optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+        #     loss='mean_squared_error'
+        # )
 
         # Define combined for training generator.
-        fake = self.generator(real_images)
+        fake = self.generator(latent_gen)
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
@@ -650,9 +614,8 @@ class BalancingGAN:
         fake_features = self.features_from_d(fake)
 
         self.combined = Model(
-            # inputs=[latent_gen, real_images],
-            inputs = real_images,
-            outputs=[aux, fake],
+            inputs=[latent_gen, real_images],
+            outputs=[aux, fake_features],
             name = 'Combined'
         )
 
@@ -673,7 +636,7 @@ class BalancingGAN:
 
         img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
 
-        img_reconstruct = self.generator(img_for_reconstructor)
+        img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
         self.autoenc_0 = Model(
             inputs=img_for_reconstructor,
             outputs=img_reconstruct,
@@ -721,24 +684,29 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
             ################## Train Discriminator ##################
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
-    
-            # sample some labels from p_c, then latent and images
-            generated_images = self.generator.predict(image_batch[:fake_size], verbose=0)
+            sampled_labels = self._biased_sample_labels(fake_size, "d")
+            latent_gen = self.generate_latent(sampled_labels, bg_train)
 
+            generated_images = self.generator.predict(latent_gen, verbose=0)
+    
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
-            X, aux_y = self.shuffle_data(X, aux_y)
+            # X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            real_images = image_batch
-            real_features = self.features_from_d_model.predict(real_images)
+            sampled_labels = self._biased_sample_labels(crt_batch_size, "g")
+            latent_gen = self.generate_latent(sampled_labels, bg_train)
+
+            # latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
+
+            real_features = self.features_from_d_model.predict(image_batch)
             loss = self.combined.train_on_batch(
-                real_images,
-                [label_batch, real_images]
+                [latent_gen, image_batch],
+                [label_batch, real_features]
             )
             epoch_gen_loss.append(loss)
             # epoch_gen_acc.append(acc)
@@ -973,7 +941,8 @@ class BalancingGAN:
                     act_img_samples,
                     self.generator.predict(
                             act_img_samples
-                    )
+                    ),
+                    self.generate_samples(crt_c, 10, bg_train)
                 ]
             ])
             for crt_c in range(1, self.nclasses):
@@ -983,7 +952,8 @@ class BalancingGAN:
                         act_img_samples,
                         self.generator.predict(
                                 act_img_samples
-                        )
+                        ),
+                        self.generate_samples(crt_c, 10, bg_train)
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -999,10 +969,12 @@ class BalancingGAN:
                 # Test: # generate a new batch of noise
                 nb_test = bg_test.get_num_samples()
                 fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
+
+                sampled_labels = self._biased_sample_labels(nb_test, "d")
+                latent_gen = self.generate_latent(sampled_labels, bg_test)
             
                 # sample some labels from p_c and generate images from them
-                generated_images = self.generator.predict(
-                    bg_test.dataset_x, verbose=False)
+                generated_images = self.generator.predict(latent_gen, verbose=False)
 
                 X = np.concatenate( (bg_test.dataset_x, generated_images) )
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
@@ -1012,6 +984,8 @@ class BalancingGAN:
                     X, aux_y, verbose=False)
 
                 # make new latent
+                sampled_labels = self._biased_sample_labels(nb_test, "g")
+                latent_gen = self.generate_latent(sampled_labels, bg_test)
 
                 # test_gen_loss, test_gen_acc = self.combined.evaluate(
                 #     latent_gen,
@@ -1025,7 +999,7 @@ class BalancingGAN:
                     # print('Evaluate G')
                     real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                     self.evaluate_g(
-                        bg_test.dataset_x,
+                        [latent_gen, bg_test.dataset_x],
                         [bg_test.dataset_y, real_features])
                     
                     crt_c = 0
@@ -1035,7 +1009,8 @@ class BalancingGAN:
                             act_img_samples,
                             self.generator.predict(
                                     act_img_samples
-                            )
+                            ),
+                            self.generate_samples(crt_c, 10, bg_train)
                         ]
                     ])
                     for crt_c in range(1, self.nclasses):
@@ -1045,7 +1020,8 @@ class BalancingGAN:
                                 act_img_samples,
                                 self.generator.predict(
                                         act_img_samples
-                                )
+                                ),
+                                self.generate_samples(crt_c, 10, bg_train)
                             ]
                         ])
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
