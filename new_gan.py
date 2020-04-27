@@ -339,11 +339,11 @@ class BalancingGAN:
             obj: keras model object
         """
 
-        inputs = Input(shape = (100,))
+        latent = Input(shape = (100,))
         init_channels = 64
-        init_resolution = img_size[0]
+        init_resolution = 4
 
-        inputs = Dense(init_channels * init_resolution * init_resolution, input_dim=100)(inputs)
+        inputs = Dense(init_channels * init_resolution * init_resolution, input_dim=100)(latent)
         inputs = BatchNormalization()(inputs)
         inputs = LeakyReLU()(inputs)
         inputs = Reshape((init_resolution, init_resolution, init_channels))(inputs)
@@ -357,7 +357,7 @@ class BalancingGAN:
             # long connection from down sampling path.
             # long_connection = long_connection_store[str(i)]
 
-            up_conv1 = Conv2DTranspose(out_channel, 3, activation='relu',strides = 2)(x)
+            up_conv1 = Conv2DTranspose(out_channel, 3, activation='relu',strides = 2, padding='same')(x)
 
             #  Convolutions
             up_conv2 = Conv2D(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conv1)
@@ -380,7 +380,7 @@ class BalancingGAN:
         output = Conv2D(n_class, 1, padding='same', activation=final_activation, name='output')(x)
 
         # back to: commit 4117c4c2ca5fb1566c2c8b2f3b7efaacdb82e674
-        self.generator = Model(inputs = inputs, outputs=output, name='Res-UNet')
+        self.generator = Model(inputs = latent, outputs=output, name='Res-UNet')
 
 
 
@@ -912,7 +912,7 @@ class BalancingGAN:
         y_pre, _ = self.combined.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
         print('ACC: {}%'.format(loss[-1]))
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+        cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
@@ -940,7 +940,9 @@ class BalancingGAN:
                 [
                     act_img_samples,
                     self.generator.predict(
-                            act_img_samples
+                            self.reconstructor.predict(
+                                act_img_samples
+                            )
                     ),
                     self.generate_samples(crt_c, 10, bg_train)
                 ]
@@ -951,7 +953,9 @@ class BalancingGAN:
                     [
                         act_img_samples,
                         self.generator.predict(
+                                self.reconstructor.predict(
                                 act_img_samples
+                            )
                         ),
                         self.generate_samples(crt_c, 10, bg_train)
                     ]
@@ -1008,7 +1012,9 @@ class BalancingGAN:
                         [
                             act_img_samples,
                             self.generator.predict(
-                                    act_img_samples
+                                    self.reconstructor.predict(
+                                act_img_samples
+                            )
                             ),
                             self.generate_samples(crt_c, 10, bg_train)
                         ]
@@ -1019,7 +1025,9 @@ class BalancingGAN:
                             [
                                 act_img_samples,
                                 self.generator.predict(
-                                        act_img_samples
+                                        self.reconstructor.predict(
+                                act_img_samples
+                            )
                                 ),
                                 self.generate_samples(crt_c, 10, bg_train)
                             ]
