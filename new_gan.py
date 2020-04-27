@@ -1023,6 +1023,30 @@ class BalancingGAN:
                     self.evaluate_g(
                         bg_test.dataset_x,
                         [bg_test.dataset_y, real_features])
+                    
+                    crt_c = 0
+                    act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                    img_samples = np.array([
+                        [
+                            act_img_samples,
+                            self.generator.predict(
+                                    act_img_samples
+                            )
+                        ]
+                    ])
+                    for crt_c in range(1, self.nclasses):
+                        act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                        new_samples = np.array([
+                            [
+                                act_img_samples,
+                                self.generator.predict(
+                                        act_img_samples
+                                )
+                            ]
+                        ])
+                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
+
+                    show_samples(img_samples)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
@@ -1039,11 +1063,6 @@ class BalancingGAN:
                 self.test_history['disc_acc'].append(test_disc_acc)
                 self.test_history['gen_acc'].append(test_gen_acc)
                 # self.plot_his()
-
-
-                # Generate whole evaluation plot (real img, autoencoded img, fake img)
-                if e % 5 == 5:
-                    show_samples(self.generator.predict(bg_test.dataset_x[:10], verbose = False))
 
             self.trained = True
 
