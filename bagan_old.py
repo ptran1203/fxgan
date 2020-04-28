@@ -445,7 +445,7 @@ class BalancingGAN:
         features = Flatten()(x)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
-        self.reconstructor = Model(inputs=image, outputs=latent)
+        self.reconstructor = Model(inputs=  , outputs=latent)
 
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution

@@ -438,7 +438,7 @@ class BalancingGAN:
         fake_image_from_latent = cnn(latent)
         self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
 
-    def _build_common_encoder(self, image):
+    def _build_common_encoder(self, image, min_latent_res):
         resolution = self.resolution
         channels = self.channels
 
