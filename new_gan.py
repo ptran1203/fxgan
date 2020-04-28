@@ -471,7 +471,7 @@ class BalancingGAN:
         features = self._build_common_encoder(image, min_latent_res)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
-        self.reconstructor = Model(inputs=image, outputs=latent)
+        self.reconstructor = Model(inputs=image, outputs=latent, name='decoder')
 
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution
@@ -483,7 +483,7 @@ class BalancingGAN:
         aux = Dense(
             self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
         )(features)
-        self.discriminator = Model(inputs=image, outputs=aux)
+        self.discriminator = Model(inputs=image, outputs=aux,name='discriminator')
 
 
     def generate_from_latent(self, latent):
@@ -525,7 +525,7 @@ class BalancingGAN:
         self.features_from_d_model = Model(
             inputs = image,
             output = model_output,
-            name = 'Feature matching'
+            name = 'Feature_matching'
         )
 
     def build_g_trigger(self):
