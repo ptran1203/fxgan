@@ -524,7 +524,8 @@ class BalancingGAN:
         model_output = self.discriminator.layers[-2](image)
         self.features_from_d_model = Model(
             inputs = image,
-            output = model_output
+            output = model_output,
+            name = 'Feature matching'
         )
 
     def build_g_trigger(self):
