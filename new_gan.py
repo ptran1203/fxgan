@@ -480,37 +480,30 @@ class BalancingGAN:
         self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
 
     def _build_common_encoder(self, image, min_latent_res):
-        x = image
-        for i in range(depth):
-            out_channel = 2**i * filter_root
+        resolution = self.resolution
+        channels = self.channels
 
-            # Residual/Skip connection
-            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_0".format(i))(x)
+        # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
+        cnn = Sequential()
 
-            # First Conv Block with Conv, BN and activation
-            conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)
-            if batch_norm:
-                conv1 = BatchNormalization(name="BN{}_1".format(i))(conv1)
-            act1 = Activation(activation, name="Act{}_1".format(i))(conv1)
+        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),
+        input_shape=(resolution, resolution,channels)))
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
 
-            # Second Conv block with Conv and BN only
-            conv2 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_2".format(i))(act1)
-            if batch_norm:
-                conv2 = BatchNormalization(name="BN{}_2".format(i))(conv2)
+        size = 128
+        while cnn.output_shape[1] > min_latent_res:
+            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
+            # cnn.add(BatchNormalization())
+            cnn.add(LeakyReLU(alpha=0.2))
+            cnn.add(Dropout(0.3))
+            size *= 2
+            
 
-            resconnection = Add(name="Add{}_1".format(i))([res, conv2])
+        cnn.add(Flatten())
 
-            act2 = Activation(activation, name="Act{}_2".format(i))(resconnection)
-
-            # Max pooling
-            if i < depth - 1:
-                # long_connection_store[str(i)] = act2
-                x = MaxPooling(padding='same', name="MaxPooling{}_1".format(i))(act2)
-            else:
-                x = act2
-        
-        x = Flatten()(x)
-        return x
+        features = cnn(image)
+        return features
 
     # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
     def build_reconstructor(self, latent_size, min_latent_res=8):
