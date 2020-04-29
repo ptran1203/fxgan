@@ -1071,7 +1071,7 @@ class BalancingGAN:
                     [bg_test.dataset_y, real_features]
                 )
 
-                if e % 5 == 0:
+                if e % 25 == 0:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         bg_test.dataset_x,
@@ -1105,7 +1105,7 @@ class BalancingGAN:
                     self.plot_loss_his()
                     self.plot_acc_his()
 
-                if e % 15 == 0:
+                if e % 100 == 0:
                     self.backup_point(e)
 
 
