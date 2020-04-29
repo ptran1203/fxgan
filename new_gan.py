@@ -319,53 +319,118 @@ class BalancingGAN:
         filter_root = 32,
         depth = 5,
         n_class=1,
-        img_size=(64, 64, 1),
+        img_dim=(64, 64, 1),
         activation='relu',
         batch_norm=True,
         final_activation='tanh'
     ):
-        latent = Input(shape = (100,))
-        init_channels = 64
-        init_resolution = 4
+        input_layer = Input(shape=img_dim, name="unet_input")
+        stride = 2
+        # 1 encoder C64
+        # skip batchnorm on this layer on purpose (from paper)
+        en_1 = Convolution2D(nb_filter=64, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(input_layer)
+        en_1 = LeakyReLU(alpha=0.2)(en_1)
 
-        inputs = Dense(init_channels * init_resolution * init_resolution, input_dim=100)(latent)
-        inputs = BatchNormalization()(inputs)
-        inputs = LeakyReLU()(inputs)
-        inputs = Reshape((init_resolution, init_resolution, init_channels))(inputs)
+        # 2 encoder C128
+        en_2 = Convolution2D(nb_filter=128, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_1)
+        en_2 = BatchNormalization(name='gen_en_bn_2')(en_2)
+        en_2 = LeakyReLU(alpha=0.2)(en_2)
 
-        x = inputs
+        # 3 encoder C256
+        en_3 = Convolution2D(nb_filter=256, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_2)
+        en_3 = BatchNormalization(name='gen_en_bn_3')(en_3)
+        en_3 = LeakyReLU(alpha=0.2)(en_3)
 
-        # Upsampling
-        for i in range(depth - 2, -1, -1):
-            out_channel = 2**(i) * filter_root
+        # 4 encoder C512
+        en_4 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_3)
+        en_4 = BatchNormalization(name='gen_en_bn_4')(en_4)
+        en_4 = LeakyReLU(alpha=0.2)(en_4)
 
-            # long connection from down sampling path.
-            # long_connection = long_connection_store[str(i)]
+        # 5 encoder C512
+        en_5 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_4)
+        en_5 = BatchNormalization(name='gen_en_bn_5')(en_5)
+        en_5 = LeakyReLU(alpha=0.2)(en_5)
 
-            up_conv1 = Conv2DTranspose(out_channel, 3, activation='relu',strides = 2, padding='same')(x)
+        # 6 encoder C512
+        en_6 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_5)
+        en_6 = BatchNormalization(name='gen_en_bn_6')(en_6)
+        en_6 = LeakyReLU(alpha=0.2)(en_6)
 
-            #  Convolutions
-            up_conv2 = Conv2D(out_channel, 3, padding='same', name="upConv{}_1".format(i))(up_conv1)
-            if batch_norm:
-                up_conv2 = BatchNormalization(name="upBN{}_1".format(i))(up_conv2)
-            up_act1 = Activation(activation, name="upAct{}_1".format(i))(up_conv2)
+        # 7 encoder C512
+        en_7 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_6)
+        en_7 = BatchNormalization(name='gen_en_bn_7')(en_7)
+        en_7 = LeakyReLU(alpha=0.2)(en_7)
 
-            up_conv2 = Conv2D(out_channel, 3, padding='same', name="upConv{}_2".format(i))(up_act1)
-            if batch_norm:
-                up_conv2 = BatchNormalization(name="upBN{}_2".format(i))(up_conv2)
+        # 8 encoder C512
+        en_8 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_7)
+        en_8 = BatchNormalization(name='gen_en_bn_8')(en_8)
+        en_8 = LeakyReLU(alpha=0.2)(en_8)
 
-            # Residual/Skip connection
-            res = Conv2D(out_channel, kernel_size=1, padding='same', use_bias=False, name="upIdentity{}_1".format(i))(up_conv1)
+        # -------------------------------
+        # DECODER
+        # CD512-CD1024-CD1024-C1024-C1024-C512-C256-C128
+        # 1 layer block = Conv - Upsample - BN - DO - Relu
+        # also adds skip connections (Concatenate()). Takes input from previous layer matching encoder layer
+        # -------------------------------
+        # 1 decoder CD512 (decodes en_8)
+        de_1 = UpSampling2D(size=(2, 2))(en_8)
+        de_1 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same')(de_1)
+        de_1 = BatchNormalization(name='gen_de_bn_1')(de_1)
+        de_1 = Dropout(p=0.5)(de_1)
+        de_1 = Concatenate()([de_1, en_6])
+        de_1 = Activation('relu')(de_1)
 
-            resconnection = Add(name="upAdd{}_1".format(i))([res, up_conv2])
+        de_2 = UpSampling2D(size=(2, 2))(de_1)
+        de_2 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_2)
+        de_2 = BatchNormalization(name='gen_de_bn_2')(de_2)
+        de_2 = Dropout(p=0.5)(de_2)
+        de_2 = Concatenate()([de_2, en_5])
+        de_2 = Activation('relu')(de_2)
 
-            x = Activation(activation, name="upAct{}_2".format(i))(resconnection)
+        de_3 = UpSampling2D(size=(2, 2))(de_2)
+        de_3 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_3)
+        de_3 = BatchNormalization(name='gen_de_bn_3')(de_3)
+        de_3 = Dropout(p=0.5)(de_3)
+        de_3 = Concatenate()([de_3, en_4])
+        de_3 = Activation('relu')(de_3)
 
-        # Final convolution
-        output = Conv2D(n_class, 1, padding='same', activation=final_activation, name='output')(x)
+        de_4 = UpSampling2D(size=(2, 2))(de_3)
+        de_4 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_4)
+        de_4 = BatchNormalization(name='gen_de_bn_4')(de_4)
+        de_4 = Dropout(p=0.5)(de_4)
+        de_4 = Concatenate()([de_4, en_3])
+        de_4 = Activation('relu')(de_4)
 
-        # back to: commit 4117c4c2ca5fb1566c2c8b2f3b7efaacdb82e674
-        self.generator = Model(inputs = latent, outputs=output, name='Res-UNet')
+        de_5 = UpSampling2D(size=(2, 2))(de_4)
+        de_5 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_5)
+        de_5 = BatchNormalization(name='gen_de_bn_5')(de_5)
+        de_5 = Dropout(p=0.5)(de_5)
+        de_5 = Concatenate()([de_5, en_2])
+        de_5 = Activation('relu')(de_5)
+
+        de_6 = UpSampling2D(size=(2, 2))(de_5)
+        de_6 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same')(de_6)
+        de_6 = BatchNormalization(name='gen_de_bn_6')(de_6)
+        de_6 = Dropout(p=0.5)(de_6)
+        de_6 = Concatenate()([de_6, en_1])
+        de_6 = Activation('relu')(de_6)
+
+        de_7 = UpSampling2D(size=(2, 2))(de_6)
+        de_7 = Convolution2D(nb_filter=256, nb_row=4, nb_col=4, border_mode='same')(de_7)
+        de_7 = BatchNormalization(name='gen_de_bn_7')(de_7)
+        de_7 = Dropout(p=0.5)(de_7)
+        # de_7 = Concatenate()([de_7, en_1])
+        de_7 = Activation('relu')(de_7)
+
+        # After the last layer in the decoder, a convolution is applied
+        # to map to the number of output channels (3 in general,
+        # except in colorization, where it is 2), followed by a Tanh
+        # function.
+        de_8 = UpSampling2D(size=(2, 2))(de_7)
+        de_8 = Convolution2D(nb_filter=num_output_channels, nb_row=4, nb_col=4, border_mode='same')(de_8)
+        de_8 = Activation('tanh')(de_8)
+
+        self.generator = Model(inputs = input_layer, outputs = de_8, name='unet_generator')
 
 
 
@@ -439,29 +504,37 @@ class BalancingGAN:
         self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
 
     def _build_common_encoder(self, image, min_latent_res):
-        resolution = self.resolution
-        channels = self.channels
+        x = image
+        for i in range(depth):
+            out_channel = 2**i * filter_root
 
+            # Residual/Skip connection
+            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_0".format(i))(x)
+
+            # First Conv Block with Conv, BN and activation
+            conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)
+            if batch_norm:
+                conv1 = BatchNormalization(name="BN{}_1".format(i))(conv1)
+            act1 = Activation(activation, name="Act{}_1".format(i))(conv1)
+
+            # Second Conv block with Conv and BN only
+            conv2 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_2".format(i))(act1)
+            if batch_norm:
+                conv2 = BatchNormalization(name="BN{}_2".format(i))(conv2)
+
+            resconnection = Add(name="Add{}_1".format(i))([res, conv2])
+
+            act2 = Activation(activation, name="Act{}_2".format(i))(resconnection)
+
+            # Max pooling
+            if i < depth - 1:
+                # long_connection_store[str(i)] = act2
+                x = MaxPooling(padding='same', name="MaxPooling{}_1".format(i))(act2)
+            else:
+                x = act2
         
-        cnn = Sequential()
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),
-        input_shape=(resolution, resolution,channels)))
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
-
-        size = 128
-        while cnn.output_shape[1] > min_latent_res:
-            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
-            # cnn.add(BatchNormalization())
-            cnn.add(LeakyReLU(alpha=0.2))
-            cnn.add(Dropout(0.3))
-            size *= 2
-            
-
-        cnn.add(Flatten())
-
-        features = cnn(image)
-        return features
+        x = Flatten()(x)
+        return x
 
     # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
     def build_reconstructor(self, latent_size, min_latent_res=8):
@@ -579,7 +652,7 @@ class BalancingGAN:
         self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
 
         # Define combined for training generator.
-        fake = self.generator(self.reconstructor(real_images))
+        fake = self.generator(real_images)
 
         self.build_features_from_d_model()
 
@@ -603,7 +676,8 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mse']
+            loss= ['sparse_categorical_crossentropy', 'mse'],
+            loss_weights = [1, 1.5],
         )
 
         # Define initializer for autoencoder
@@ -613,7 +687,7 @@ class BalancingGAN:
 
         img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
 
-        img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
+        img_reconstruct = self.generator(img_for_reconstructor)
         self.autoenc_0 = Model(
             inputs=img_for_reconstructor,
             outputs=img_reconstruct,
@@ -661,9 +735,7 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
             ################## Train Discriminator ##################
             generated_images = self.generator.predict(
-                self.reconstructor.predict(
-                    image_batch,verbose = 0
-                ), verbose=0
+                image_batch, verbose=0
             )
     
             X = np.concatenate((image_batch, generated_images))
@@ -912,9 +984,7 @@ class BalancingGAN:
                 [
                     act_img_samples,
                     self.generator.predict(
-                            self.reconstructor.predict(
-                                act_img_samples
-                            )
+                        act_img_samples
                     ),
                 ]
             ])
@@ -924,9 +994,7 @@ class BalancingGAN:
                     [
                         act_img_samples,
                         self.generator.predict(
-                                self.reconstructor.predict(
-                                act_img_samples
-                            )
+                            act_img_samples
                         ),
                     ]
                 ])
@@ -945,9 +1013,7 @@ class BalancingGAN:
             
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
-                    self.reconstructor.predict(
-                        bg_test.dataset_x, verbose = False
-                    ), verbose=False
+                    bg_test.dataset_x, verbose=False
                 )
 
                 X = np.concatenate( (bg_test.dataset_x, generated_images) )
@@ -976,9 +1042,7 @@ class BalancingGAN:
                         [
                             act_img_samples,
                             self.generator.predict(
-                                self.reconstructor.predict(
-                                    act_img_samples
-                                )
+                                act_img_samples
                             ),
                         ]
                     ])
@@ -988,9 +1052,7 @@ class BalancingGAN:
                             [
                                 act_img_samples,
                                 self.generator.predict(
-                                    self.reconstructor.predict(
-                                        act_img_samples
-                                    )
+                                    act_img_samples
                                 ),
                             ]
                         ])
