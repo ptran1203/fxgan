@@ -930,26 +930,36 @@ class BalancingGAN:
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
-        def train(self, bg_train, bg_test, epochs=50):
-            if not self.trained:
-                self.autoenc_epochs = 100
+    def train(self, bg_train, bg_test, epochs=50):
+        if not self.trained:
+            self.autoenc_epochs = 100
 
-                # Class actual ratio
-                self.class_aratio = bg_train.get_class_probability()
+            # Class actual ratio
+            self.class_aratio = bg_train.get_class_probability()
 
-                # Class balancing ratio
-                self._set_class_ratios()
+            # Class balancing ratio
+            self._set_class_ratios()
 
-                # Initialization
-                print("BAGAN init_autoenc")
-                self.init_autoenc(bg_train)
-                print("BAGAN autoenc initialized, init gan")
-                start_e = self.init_gan()
-                print("BAGAN gan initialized, start_e: ", start_e)
+            # Initialization
+            print("BAGAN init_autoenc")
+            self.init_autoenc(bg_train)
+            print("BAGAN autoenc initialized, init gan")
+            start_e = self.init_gan()
+            print("BAGAN gan initialized, start_e: ", start_e)
 
-                crt_c = 0
+            crt_c = 0
+            act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+            img_samples = np.array([
+                [
+                    act_img_samples,
+                    self.generator.predict(
+                        act_img_samples
+                    ),
+                ]
+            ])
+            for crt_c in range(1, self.nclasses):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                img_samples = np.array([
+                new_samples = np.array([
                     [
                         act_img_samples,
                         self.generator.predict(
@@ -957,9 +967,47 @@ class BalancingGAN:
                         ),
                     ]
                 ])
-                for crt_c in range(1, self.nclasses):
+                img_samples = np.concatenate((img_samples, new_samples), axis=0)
+
+            show_samples(img_samples)
+
+            # Train
+            for e in range(start_e, epochs):
+                start_time = datetime.datetime.now()
+                print('GAN train epoch: {}/{}'.format(e+1, epochs))
+                train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
+
+                # Test: # generate a new batch of noise
+                nb_test = bg_test.get_num_samples()
+            
+                # sample some labels from p_c and generate images from them
+                generated_images = self.generator.predict(
+                    bg_test.dataset_x, verbose=False
+                )
+
+                X = np.concatenate( (bg_test.dataset_x, generated_images) )
+                aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
+
+                # see if the discriminator can figure itself out...
+                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                    X, aux_y, verbose=False)
+
+                # make new latent
+
+                test_gen_loss, test_gen_acc = 0,0
+
+                if e % 5 == 0:
+                    print('Evaluate D')
+                    self.evaluate_d(X, aux_y)
+                    print('Evaluate G')
+                    real_features = self.features_from_d_model.predict(bg_test.dataset_x)
+                    self.evaluate_g(
+                        bg_test.dataset_x,
+                        [bg_test.dataset_y, real_features])
+
+                    crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    new_samples = np.array([
+                    img_samples = np.array([
                         [
                             act_img_samples,
                             self.generator.predict(
@@ -967,47 +1015,9 @@ class BalancingGAN:
                             ),
                         ]
                     ])
-                    img_samples = np.concatenate((img_samples, new_samples), axis=0)
-
-                show_samples(img_samples)
-
-                # Train
-                for e in range(start_e, epochs):
-                    start_time = datetime.datetime.now()
-                    print('GAN train epoch: {}/{}'.format(e+1, epochs))
-                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
-
-                    # Test: # generate a new batch of noise
-                    nb_test = bg_test.get_num_samples()
-                
-                    # sample some labels from p_c and generate images from them
-                    generated_images = self.generator.predict(
-                        bg_test.dataset_x, verbose=False
-                    )
-
-                    X = np.concatenate( (bg_test.dataset_x, generated_images) )
-                    aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
-
-                    # see if the discriminator can figure itself out...
-                    test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                        X, aux_y, verbose=False)
-
-                    # make new latent
-
-                    test_gen_loss, test_gen_acc = 0,0
-
-                    if e % 5 == 0:
-                        print('Evaluate D')
-                        self.evaluate_d(X, aux_y)
-                        print('Evaluate G')
-                        real_features = self.features_from_d_model.predict(bg_test.dataset_x)
-                        self.evaluate_g(
-                            bg_test.dataset_x,
-                            [bg_test.dataset_y, real_features])
-
-                        crt_c = 0
+                    for crt_c in range(1, self.nclasses):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        img_samples = np.array([
+                        new_samples = np.array([
                             [
                                 act_img_samples,
                                 self.generator.predict(
@@ -1015,43 +1025,33 @@ class BalancingGAN:
                                 ),
                             ]
                         ])
-                        for crt_c in range(1, self.nclasses):
-                            act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                            new_samples = np.array([
-                                [
-                                    act_img_samples,
-                                    self.generator.predict(
-                                        act_img_samples
-                                    ),
-                                ]
-                            ])
-                            img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-                        show_samples(img_samples)
+                    show_samples(img_samples)
 
-                        self.plot_loss_his()
-                        self.plot_acc_his()
+                    self.plot_loss_his()
+                    self.plot_acc_his()
 
-                    if e % 15 == 0:
-                        self.backup_point(e)
+                if e % 15 == 0:
+                    self.backup_point(e)
 
 
-                    print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
-                        train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
-                        datetime.datetime.now() - start_time
-                    ))
-                    self.train_history['disc_loss'].append(train_disc_loss)
-                    self.train_history['gen_loss'].append(train_gen_loss)
-                    self.test_history['disc_loss'].append(test_disc_loss)
-                    self.test_history['gen_loss'].append(test_gen_loss)
-                    # accuracy
-                    self.train_history['disc_acc'].append(train_disc_acc)
-                    self.train_history['gen_acc'].append(train_gen_acc)
-                    self.test_history['disc_acc'].append(test_disc_acc)
-                    self.test_history['gen_acc'].append(test_gen_acc)
-                    # self.plot_his()
+                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
+                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
+                    datetime.datetime.now() - start_time
+                ))
+                self.train_history['disc_loss'].append(train_disc_loss)
+                self.train_history['gen_loss'].append(train_gen_loss)
+                self.test_history['disc_loss'].append(test_disc_loss)
+                self.test_history['gen_loss'].append(test_gen_loss)
+                # accuracy
+                self.train_history['disc_acc'].append(train_disc_acc)
+                self.train_history['gen_acc'].append(train_gen_acc)
+                self.test_history['disc_acc'].append(test_disc_acc)
+                self.test_history['gen_acc'].append(test_gen_acc)
+                # self.plot_his()
 
-                self.trained = True
+            self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
         return self.generate(np.full(samples, c), bg)
