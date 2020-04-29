@@ -328,41 +328,41 @@ class BalancingGAN:
         stride = 2
         # 1 encoder C64
         # skip batchnorm on this layer on purpose (from paper)
-        en_1 = Convolution2D(nb_filter=64, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(input_layer)
+        en_1 = Conv2D(kernel_size=(4, 4), filters=64, strides=(2, 2), padding="same")(input_layer)
         en_1 = LeakyReLU(alpha=0.2)(en_1)
 
         # 2 encoder C128
-        en_2 = Convolution2D(nb_filter=128, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_1)
+        en_2 = Conv2D(kernel_size=(4, 4), filters=128, strides=(2, 2), padding="same")(en_1)
         en_2 = BatchNormalization(name='gen_en_bn_2')(en_2)
         en_2 = LeakyReLU(alpha=0.2)(en_2)
 
         # 3 encoder C256
-        en_3 = Convolution2D(nb_filter=256, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_2)
+        en_3 = Conv2D(kernel_size=(4, 4), filters=256, strides=(2, 2), padding="same")(en_2)
         en_3 = BatchNormalization(name='gen_en_bn_3')(en_3)
         en_3 = LeakyReLU(alpha=0.2)(en_3)
 
         # 4 encoder C512
-        en_4 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_3)
+        en_4 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_3)
         en_4 = BatchNormalization(name='gen_en_bn_4')(en_4)
         en_4 = LeakyReLU(alpha=0.2)(en_4)
 
         # 5 encoder C512
-        en_5 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_4)
+        en_5 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_4)
         en_5 = BatchNormalization(name='gen_en_bn_5')(en_5)
         en_5 = LeakyReLU(alpha=0.2)(en_5)
 
         # 6 encoder C512
-        en_6 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_5)
+        en_6 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_5)
         en_6 = BatchNormalization(name='gen_en_bn_6')(en_6)
         en_6 = LeakyReLU(alpha=0.2)(en_6)
 
         # 7 encoder C512
-        en_7 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_6)
+        en_7 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_6)
         en_7 = BatchNormalization(name='gen_en_bn_7')(en_7)
         en_7 = LeakyReLU(alpha=0.2)(en_7)
 
         # 8 encoder C512
-        en_8 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same', subsample=(stride, stride))(en_7)
+        en_8 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_7)
         en_8 = BatchNormalization(name='gen_en_bn_8')(en_8)
         en_8 = LeakyReLU(alpha=0.2)(en_8)
 
@@ -374,52 +374,52 @@ class BalancingGAN:
         # -------------------------------
         # 1 decoder CD512 (decodes en_8)
         de_1 = UpSampling2D(size=(2, 2))(en_8)
-        de_1 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same')(de_1)
+        de_1 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_1)
         de_1 = BatchNormalization(name='gen_de_bn_1')(de_1)
         de_1 = Dropout(p=0.5)(de_1)
-        de_1 = Concatenate()([de_1, en_6])
+        de_1 = Concatenate()([de_1, en_7])
         de_1 = Activation('relu')(de_1)
 
         de_2 = UpSampling2D(size=(2, 2))(de_1)
-        de_2 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_2)
+        de_2 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_2)
         de_2 = BatchNormalization(name='gen_de_bn_2')(de_2)
         de_2 = Dropout(p=0.5)(de_2)
-        de_2 = Concatenate()([de_2, en_5])
+        de_2 = Concatenate()([de_2, en_6])
         de_2 = Activation('relu')(de_2)
 
         de_3 = UpSampling2D(size=(2, 2))(de_2)
-        de_3 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_3)
+        de_3 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_3)
         de_3 = BatchNormalization(name='gen_de_bn_3')(de_3)
         de_3 = Dropout(p=0.5)(de_3)
-        de_3 = Concatenate()([de_3, en_4])
+        de_3 = Concatenate()([de_3, en_5])
         de_3 = Activation('relu')(de_3)
 
         de_4 = UpSampling2D(size=(2, 2))(de_3)
-        de_4 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_4)
+        de_4 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_4)
         de_4 = BatchNormalization(name='gen_de_bn_4')(de_4)
         de_4 = Dropout(p=0.5)(de_4)
-        de_4 = Concatenate()([de_4, en_3])
+        de_4 = Concatenate()([de_4, en_4])
         de_4 = Activation('relu')(de_4)
 
         de_5 = UpSampling2D(size=(2, 2))(de_4)
-        de_5 = Convolution2D(nb_filter=1024, nb_row=4, nb_col=4, border_mode='same')(de_5)
+        de_5 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_5)
         de_5 = BatchNormalization(name='gen_de_bn_5')(de_5)
         de_5 = Dropout(p=0.5)(de_5)
-        de_5 = Concatenate()([de_5, en_2])
+        de_5 = Concatenate()([de_5, en_3])
         de_5 = Activation('relu')(de_5)
 
         de_6 = UpSampling2D(size=(2, 2))(de_5)
-        de_6 = Convolution2D(nb_filter=512, nb_row=4, nb_col=4, border_mode='same')(de_6)
+        de_6 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_6)
         de_6 = BatchNormalization(name='gen_de_bn_6')(de_6)
         de_6 = Dropout(p=0.5)(de_6)
-        de_6 = Concatenate()([de_6, en_1])
+        de_6 = Concatenate()([de_6, en_2])
         de_6 = Activation('relu')(de_6)
 
         de_7 = UpSampling2D(size=(2, 2))(de_6)
-        de_7 = Convolution2D(nb_filter=256, nb_row=4, nb_col=4, border_mode='same')(de_7)
+        de_7 = Conv2D(kernel_size=(4, 4), filters=256, padding="same")(de_7)
         de_7 = BatchNormalization(name='gen_de_bn_7')(de_7)
         de_7 = Dropout(p=0.5)(de_7)
-        # de_7 = Concatenate()([de_7, en_1])
+        de_7 = Concatenate()([de_7, en_1])
         de_7 = Activation('relu')(de_7)
 
         # After the last layer in the decoder, a convolution is applied
@@ -427,7 +427,7 @@ class BalancingGAN:
         # except in colorization, where it is 2), followed by a Tanh
         # function.
         de_8 = UpSampling2D(size=(2, 2))(de_7)
-        de_8 = Convolution2D(nb_filter=num_output_channels, nb_row=4, nb_col=4, border_mode='same')(de_8)
+        de_8 = Conv2D(kernel_size=(4, 4), filters=1, padding="same")(de_8)
         de_8 = Activation('tanh')(de_8)
 
         self.generator = Model(inputs = input_layer, outputs = de_8, name='unet_generator')
