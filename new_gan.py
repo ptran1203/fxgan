@@ -1099,10 +1099,7 @@ class BalancingGAN:
                 self.train_history['disc_acc'].append(train_disc_acc)
                 self.train_history['gen_acc'].append(train_gen_acc)
                 self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append({
-                    'acc_from_d': discriminator_accuracy,
-                    'fm_acc': feature_matching_accuracy
-                })
+                self.test_history['gen_acc'].append(discriminator_accuracy)
                 # self.plot_his()
 
             self.trained = True
