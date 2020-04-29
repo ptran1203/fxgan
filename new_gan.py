@@ -314,16 +314,7 @@ class BatchGenerator:
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
 class BalancingGAN:
-    def build_res_unet(
-        self,
-        filter_root = 32,
-        depth = 5,
-        n_class=1,
-        img_dim=(64, 64, 1),
-        activation='relu',
-        batch_norm=True,
-        final_activation='tanh'
-    ):
+    def build_res_unet(self, img_dim=(64, 64, 1)):
         input_layer = Input(shape=img_dim, name="unet_input")
         stride = 2
         # 1 encoder C64
@@ -377,60 +368,45 @@ class BalancingGAN:
         de_1 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_1)
         de_1 = BatchNormalization(name='gen_de_bn_1')(de_1)
         de_1 = Dropout(p=0.5)(de_1)
-        de_1 = Concatenate()([de_1, en_7])
+        de_1 = Concatenate()([de_1, en_5])
         de_1 = Activation('relu')(de_1)
 
         de_2 = UpSampling2D(size=(2, 2))(de_1)
-        de_2 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_2)
+        de_2 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_2)
         de_2 = BatchNormalization(name='gen_de_bn_2')(de_2)
         de_2 = Dropout(p=0.5)(de_2)
-        de_2 = Concatenate()([de_2, en_6])
+        de_2 = Concatenate()([de_2, en_4])
         de_2 = Activation('relu')(de_2)
 
         de_3 = UpSampling2D(size=(2, 2))(de_2)
-        de_3 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_3)
+        de_3 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_3)
         de_3 = BatchNormalization(name='gen_de_bn_3')(de_3)
         de_3 = Dropout(p=0.5)(de_3)
-        de_3 = Concatenate()([de_3, en_5])
+        de_3 = Concatenate()([de_3, en_3])
         de_3 = Activation('relu')(de_3)
 
         de_4 = UpSampling2D(size=(2, 2))(de_3)
-        de_4 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_4)
+        de_4 = Conv2D(kernel_size=(4, 4), filters=128, padding="same")(de_4)
         de_4 = BatchNormalization(name='gen_de_bn_4')(de_4)
         de_4 = Dropout(p=0.5)(de_4)
-        de_4 = Concatenate()([de_4, en_4])
+        de_4 = Concatenate()([de_4, en_2])
         de_4 = Activation('relu')(de_4)
 
         de_5 = UpSampling2D(size=(2, 2))(de_4)
-        de_5 = Conv2D(kernel_size=(4, 4), filters=1024, padding="same")(de_5)
+        de_5 = Conv2D(kernel_size=(4, 4), filters=64, padding="same")(de_5)
         de_5 = BatchNormalization(name='gen_de_bn_5')(de_5)
         de_5 = Dropout(p=0.5)(de_5)
-        de_5 = Concatenate()([de_5, en_3])
+        de_5 = Concatenate()([de_5, en_1])
         de_5 = Activation('relu')(de_5)
 
         de_6 = UpSampling2D(size=(2, 2))(de_5)
-        de_6 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_6)
+        de_6 = Conv2D(kernel_size=(4, 4), filters=1, padding="same")(de_6)
         de_6 = BatchNormalization(name='gen_de_bn_6')(de_6)
         de_6 = Dropout(p=0.5)(de_6)
-        de_6 = Concatenate()([de_6, en_2])
-        de_6 = Activation('relu')(de_6)
+        # de_6 = Concatenate()([de_6, en_2])
+        de_6 = Activation('tanh')(de_6)
 
-        de_7 = UpSampling2D(size=(2, 2))(de_6)
-        de_7 = Conv2D(kernel_size=(4, 4), filters=256, padding="same")(de_7)
-        de_7 = BatchNormalization(name='gen_de_bn_7')(de_7)
-        de_7 = Dropout(p=0.5)(de_7)
-        de_7 = Concatenate()([de_7, en_1])
-        de_7 = Activation('relu')(de_7)
-
-        # After the last layer in the decoder, a convolution is applied
-        # to map to the number of output channels (3 in general,
-        # except in colorization, where it is 2), followed by a Tanh
-        # function.
-        de_8 = UpSampling2D(size=(2, 2))(de_7)
-        de_8 = Conv2D(kernel_size=(4, 4), filters=1, padding="same")(de_8)
-        de_8 = Activation('tanh')(de_8)
-
-        self.generator = Model(inputs = input_layer, outputs = de_8, name='unet_generator')
+        self.generator = Model(inputs = input_layer, outputs = de_6, name='unet_generator')
 
 
 
@@ -961,36 +937,26 @@ class BalancingGAN:
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
-    def train(self, bg_train, bg_test, epochs=50):
-        if not self.trained:
-            self.autoenc_epochs = 100
+        def train(self, bg_train, bg_test, epochs=50):
+            if not self.trained:
+                self.autoenc_epochs = 100
 
-            # Class actual ratio
-            self.class_aratio = bg_train.get_class_probability()
+                # Class actual ratio
+                self.class_aratio = bg_train.get_class_probability()
 
-            # Class balancing ratio
-            self._set_class_ratios()
+                # Class balancing ratio
+                self._set_class_ratios()
 
-            # Initialization
-            print("BAGAN init_autoenc")
-            self.init_autoenc(bg_train)
-            print("BAGAN autoenc initialized, init gan")
-            start_e = self.init_gan()
-            print("BAGAN gan initialized, start_e: ", start_e)
+                # Initialization
+                print("BAGAN init_autoenc")
+                self.init_autoenc(bg_train)
+                print("BAGAN autoenc initialized, init gan")
+                start_e = self.init_gan()
+                print("BAGAN gan initialized, start_e: ", start_e)
 
-            crt_c = 0
-            act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-            img_samples = np.array([
-                [
-                    act_img_samples,
-                    self.generator.predict(
-                        act_img_samples
-                    ),
-                ]
-            ])
-            for crt_c in range(1, self.nclasses):
+                crt_c = 0
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                new_samples = np.array([
+                img_samples = np.array([
                     [
                         act_img_samples,
                         self.generator.predict(
@@ -998,47 +964,9 @@ class BalancingGAN:
                         ),
                     ]
                 ])
-                img_samples = np.concatenate((img_samples, new_samples), axis=0)
-
-            show_samples(img_samples)
-
-            # Train
-            for e in range(start_e, epochs):
-                start_time = datetime.datetime.now()
-                print('GAN train epoch: {}/{}'.format(e+1, epochs))
-                train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
-
-                # Test: # generate a new batch of noise
-                nb_test = bg_test.get_num_samples()
-            
-                # sample some labels from p_c and generate images from them
-                generated_images = self.generator.predict(
-                    bg_test.dataset_x, verbose=False
-                )
-
-                X = np.concatenate( (bg_test.dataset_x, generated_images) )
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
-
-                # see if the discriminator can figure itself out...
-                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                    X, aux_y, verbose=False)
-
-                # make new latent
-
-                test_gen_loss, test_gen_acc = 0,0
-
-                if e % 5 == 0:
-                    print('Evaluate D')
-                    self.evaluate_d(X, aux_y)
-                    print('Evaluate G')
-                    real_features = self.features_from_d_model.predict(bg_test.dataset_x)
-                    self.evaluate_g(
-                        bg_test.dataset_x,
-                        [bg_test.dataset_y, real_features])
-
-                    crt_c = 0
+                for crt_c in range(1, self.nclasses):
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    img_samples = np.array([
+                    new_samples = np.array([
                         [
                             act_img_samples,
                             self.generator.predict(
@@ -1046,9 +974,47 @@ class BalancingGAN:
                             ),
                         ]
                     ])
-                    for crt_c in range(1, self.nclasses):
+                    img_samples = np.concatenate((img_samples, new_samples), axis=0)
+
+                show_samples(img_samples)
+
+                # Train
+                for e in range(start_e, epochs):
+                    start_time = datetime.datetime.now()
+                    print('GAN train epoch: {}/{}'.format(e+1, epochs))
+                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
+
+                    # Test: # generate a new batch of noise
+                    nb_test = bg_test.get_num_samples()
+                
+                    # sample some labels from p_c and generate images from them
+                    generated_images = self.generator.predict(
+                        bg_test.dataset_x, verbose=False
+                    )
+
+                    X = np.concatenate( (bg_test.dataset_x, generated_images) )
+                    aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
+
+                    # see if the discriminator can figure itself out...
+                    test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                        X, aux_y, verbose=False)
+
+                    # make new latent
+
+                    test_gen_loss, test_gen_acc = 0,0
+
+                    if e % 5 == 0:
+                        print('Evaluate D')
+                        self.evaluate_d(X, aux_y)
+                        print('Evaluate G')
+                        real_features = self.features_from_d_model.predict(bg_test.dataset_x)
+                        self.evaluate_g(
+                            bg_test.dataset_x,
+                            [bg_test.dataset_y, real_features])
+
+                        crt_c = 0
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        new_samples = np.array([
+                        img_samples = np.array([
                             [
                                 act_img_samples,
                                 self.generator.predict(
@@ -1056,27 +1022,43 @@ class BalancingGAN:
                                 ),
                             ]
                         ])
-                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                        for crt_c in range(1, self.nclasses):
+                            act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                            new_samples = np.array([
+                                [
+                                    act_img_samples,
+                                    self.generator.predict(
+                                        act_img_samples
+                                    ),
+                                ]
+                            ])
+                            img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-                    show_samples(img_samples)
+                        show_samples(img_samples)
+
+                        self.plot_loss_his()
+                        self.plot_acc_his()
+
+                    if e % 15 == 0:
+                        self.backup_point(e)
 
 
-                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
-                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
-                    datetime.datetime.now() - start_time
-                ))
-                self.train_history['disc_loss'].append(train_disc_loss)
-                self.train_history['gen_loss'].append(train_gen_loss)
-                self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append(test_gen_loss)
-                # accuracy
-                self.train_history['disc_acc'].append(train_disc_acc)
-                self.train_history['gen_acc'].append(train_gen_acc)
-                self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append(test_gen_acc)
-                # self.plot_his()
+                    print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
+                        train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
+                        datetime.datetime.now() - start_time
+                    ))
+                    self.train_history['disc_loss'].append(train_disc_loss)
+                    self.train_history['gen_loss'].append(train_gen_loss)
+                    self.test_history['disc_loss'].append(test_disc_loss)
+                    self.test_history['gen_loss'].append(test_gen_loss)
+                    # accuracy
+                    self.train_history['disc_acc'].append(train_disc_acc)
+                    self.train_history['gen_acc'].append(train_gen_acc)
+                    self.test_history['disc_acc'].append(test_disc_acc)
+                    self.test_history['gen_acc'].append(test_gen_acc)
+                    # self.plot_his()
 
-            self.trained = True
+                self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
         return self.generate(np.full(samples, c), bg)
