@@ -764,9 +764,9 @@ class BalancingGAN:
             epoch_gen_acc.append(discriminator_accuracy)
 
         epoch_gen_loss_cal = {
-            'loss': np.mean(np.array(epoch_gen_loss['loss'])),
-            'loss_from_d': np.mean(np.array(epoch_gen_loss['loss_from_d'])),
-            'fm_loss': np.mean(np.array(epoch_gen_loss['fm_loss']))
+            'loss': np.mean(np.array([e['loss'] for e in epoch_gen_loss])),
+            'loss_from_d': np.mean(np.array([e['loss_from_d'] for e in epoch_gen_loss])),
+            'fm_loss': np.mean(np.array([e['fm_loss'] for e in epoch_gen_loss]))
         }
 
         return (
