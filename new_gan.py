@@ -328,17 +328,17 @@ class BalancingGAN:
         en_2 = LeakyReLU(alpha=0.2)(en_2)
 
         # 3 encoder C256
-        en_3 = Conv2D(kernel_size=(4, 4), filters=256, strides=(2, 2), padding="same")(en_2)
+        en_3 = Conv2D(kernel_size=(4, 4), filters=128, strides=(2, 2), padding="same")(en_2)
         en_3 = BatchNormalization(name='gen_en_bn_3')(en_3)
         en_3 = LeakyReLU(alpha=0.2)(en_3)
 
         # 4 encoder C512
-        en_4 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_3)
+        en_4 = Conv2D(kernel_size=(4, 4), filters=256, strides=(2, 2), padding="same")(en_3)
         en_4 = BatchNormalization(name='gen_en_bn_4')(en_4)
         en_4 = LeakyReLU(alpha=0.2)(en_4)
 
         # 5 encoder C512
-        en_5 = Conv2D(kernel_size=(4, 4), filters=512, strides=(2, 2), padding="same")(en_4)
+        en_5 = Conv2D(kernel_size=(4, 4), filters=256, strides=(2, 2), padding="same")(en_4)
         en_5 = BatchNormalization(name='gen_en_bn_5')(en_5)
         en_5 = LeakyReLU(alpha=0.2)(en_5)
 
@@ -379,7 +379,7 @@ class BalancingGAN:
         de_2 = Activation('relu')(de_2)
 
         de_3 = UpSampling2D(size=(2, 2))(de_2)
-        de_3 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_3)
+        de_3 = Conv2D(kernel_size=(4, 4), filters=256, padding="same")(de_3)
         de_3 = BatchNormalization(name='gen_de_bn_3')(de_3)
         de_3 = Dropout(p=0.3)(de_3)
         de_3 = Concatenate()([de_3, en_3])
