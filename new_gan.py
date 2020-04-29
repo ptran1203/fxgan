@@ -411,18 +411,21 @@ class BalancingGAN:
 
 
     def plot_loss_his(self):
+        def toarray(lis, k):
+            return [d[k] for d in lis]
+
         def plot_g(train_g, test_g):
-            plt.plot(train_g['loss'], label='train_g_loss')
-            plt.plot(train_g['loss_from_d'], label='train_g_loss_from_d')
-            plt.plot(train_g['fm_loss'], label='train_g_loss_fm')
-            plt.plot(test_g['loss'], label='test_g_loss')
-            plt.plot(test_g['loss_from_d'], label='test_g_loss_from_d')
-            plt.plot(test_g['fm_loss'], label='test_g_loss_fm')
+            plt.plot(toarray(train_g, 'loss'), label='train_g_loss')
+            plt.plot(toarray(train_g, 'loss_from_d'), label='train_g_loss_from_d')
+            plt.plot(toarray(train_g, 'fm_loss'), label='train_g_loss_fm')
+            plt.plot(toarray(test_g, 'loss'), label='test_g_loss')
+            plt.plot(toarray(test_g, 'loss_from_d'), label='test_g_loss_from_d')
+            plt.plot(toarray(test_g, 'fm_loss'), label='test_g_loss_fm')
             plt.ylabel('loss')
             plt.xlabel('epoch')
             plt.legend()
             plt.show()
-        
+
         def plot_d(train_d, test_d):
             plt.plot(train_d, label='train_d_loss')
             plt.plot(test_d, label='test_d_loss')
@@ -436,14 +439,20 @@ class BalancingGAN:
         test_d = self.test_history['disc_loss']
         test_g = self.test_history['gen_loss']
 
+        if len(train_g) == 0:
+            return 
+
         plot_g(train_g, test_g)
         plot_d(train_d, test_d)
 
 
     def plot_acc_his(self):
+        def toarray(lis, k):
+            return [d[k] for d in lis]
+
         def plot_g(train_g, test_g):
-            plt.plot(train_g['acc_from_d'], label='train_g_acc')
-            plt.plot(test_g['acc_from_d'], label='test_g_acc')
+            plt.plot(train_g, label='train_g_acc')
+            plt.plot(test_g, label='test_g_acc')
             plt.ylabel('acc')
             plt.xlabel('epoch')
             plt.legend()
@@ -461,9 +470,15 @@ class BalancingGAN:
         train_g = self.train_history['gen_acc']
         test_d = self.test_history['disc_acc']
         test_g = self.test_history['gen_acc']
+        if len(train_g) == 0:
+            return
 
+        print(train_g)
+        print(test_g)
+ 
         plot_g(train_g, test_g)
         plot_d(train_d, test_d)
+
     
     def plot_classifier_acc(self):
         plt.plot(self.classifier_acc, label='classifier_acc')
@@ -519,18 +534,29 @@ class BalancingGAN:
         cnn.add(Dropout(0.3))
 
         size = 128
-        while cnn.output_shape[1] > min_latent_res:
-            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
-            # cnn.add(BatchNormalization())
-            cnn.add(LeakyReLU(alpha=0.2))
-            cnn.add(Dropout(0.3))
-            size *= 2
+        cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
+        # cnn.add(BatchNormalization())
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+
+        cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
+        # cnn.add(BatchNormalization())
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+
+        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
+        # cnn.add(BatchNormalization())
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+    
             
 
         cnn.add(Flatten())
 
         features = cnn(image)
         return features
+
+
 
     # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
     def build_reconstructor(self, latent_size, min_latent_res=8):
