@@ -411,32 +411,59 @@ class BalancingGAN:
 
 
     def plot_loss_his(self):
+        def plot_g(train_g, test_g):
+            plt.plot(train_g['loss'], label='train_g_loss')
+            plt.plot(train_g['loss_from_d'], label='train_g_loss_from_d')
+            plt.plot(train_g['fm_loss'], label='train_g_loss_fm')
+            plt.plot(test_g['loss'], label='test_g_loss')
+            plt.plot(test_g['loss_from_d'], label='test_g_loss_from_d')
+            plt.plot(test_g['fm_loss'], label='test_g_loss_fm')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+        
+        def plot_d(train_d, test_d):
+            plt.plot(train_d, label='train_d_loss')
+            plt.plot(test_d, label='test_d_loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+
         train_d = self.train_history['disc_loss']
         train_g = self.train_history['gen_loss']
         test_d = self.test_history['disc_loss']
         test_g = self.test_history['gen_loss']
-        plt.plot(train_d, label='train_d_loss')
-        plt.plot(train_g, label='train_g_loss')
-        plt.plot(test_d, label='test_d_loss')
-        plt.plot(test_g, label='test_g_loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend()
-        plt.show()
+
+        plot_g(train_g, test_g)
+        plot_d(train_d, test_d)
+
 
     def plot_acc_his(self):
+        def plot_g(train_g, test_g):
+            plt.plot(train_g['acc_from_d'], label='train_g_acc')
+            plt.plot(test_g['acc_from_d'], label='test_g_acc')
+            plt.ylabel('acc')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+        
+        def plot_d(train_d, test_d):
+            plt.plot(train_d, label='train_d_acc')
+            plt.plot(test_d, label='test_d_acc')
+            plt.ylabel('acc')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+
         train_d = self.train_history['disc_acc']
         train_g = self.train_history['gen_acc']
         test_d = self.test_history['disc_acc']
         test_g = self.test_history['gen_acc']
-        plt.plot(train_d, label='train_d_acc')
-        plt.plot(train_g, label='train_g_acc')
-        plt.plot(test_d, label='test_d_acc')
-        plt.plot(test_g, label='test_g_acc')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend()
-        plt.show()
+
+        plot_g(train_g, test_g)
+        plot_d(train_d, test_d)
     
     def plot_classifier_acc(self):
         plt.plot(self.classifier_acc, label='classifier_acc')
@@ -717,12 +744,27 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             real_features = self.features_from_d_model.predict(image_batch)
-            loss = self.combined.train_on_batch(
+            # ['loss', 'discriminator_loss', 'Feature_matching_loss',
+            #   'discriminator_accuracy', 'Feature_matching_accuracy']
+            [
+                loss, discriminator_loss,
+                feature_matching_loss,
+                discriminator_accuracy,
+                feature_matching_accuracy
+            ] = self.combined.train_on_batch(
                 image_batch,
                 [label_batch, real_features]
             )
-            epoch_gen_loss.append(loss)
-            # epoch_gen_acc.append(acc)
+
+            epoch_gen_loss.append({
+                'loss': loss,
+                'loss_from_d': discriminator_loss,
+                'fm_loss': feature_matching_loss
+            })
+            epoch_gen_acc.append({
+                'acc_from_d': discriminator_accuracy,
+                'fm_acc': feature_matching_accuracy,
+            })
 
         # return statistics: generator loss,
         return (
@@ -911,20 +953,16 @@ class BalancingGAN:
         # pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def evaluate_d(self, test_x, test_y):
-        loss, acc  = self.discriminator.evaluate(test_x, test_y)
         y_pre = self.discriminator.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
-        print('ACC: {}%'.format(acc))
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
     def evaluate_g(self, test_x, test_y):
-        loss  = self.combined.evaluate(test_x, test_y)
         y_pre, _ = self.combined.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
-        print('ACC: {}%'.format(loss[-1]))
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
@@ -986,24 +1024,31 @@ class BalancingGAN:
                 )
 
                 X = np.concatenate( (bg_test.dataset_x, generated_images) )
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(generated_images.shape[0], self.nclasses )), axis=0)
+                aux_y = np.concatenate((bg_test.dataset_y, np.full(
+                    generated_images.shape[0], self.nclasses )), axis=0
+                )
 
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
 
-                # make new latent
-
-                test_gen_loss, test_gen_acc = 0,0
+                real_features = self.features_from_d_model.predict(bg_test.dataset_x)
+                [
+                    loss, discriminator_loss,
+                    feature_matching_loss,
+                    discriminator_accuracy,
+                    feature_matching_accuracy
+                ] = self.combined.evaluate(
+                    bg_test.dataset_x,
+                    [bg_test.dataset_y, real_features]
+                )
 
                 if e % 5 == 0:
-                    print('Evaluate D')
                     self.evaluate_d(X, aux_y)
-                    print('Evaluate G')
-                    real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                     self.evaluate_g(
                         bg_test.dataset_x,
-                        [bg_test.dataset_y, real_features])
+                        [bg_test.dataset_y, real_features]
+                    )
 
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
@@ -1043,12 +1088,19 @@ class BalancingGAN:
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append(test_gen_loss)
+                self.test_history['gen_loss'].append({
+                    'loss': loss,
+                    'loss_from_d': discriminator_loss,
+                    'fm_loss': feature_matching_loss
+                })
                 # accuracy
                 self.train_history['disc_acc'].append(train_disc_acc)
                 self.train_history['gen_acc'].append(train_gen_acc)
                 self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append(test_gen_acc)
+                self.test_history['gen_acc'].append({
+                    'acc_from_d': discriminator_accuracy,
+                    'fm_acc': feature_matching_accuracy
+                })
                 # self.plot_his()
 
             self.trained = True
