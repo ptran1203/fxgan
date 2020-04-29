@@ -761,15 +761,17 @@ class BalancingGAN:
                 'loss_from_d': discriminator_loss,
                 'fm_loss': feature_matching_loss
             })
-            epoch_gen_acc.append({
-                'acc_from_d': discriminator_accuracy,
-                'fm_acc': feature_matching_accuracy,
-            })
+            epoch_gen_acc.append(discriminator_accuracy)
 
-        # return statistics: generator loss,
+        epoch_gen_loss_cal = {
+            'loss': np.mean(np.array(epoch_gen_loss['loss'])),
+            'loss_from_d': np.mean(np.array(epoch_gen_loss['loss_from_d'])),
+            'fm_loss': np.mean(np.array(epoch_gen_loss['fm_loss']))
+        }
+
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
-            np.mean(np.array(epoch_gen_loss), axis=0),
+            epoch_gen_loss_cal,
             np.mean(np.array(epoch_disc_acc), axis=0),
             np.mean(np.array(epoch_gen_acc), axis=0),
         )
