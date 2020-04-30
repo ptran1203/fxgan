@@ -614,14 +614,8 @@ class BalancingGAN:
         latent = Dense(100, activation='linear')(features)
         self.latent_encoder = Model(inputs=image, outputs=latent)
 
-    def build_features_from_d_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.discriminator.layers[-2](image)
-        self.features_from_d_model = Model(
-            inputs = image,
-            output = model_output,
-            name = 'Feature_matching'
-        )
+    def discriminator_feature_layer(self):
+        return self.discriminator.layers[-2]
 
     def build_g_trigger(self):
             self.build_res_unet()
@@ -681,7 +675,6 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
-        self.features_from_d_model.trainable = True
         aux = self.discriminate(fake)
 
         fake_features = self.features_from_d(fake)
