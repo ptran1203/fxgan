@@ -617,6 +617,16 @@ class BalancingGAN:
     def discriminator_feature_layer(self):
         return self.discriminator.layers[-2]
 
+    def build_features_from_d_model(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.discriminator.layers[-2](image)
+        self.features_from_d_model = Model(
+            inputs = image,
+            output = model_output,
+            name = 'Feature_matching'
+        )
+
+
     def build_g_trigger(self):
             self.build_res_unet()
             # self.build_generator(self.latent_size, self.min_latent_res)
@@ -675,6 +685,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.reconstructor.trainable = False
         self.generator.trainable = True
+        self.features_from_d_model.trainable = False
         aux = self.discriminate(fake)
 
         fake_features = self.features_from_d(fake)
@@ -1065,6 +1076,8 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
+                    print('D weight ',self.discriminator.layers[2].get_weights())
+                    print('Fm weight ', self.features_from_d_model.layers[2].get_weights())
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         bg_test.dataset_x,
