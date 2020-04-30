@@ -1076,8 +1076,6 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    print('D weight ',self.discriminator.layers[-3].get_weights())
-                    print('Fm weight ', self.features_from_d_model.get_weights())
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         bg_test.dataset_x,
