@@ -364,45 +364,39 @@ class BalancingGAN:
         # also adds skip connections (Concatenate()). Takes input from previous layer matching encoder layer
         # -------------------------------
         # 1 decoder CD512 (decodes en_8)
-        de_1 = UpSampling2D(size=(2, 2))(en_8)
-        de_1 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_1)
+        de_1 = Conv2DTranspose(kernel_size=(4, 4), strides = 2 filters=512, padding="same")(en_8)
         de_1 = BatchNormalization(name='gen_de_bn_1')(de_1)
         de_1 = Dropout(p=0.3)(de_1)
         de_1 = Concatenate()([de_1, en_5])
         de_1 = Activation('relu')(de_1)
 
-        de_2 = UpSampling2D(size=(2, 2))(de_1)
-        de_2 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_2)
+        de_2 = Conv2DTranspose(kernel_size=(4, 4),strides = 2, filters=512, padding="same")(de_1)
         de_2 = BatchNormalization(name='gen_de_bn_2')(de_2)
         de_2 = Dropout(p=0.3)(de_2)
         de_2 = Concatenate()([de_2, en_4])
         de_2 = Activation('relu')(de_2)
 
-        de_3 = UpSampling2D(size=(2, 2))(de_2)
-        de_3 = Conv2D(kernel_size=(4, 4), filters=512, padding="same")(de_3)
+        de_3 = Conv2DTranspose(kernel_size=(4, 4), strides = 2, filters=512, padding="same")(de_2)
         de_3 = BatchNormalization(name='gen_de_bn_3')(de_3)
         de_3 = Dropout(p=0.3)(de_3)
         de_3 = Concatenate()([de_3, en_3])
         de_3 = Activation('relu')(de_3)
 
-        de_4 = UpSampling2D(size=(2, 2))(de_3)
-        de_4 = Conv2D(kernel_size=(4, 4), filters=128, padding="same")(de_4)
+        de_4 = Conv2DTranspose(kernel_size=(4, 4), strides = 2, filters=128, padding="same")(de_3)
         de_4 = BatchNormalization(name='gen_de_bn_4')(de_4)
         de_4 = Dropout(p=0.3)(de_4)
         de_4 = Concatenate()([de_4, en_2])
         de_4 = Activation('relu')(de_4)
 
-        de_5 = UpSampling2D(size=(2, 2))(de_4)
-        de_5 = Conv2D(kernel_size=(4, 4), filters=64, padding="same")(de_5)
+        de_5 = Conv2DTranspose(kernel_size=(4, 4), strides = 2, filters=64, padding="same")(de_4)
         de_5 = BatchNormalization(name='gen_de_bn_5')(de_5)
         de_5 = Dropout(p=0.3)(de_5)
         de_5 = Concatenate()([de_5, en_1])
         de_5 = Activation('relu')(de_5)
 
-        de_6 = UpSampling2D(size=(2, 2))(de_5)
-        de_6 = Conv2D(kernel_size=(4, 4), filters=1, padding="same")(de_6)
-        de_6 = BatchNormalization(name='gen_de_bn_6')(de_6)
-        de_6 = Dropout(p=0.3)(de_6)
+        de_6 = Conv2DTranspose(kernel_size=(4, 4), strides = 2, filters=1, padding="same")(de_5)
+        # de_6 = BatchNormalization(name='gen_de_bn_6')(de_6)
+        # de_6 = Dropout(p=0.3)(de_6)
         # de_6 = Concatenate()([de_6, en_2])
         de_6 = Activation('tanh')(de_6)
 
@@ -548,8 +542,6 @@ class BalancingGAN:
         # cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
-    
-            
 
         cnn.add(Flatten())
 
