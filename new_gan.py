@@ -1112,6 +1112,8 @@ class BalancingGAN:
                 if e % 100 == 0:
                     self.backup_point(e)
 
+                self.interval_process(e)
+
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
                     train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
@@ -1136,6 +1138,11 @@ class BalancingGAN:
 
     def generate_samples(self, c, samples, bg = None):
         return self.generate(np.full(samples, c), bg)
+    
+    def interval_process(self, epoch, interval = 20):
+        if epoch % interval != 0:
+            return
+        # do bussiness thing
 
     def save_history(self, res_dir, class_id):
         if self.trained:
