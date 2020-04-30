@@ -615,11 +615,11 @@ class BalancingGAN:
         self.latent_encoder = Model(inputs=image, outputs=latent)
 
     def discriminator_feature_layer(self):
-        return self.discriminator.layers[-2]
+        return self.discriminator.layers[-3]
 
     def build_features_from_d_model(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.discriminator.layers[-2](image)
+        model_output = self.discriminator.layers[-3](image)
         self.features_from_d_model = Model(
             inputs = image,
             output = model_output,
@@ -703,7 +703,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss= ['sparse_categorical_crossentropy', 'mse'],
-            loss_weights = [1.0, 0.0],
+            # loss_weights = [1.0, 0.0],
         )
 
         # Define initializer for autoencoder
@@ -1076,7 +1076,7 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    print('D weight ',self.discriminator.layers[-2].get_weights())
+                    print('D weight ',self.discriminator.layers[-3].get_weights())
                     print('Fm weight ', self.features_from_d_model.get_weights())
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
