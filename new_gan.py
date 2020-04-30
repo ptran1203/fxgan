@@ -364,7 +364,7 @@ class BalancingGAN:
         # also adds skip connections (Concatenate()). Takes input from previous layer matching encoder layer
         # -------------------------------
         # 1 decoder CD512 (decodes en_8)
-        de_1 = Conv2DTranspose(kernel_size=(4, 4), strides = 2 filters=512, padding="same")(en_8)
+        de_1 = Conv2DTranspose(kernel_size=(4, 4), strides = 2, filters=512, padding="same")(en_8)
         de_1 = BatchNormalization(name='gen_de_bn_1')(de_1)
         de_1 = Dropout(p=0.3)(de_1)
         de_1 = Concatenate()([de_1, en_5])
