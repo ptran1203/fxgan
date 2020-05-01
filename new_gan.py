@@ -84,9 +84,9 @@ def show_samples(img_array):
     )
     save_image_array(img_samples, None, True)
 
-def triple_channels(image, axis = 3):
+def triple_channels(image):
     # axis = 2 for single image, 3 for many images
-    return np.repeat(image, 3, axis = axis)
+    return np.repeat(image, 3, axis = -1)
 
 
 def load_classifier(rst=256):
@@ -754,7 +754,7 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             real_features = self.features_from_d_model.predict(image_batch)
-            perceptual_features = self.perceptual_model.predict(triple_channels(image_batch, aixs = 3))
+            perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
             # ['loss', 'discriminator_loss', 'Feature_matching_loss',
             #   'discriminator_accuracy', 'Feature_matching_accuracy']
             [
@@ -1046,7 +1046,7 @@ class BalancingGAN:
                     X, aux_y, verbose=False)
 
                 real_features = self.features_from_d_model.predict(bg_test.dataset_x)
-                perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x, aixs = 3))
+                perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
                 [
                     loss, discriminator_loss,
                     feature_matching_loss,
