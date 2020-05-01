@@ -667,7 +667,7 @@ class BalancingGAN:
 
         fake_features = self.features_from_d(fake)
         perceptual_features = self.perceptual_model(
-            Concatenate()([fake, fake, fake], axis = 2)
+            Concatenate()([fake, fake, fake])
         )
 
         self.combined = Model(
