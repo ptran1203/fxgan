@@ -84,6 +84,10 @@ def show_samples(img_array):
     )
     save_image_array(img_samples, None, True)
 
+def triple_channels(image, axis = 3):
+    # axis = 2 for single image, 3 for many images
+    return np.repeat(image, 3, axis = axis)
+
 
 def load_classifier(rst=256):
     json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
@@ -662,7 +666,9 @@ class BalancingGAN:
         aux = self.discriminate(fake)
 
         fake_features = self.features_from_d(fake)
-        perceptual_features = self.perceptual_model(fake)
+        perceptual_features = self.perceptual_model(
+            Concatenate()([fake, fake, fake], axis = 2)
+        )
 
         self.combined = Model(
             inputs=real_images,
@@ -748,7 +754,7 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             real_features = self.features_from_d_model.predict(image_batch)
-            perceptual_features = self.perceptual_model.predict(image_batch)
+            perceptual_features = self.perceptual_model.predict(triple_channels(image_batch, aixs = 3))
             # ['loss', 'discriminator_loss', 'Feature_matching_loss',
             #   'discriminator_accuracy', 'Feature_matching_accuracy']
             [
@@ -1040,7 +1046,7 @@ class BalancingGAN:
                     X, aux_y, verbose=False)
 
                 real_features = self.features_from_d_model.predict(bg_test.dataset_x)
-                perceptual_features = self.perceptual_model.predict(bg_test.dataset_x)
+                perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x, aixs = 3))
                 [
                     loss, discriminator_loss,
                     feature_matching_loss,
