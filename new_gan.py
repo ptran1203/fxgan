@@ -761,7 +761,8 @@ class BalancingGAN:
                 loss, discriminator_loss,
                 feature_matching_loss,
                 discriminator_accuracy,
-                feature_matching_accuracy
+                feature_matching_accuracy,
+                *rest
             ] = self.combined.train_on_batch(
                 image_batch,
                 [label_batch, real_features, perceptual_features]
