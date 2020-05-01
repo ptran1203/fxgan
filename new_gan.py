@@ -20,6 +20,8 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D
 )
 
+from keras.applications.vgg16 import VGG16
+
 from keras.utils import np_utils
 import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split
@@ -314,94 +316,75 @@ class BatchGenerator:
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
 class BalancingGAN:
-    def build_res_unet(self, img_dim=(64, 64, 1)):
+    def build_res_unet(self):
+        img_dim=(self.resolution, self.resolution, self.channels)
         input_layer = Input(shape=img_dim, name="unet_input")
-        stride = 2
-        # 1 encoder C64
-        # skip batchnorm on this layer on purpose (from paper)
-        en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(input_layer)
-        en_1 = LeakyReLU(alpha=0.2)(en_1)
 
-        # 2 encoder C128
-        en_2 = Conv2D(kernel_size=(5, 5), filters=128, strides=(2, 2), padding="same")(en_1)
+        en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(input_layer)
+        en_1 = BatchNormalization(name='gen_en_bn_1')(en_1)
+        en_1 = LeakyReLU(alpha=0.2)(en_1)
+        en_1 = Dropout(0.3)(en_1)
+
+        en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
         en_2 = BatchNormalization(name='gen_en_bn_2')(en_2)
         en_2 = LeakyReLU(alpha=0.2)(en_2)
+        en_2 = Dropout(0.3)(en_2)
 
-        # 3 encoder C256
-        en_3 = Conv2D(kernel_size=(5, 5), filters=256, strides=(2, 2), padding="same")(en_2)
+        en_3 = Conv2D(kernel_size=(5, 5), filters=128, strides=(2, 2), padding="same")(en_2)
         en_3 = BatchNormalization(name='gen_en_bn_3')(en_3)
         en_3 = LeakyReLU(alpha=0.2)(en_3)
+        en_3 = Dropout(0.3)(en_3)
 
-        # 4 encoder C512
-        en_4 = Conv2D(kernel_size=(5, 5), filters=512, strides=(2, 2), padding="same")(en_3)
+        en_4 = Conv2D(kernel_size=(5, 5), filters=128, strides=(2, 2), padding="same")(en_3)
         en_4 = BatchNormalization(name='gen_en_bn_4')(en_4)
         en_4 = LeakyReLU(alpha=0.2)(en_4)
+        en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
 
-        # 5 encoder C512
-        en_5 = Conv2D(kernel_size=(5, 5), filters=512, strides=(2, 2), padding="same")(en_4)
-        en_5 = BatchNormalization(name='gen_en_bn_5')(en_5)
-        en_5 = LeakyReLU(alpha=0.2)(en_5)
-
-        # 6 encoder C512
-        en_6 = Conv2D(kernel_size=(5, 5), filters=512, strides=(2, 2), padding="same")(en_5)
-        en_6 = BatchNormalization(name='gen_en_bn_6')(en_6)
-        en_6 = LeakyReLU(alpha=0.2)(en_6)
-
-        # 7 encoder C512
-        en_7 = Conv2D(kernel_size=(5, 5), filters=512, strides=(2, 2), padding="same")(en_6)
-        en_7 = BatchNormalization(name='gen_en_bn_7')(en_7)
-        en_7 = LeakyReLU(alpha=0.2)(en_7)
-
-        # 8 encoder C512
-        en_8 = Conv2D(kernel_size=(5, 5), filters=512, strides=(2, 2), padding="same")(en_7)
-        en_8 = BatchNormalization(name='gen_en_bn_8')(en_8)
-        en_8 = LeakyReLU(alpha=0.2)(en_8)
-
+        # --------merge feature----------
+        
         # -------------------------------
-        # DECODER
-        # CD512-CD1024-CD1024-C1024-C1024-C512-C256-C128
-        # 1 layer block = Conv - Upsample - BN - DO - Relu
-        # also adds skip connections (Concatenate()). Takes input from previous layer matching encoder layer
-        # -------------------------------
-        # 1 decoder CD512 (decodes en_8)
-        de_1 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=512, padding="same")(en_8)
+
+        de_1 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=128, padding="same")(en_4)
         de_1 = BatchNormalization(name='gen_de_bn_1')(de_1)
-        de_1 = Dropout(p=0.3)(de_1)
-        de_1 = Concatenate()([de_1, en_5])
+        de_1 = Dropout(0.3)(de_1)
+        de_1 = Concatenate()([de_1, en_3])
         de_1 = Activation('relu')(de_1)
 
-        de_2 = Conv2DTranspose(kernel_size=(5, 5),strides = 2, filters=512, padding="same")(de_1)
+        de_2 = Conv2DTranspose(kernel_size=(5, 5),strides = 2, filters=128, padding="same")(de_1)
         de_2 = BatchNormalization(name='gen_de_bn_2')(de_2)
-        de_2 = Dropout(p=0.3)(de_2)
-        de_2 = Concatenate()([de_2, en_4])
+        de_2 = Dropout(0.3)(de_2)
+        de_2 = Concatenate()([de_2, en_2])
         de_2 = Activation('relu')(de_2)
 
-        de_3 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=512, padding="same")(de_2)
+        de_3 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=64, padding="same")(de_2)
         de_3 = BatchNormalization(name='gen_de_bn_3')(de_3)
-        de_3 = Dropout(p=0.3)(de_3)
-        de_3 = Concatenate()([de_3, en_3])
+        de_3 = Dropout(0.3)(de_3)
+        de_3 = Concatenate()([de_3, en_1])
         de_3 = Activation('relu')(de_3)
 
-        de_4 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=128, padding="same")(de_3)
-        de_4 = BatchNormalization(name='gen_de_bn_4')(de_4)
-        de_4 = Dropout(p=0.3)(de_4)
-        de_4 = Concatenate()([de_4, en_2])
-        de_4 = Activation('relu')(de_4)
+        de_4 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=1, padding="same")(de_3)
+        # de_4 = BatchNormalization(name='gen_de_bn_4')(de_4)
+        # de_4 = Dropout(p=0.3)(de_4)
+        # de_4 = Concatenate()([de_4, en_1])
+        de_4 = Activation('tanh')(de_4)
 
-        de_5 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=64, padding="same")(de_4)
-        de_5 = BatchNormalization(name='gen_de_bn_5')(de_5)
-        de_5 = Dropout(p=0.3)(de_5)
-        de_5 = Concatenate()([de_5, en_1])
-        de_5 = Activation('relu')(de_5)
+        self.generator = Model(inputs = input_layer, outputs = de_4, name='unet_generator')
 
-        de_6 = Conv2DTranspose(kernel_size=(5, 5), strides = 2, filters=1, padding="same")(de_5)
-        # de_6 = BatchNormalization(name='gen_de_bn_6')(de_6)
-        # de_6 = Dropout(p=0.3)(de_6)
-        # de_6 = Concatenate()([de_6, en_2])
-        de_6 = Activation('tanh')(de_6)
-
-        self.generator = Model(inputs = input_layer, outputs = de_6, name='unet_generator')
-
+    def build_perceptual_model(self):
+        """
+        VGG16 model with imagenet weights
+        """
+        model = VGG16(
+            include_top=False,
+            weights='imagenet',
+            input_tensor = Input(shape=(self.resolution, self.resolution, 3)),
+            input_shape = (self.resolution, self.resolution, 3)
+        )
+        model.trainable = False
+        for layer in model.layers:
+            layer.trainable = False
+        
+        self.perceptual_model = model
 
 
     def plot_loss_his(self):
@@ -548,9 +531,6 @@ class BalancingGAN:
         features = cnn(image)
         return features
 
-
-
-    # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
     def build_reconstructor(self, latent_size, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
@@ -654,6 +634,7 @@ class BalancingGAN:
         # Build generator
         # self.build_generator(latent_size, init_resolution=min_latent_res)
         self.build_g_trigger()
+        self.build_perceptual_model()
 
         latent_gen = Input(shape=(latent_size, ))
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -681,10 +662,11 @@ class BalancingGAN:
         aux = self.discriminate(fake)
 
         fake_features = self.features_from_d(fake)
+        perceptual_features = self.perceptual_model(fake)
 
         self.combined = Model(
             inputs=real_images,
-            outputs=[aux, fake_features],
+            outputs=[aux, fake_features, perceptual_features],
             name = 'Combined'
         )
 
@@ -694,8 +676,8 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mse'],
-            # loss_weights = [1.0, 0.0],
+            loss= ['sparse_categorical_crossentropy', 'mse', 'mse'],
+            # loss_weights = [1.0, 0.0, 0.1],
         )
 
         # Define initializer for autoencoder
@@ -766,6 +748,7 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             real_features = self.features_from_d_model.predict(image_batch)
+            perceptual_features = self.perceptual_model.predict(image_batch)
             # ['loss', 'discriminator_loss', 'Feature_matching_loss',
             #   'discriminator_accuracy', 'Feature_matching_accuracy']
             [
@@ -775,7 +758,7 @@ class BalancingGAN:
                 feature_matching_accuracy
             ] = self.combined.train_on_batch(
                 image_batch,
-                [label_batch, real_features]
+                [label_batch, real_features, perceptual_features]
             )
 
             epoch_gen_loss.append({
@@ -1057,21 +1040,24 @@ class BalancingGAN:
                     X, aux_y, verbose=False)
 
                 real_features = self.features_from_d_model.predict(bg_test.dataset_x)
+                perceptual_features = self.perceptual_model.predict(bg_test.dataset_x)
                 [
                     loss, discriminator_loss,
                     feature_matching_loss,
                     discriminator_accuracy,
-                    feature_matching_accuracy
+                    feature_matching_accuracy,
+                    *rest
                 ] = self.combined.evaluate(
                     bg_test.dataset_x,
-                    [bg_test.dataset_y, real_features]
+                    [bg_test.dataset_y, real_features, perceptual_features],
+                    verbose = 0
                 )
 
                 if e % 25 == 0:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         bg_test.dataset_x,
-                        [bg_test.dataset_y, real_features]
+                        [bg_test.dataset_y, real_features, perceptual_features]
                     )
 
                     crt_c = 0
