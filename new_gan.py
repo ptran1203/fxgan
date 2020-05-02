@@ -1087,7 +1087,7 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [bg_test.dataset_x, self.feature_encoder.predict(self.generate_latent(bg_test.dataset_x.shape[0]))],
+                    [bg_test.dataset_x, self.generate_latent(bg_test.dataset_x.shape[0])],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1095,7 +1095,7 @@ class BalancingGAN:
                 if e % 25 == 0:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
-                        [bg_test.dataset_x, self.feature_encoder.predict(self.generate_latent(bg_test.dataset_x.shape[0]))],
+                        [bg_test.dataset_x, self.generate_latent(bg_test.dataset_x.shape[0])],
                         [bg_test.dataset_y, real_features, perceptual_features]
                     )
 
