@@ -716,16 +716,16 @@ class BalancingGAN:
 
         img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
 
-        img_reconstruct = self.generator(img_for_reconstructor)
-        self.autoenc_0 = Model(
-            inputs=img_for_reconstructor,
-            outputs=img_reconstruct,
-            name = 'autoencoder'
-        )
-        self.autoenc_0.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss='mean_squared_error'
-        )
+        # img_reconstruct = self.generator(img_for_reconstructor)
+        # self.autoenc_0 = Model(
+        #     inputs=img_for_reconstructor,
+        #     outputs=img_reconstruct,
+        #     name = 'autoencoder'
+        # )
+        # self.autoenc_0.compile(
+        #     optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+        #     loss='mean_squared_error'
+        # )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
         all_labels = np.full(samples, 0)
