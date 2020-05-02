@@ -793,7 +793,7 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, self.feature_encoder.predict(self.generate_latent(crt_batch_size))],
+                [image_batch, self.generate_latent(crt_batch_size)],
                 [label_batch, real_features, perceptual_features]
             )
 
