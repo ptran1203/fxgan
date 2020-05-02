@@ -762,11 +762,15 @@ class BalancingGAN:
 
         for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
-            latent_gen = self.generate_latent(crt_batch_size)
 
             ################## Train Discriminator ##################
             generated_images = self.generator.predict(
-                [image_batch, latent_gen],
+                [
+                    image_batch,
+                    self.feature_encoder.predict(self.generate_latent(
+                        crt_batch_size
+                    ))
+                ],
                 verbose=0
             )
     
@@ -789,7 +793,7 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, latent_gen],
+                [image_batch, self.feature_encoder.predict(self.generate_latent(crt_batch_size))],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1031,7 +1035,7 @@ class BalancingGAN:
                     act_img_samples,
                     self.generator.predict([
                         act_img_samples,
-                        self.generate_latent(act_img_samples.shape[0])
+                        self.feature_encoder.predict(self.generate_latent(act_img_samples.shape[0]))
                     ]),
                 ]
             ])
@@ -1042,7 +1046,7 @@ class BalancingGAN:
                         act_img_samples,
                         self.generator.predict([
                             act_img_samples,
-                            self.generate_latent(act_img_samples.shape[0])
+                            self.feature_encoder.predict(self.generate_latent(act_img_samples.shape[0]))
                         ]),
                     ]
                 ])
@@ -1062,7 +1066,7 @@ class BalancingGAN:
             
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, latent_gen],
+                    [bg_test.dataset_x, self.feature_encoder.predict(self.generate_latent(bg_test.dataset_x.shape[0]))],
                     verbose=False
                 )
 
@@ -1084,7 +1088,7 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [bg_test.dataset_x, latent_gen],
+                    [bg_test.dataset_x, self.feature_encoder.predict(self.generate_latent(bg_test.dataset_x.shape[0]))],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1092,7 +1096,7 @@ class BalancingGAN:
                 if e % 25 == 0:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
-                        [bg_test.dataset_x, latent_gen],
+                        [bg_test.dataset_x, self.feature_encoder.predict(self.generate_latent(bg_test.dataset_x.shape[0]))],
                         [bg_test.dataset_y, real_features, perceptual_features]
                     )
 
@@ -1103,7 +1107,7 @@ class BalancingGAN:
                             act_img_samples,
                             self.generator.predict([
                                 act_img_samples,
-                                self.generate_latent(act_img_samples.shape[0])
+                                self.feature_encoder.predict(self.generate_latent(act_img_samples.shape[0]))
                             ]),
                         ]
                     ])
@@ -1114,7 +1118,7 @@ class BalancingGAN:
                                 act_img_samples,
                                 self.generator.predict([
                                     act_img_samples,
-                                    self.generate_latent(act_img_samples.shape[0])
+                                    self.feature_encoder.predict(self.generate_latent(act_img_samples.shape[0]))
                                 ]),
                             ]
                         ])
