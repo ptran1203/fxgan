@@ -1057,7 +1057,6 @@ class BalancingGAN:
             # Train
             for e in range(start_e, epochs):
                 start_time = datetime.datetime.now()
-                latent_gen = self.generate_latent(bg.dataset_x.shape[0])
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
 
