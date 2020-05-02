@@ -326,7 +326,7 @@ class BalancingGAN:
         feature = Input(shape=(4,4,128))
 
 
-        en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(input_layer)
+        en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
         en_1 = BatchNormalization(name='gen_en_bn_1')(en_1)
         en_1 = LeakyReLU(alpha=0.2)(en_1)
         en_1 = Dropout(0.3)(en_1)
@@ -568,7 +568,7 @@ class BalancingGAN:
         x = Dense(128 * 4 * 4)(latent)
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
-        x = Reshape(conv_dim)
+        x = Reshape(conv_dim)(x)
 
         x = Conv2D(128, kernel_size = 4, activation = 'relu')(x)
         x = Conv2D(128, kernel_size = 4, activation = 'relu')(x)
@@ -1000,7 +1000,7 @@ class BalancingGAN:
         plt.show()
 
     def evaluate_g(self, test_x, test_y):
-        y_pre, _ = self.combined.predict(test_x)
+        y_pre, *_ = self.combined.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
