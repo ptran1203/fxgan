@@ -348,6 +348,8 @@ class BalancingGAN:
                 out = Conv2DTranspose(filters, 5, strides = 2,padding = 'same')(input_tensor)
             else:
                 out = Conv2D(filters, 5, strides = 2, padding = 'same')(input_tensor)
+
+            out = GaussianNoise(0.01)(out)
             out = Lambda(AdaIN)([out, gamma, beta])
 
             if not transpose:
@@ -362,19 +364,21 @@ class BalancingGAN:
 
 
         en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
+        en_1 = GaussianNoise(0.01)(en_1)
         en_1 = BatchNormalization(name='gen_en_bn_1')(en_1)
         en_1 = LeakyReLU(alpha=0.2)(en_1)
         en_1 = Dropout(0.3)(en_1)
 
         en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
+        en_2 = GaussianNoise(0.01)(en_2)
         en_2 = BatchNormalization(name='gen_en_bn_2')(en_2)
         en_2 = LeakyReLU(alpha=0.2)(en_2)
         en_2 = Dropout(0.3)(en_2)
 
-        en_3 = g_block(en_2, latent_vector, 123)
+        en_3 = g_block(en_2, latent_vector, 128)
         en_3 = Dropout(0.3)(en_3)
 
-        en_4 = g_block(en_3, latent_vector, 123)
+        en_4 = g_block(en_3, latent_vector, 128)
         en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
 
         # Decoder layers
@@ -795,9 +799,9 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            fimage_batch, _ = self.shuffle_data(image_batch, image_batch)
-            real_features = self.features_from_d_model.predict(fimage_batch)
-            perceptual_features = self.perceptual_model.predict(triple_channels(fimage_batch))
+            # fimage_batch, _ = self.shuffle_data(image_batch, image_batch)
+            real_features = self.features_from_d_model.predict(image_batch)
+            perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
 
             [
                 loss, discriminator_loss,
