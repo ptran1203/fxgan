@@ -585,17 +585,7 @@ class BalancingGAN:
         """
         latent = Input(shape=(self.latent_size,))
 
-        conv_dim = (4, 4, 128)
-
-        x = Dense(128 * 4 * 4)(latent)
-        x = BatchNormalization()(x)
-        x = Activation('relu')(x)
-        x = Reshape(conv_dim)(x)
-
-        x = Conv2D(128, kernel_size = 4, activation = 'relu')(x)
-        x = Conv2D(128, kernel_size = 4, activation = 'relu')(x)
-        x = Conv2D(128, kernel_size = 4, activation = 'relu')(x)
-        x = Conv2D(128, kernel_size = 4, activation = 'relu')(x)
+        x = Dense()
 
         self.feature_encoder = Model(inputs = latent, outputs = x, name = 'feature_encoder')
 
@@ -609,10 +599,10 @@ class BalancingGAN:
         res = self.generator.predict(latent)
         return res
 
-    def generate_latent(self, size):  # c is a vector of classes
+    def generate_latent(self, c):  # c is a vector of classes
         res = np.array([
-            np.random.normal(0, 0.01, self.latent_size)
-            for e in range(size)
+            np.random.multivariate_normal(self.means[e], self.covariances[e])
+            for e in c
         ])
 
         return res
@@ -790,7 +780,7 @@ class BalancingGAN:
                 [
                     image_batch,
                     self.generate_latent(
-                        crt_batch_size
+                        self._biased_sample_labels(crt_batch_size)
                     )
                 ],
                 verbose=0
@@ -815,7 +805,7 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, self.generate_latent(crt_batch_size)],
+                [image_batch, self.generate_latent(self._biased_sample_labels(crt_batch_size))],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -885,83 +875,20 @@ class BalancingGAN:
             self.class_dratio = self.class_dratio / sum(self.class_dratio)
 
     def init_autoenc(self, bg_train, gen_fname=None, rec_fname=None):
-        if gen_fname is None:
-            generator_fname = "{}/{}_decoder.h5".format(self.res_dir, self.target_class_id)
-        else:
-            generator_fname = gen_fname
-        if rec_fname is None:
-            reconstructor_fname = "{}/{}_encoder.h5".format(self.res_dir, self.target_class_id)
-        else:
-            reconstructor_fname = rec_fname
+        print("BAGAN: computing multivariate")
+        self.covariances = []
+        self.means = []
 
-        multivariate_prelearnt = False
+        for c in range(self.nclasses):
+            imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
+            latent = self.perceptual_model.predict(imgs)
 
-        # Preload the autoencoders
-        if os.path.exists(generator_fname) and os.path.exists(reconstructor_fname):
-            print("BAGAN: loading autoencoder: ", generator_fname, reconstructor_fname)
-            self.generator.load_weights(generator_fname)
-            self.reconstructor.load_weights(reconstructor_fname)
+            self.covariances.append(np.cov(np.transpose(latent)))
+            self.means.append(np.mean(latent, axis=0))
 
-            # load the learned distribution
-            if os.path.exists("{}/{}_means.npy".format(self.res_dir, self.target_class_id)) \
-                    and os.path.exists("{}/{}_covariances.npy".format(self.res_dir, self.target_class_id)):
-                multivariate_prelearnt = True
+        self.covariances = np.array(self.covariances)
+        self.means = np.array(self.means)
 
-                cfname = "{}/{}_covariances.npy".format(self.res_dir, self.target_class_id)
-                mfname = "{}/{}_means.npy".format(self.res_dir, self.target_class_id)
-                print("BAGAN: loading multivariate: ", cfname, mfname)
-                self.covariances = np.load(cfname)
-                self.means = np.load(mfname)
-
-        else:
-            print("BAGAN: training autoencoder")
-            autoenc_train_loss = []
-            self.autoenc_epochs = 100
-            for e in range(self.autoenc_epochs):
-                print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
-                autoenc_train_loss_crt = []
-                for image_batch, label_batch in bg_train.next_batch():
-
-                    autoenc_train_loss_crt.append(self.autoenc_0.train_on_batch(image_batch, image_batch))
-                autoenc_train_loss.append(np.mean(np.array(autoenc_train_loss_crt), axis=0))
-
-            autoenc_loss_fname = "{}/{}_autoencoder.csv".format(self.res_dir, self.target_class_id)
-            with open(autoenc_loss_fname, 'w') as csvfile:
-                for item in autoenc_train_loss:
-                    csvfile.write("%s\n" % item)
-
-            self.generator.save(generator_fname)
-            self.reconstructor.save(reconstructor_fname)
-
-        layers_r = self.reconstructor.layers
-        layers_d = self.discriminator.layers
-
-        for l in range(1, len(layers_r)-1):
-            layers_d[l].set_weights( layers_r[l].get_weights() )
-
-        # Organize multivariate distribution
-        if not multivariate_prelearnt:
-            print("BAGAN: computing multivariate")
-            self.covariances = []
-            self.means = []
-
-            for c in range(self.nclasses):
-                imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
-                latent = self.reconstructor.predict(imgs)
-
-                self.covariances.append(np.cov(np.transpose(latent)))
-                self.means.append(np.mean(latent, axis=0))
-
-            self.covariances = np.array(self.covariances)
-            self.means = np.array(self.means)
-
-            # save the learned distribution
-            cfname = "{}/{}_covariances.npy".format(self.res_dir, self.target_class_id)
-            mfname = "{}/{}_means.npy".format(self.res_dir, self.target_class_id)
-            print("BAGAN: saving multivariate: ", cfname, mfname)
-            np.save(cfname, self.covariances)
-            np.save(mfname, self.means)
-            print("BAGAN: saved multivariate")
 
     def _get_lst_bck_name(self, element):
         # Find last bck name
@@ -1057,7 +984,7 @@ class BalancingGAN:
                     act_img_samples,
                     self.generator.predict([
                         act_img_samples,
-                        self.generate_latent(act_img_samples.shape[0])
+                        self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
                     ]),
                 ]
             ])
@@ -1068,7 +995,7 @@ class BalancingGAN:
                         act_img_samples,
                         self.generator.predict([
                             act_img_samples,
-                            self.generate_latent(act_img_samples.shape[0])
+                            self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
                         ]),
                     ]
                 ])
@@ -1087,7 +1014,7 @@ class BalancingGAN:
             
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, self.generate_latent(bg_test.dataset_x.shape[0])],
+                    [bg_test.dataset_x, self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]))],
                     verbose=False
                 )
 
@@ -1109,7 +1036,7 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [bg_test.dataset_x, self.generate_latent(bg_test.dataset_x.shape[0])],
+                    [bg_test.dataset_x, self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]))],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1117,7 +1044,7 @@ class BalancingGAN:
                 if e % 25 == 0:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
-                        [bg_test.dataset_x, self.generate_latent(bg_test.dataset_x.shape[0])],
+                        [bg_test.dataset_x, self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]))],
                         [bg_test.dataset_y, real_features, perceptual_features]
                     )
 
@@ -1128,7 +1055,7 @@ class BalancingGAN:
                             act_img_samples,
                             self.generator.predict([
                                 act_img_samples,
-                                self.generate_latent(act_img_samples.shape[0])
+                                self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
                             ]),
                         ]
                     ])
@@ -1139,7 +1066,7 @@ class BalancingGAN:
                                 act_img_samples,
                                 self.generator.predict([
                                     act_img_samples,
-                                    self.generate_latent(act_img_samples.shape[0])
+                                    self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
                                 ]),
                             ]
                         ])
