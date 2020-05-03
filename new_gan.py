@@ -347,7 +347,7 @@ class BalancingGAN:
             if transpose:
                 out = Conv2DTranspose(filters, 5, strides = 2,padding = 'same')(input_tensor)
             else:
-                out = Conv2D(filters, 5, , strides = 2, padding = 'same')(input_tensor)
+                out = Conv2D(filters, 5, strides = 2, padding = 'same')(input_tensor)
             out = Lambda(AdaIN)([out, gamma, beta])
 
             if not transpose:
