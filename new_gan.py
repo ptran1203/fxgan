@@ -796,7 +796,8 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             real_features = self.features_from_d_model.predict(image_batch)
-            perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
+            shuffle = np.random.shuffle(np.arange(image_batch.shape[0]))
+            perceptual_features = self.perceptual_model.predict(triple_channels(image_batch[shuffle]))
 
             [
                 loss, discriminator_loss,
