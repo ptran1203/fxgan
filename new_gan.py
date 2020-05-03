@@ -795,8 +795,8 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            real_features = self.features_from_d_model.predict(image_batch)
             fimage_batch, _ = self.shuffle_data(image_batch, image_batch)
+            real_features = self.features_from_d_model.predict(fimage_batch)
             perceptual_features = self.perceptual_model.predict(triple_channels(fimage_batch))
 
             [
