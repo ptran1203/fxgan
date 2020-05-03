@@ -398,7 +398,7 @@ class BalancingGAN:
 
         de_4 = Activation('tanh')(de_4)
 
-        self.generator = Model(inputs = [image, feature], outputs = de_4, name='unet_generator')
+        self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet_generator')
 
     def build_perceptual_model(self):
         """
