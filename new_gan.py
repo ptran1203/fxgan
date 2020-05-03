@@ -382,17 +382,17 @@ class BalancingGAN:
         de_1 = g_block(en_4, latent_vector, 128, True)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Concatenate()([de_1, en_3])
-        de_1 = Activation('relu')(de_1)
+        de_1 = LeakyReLU(alpha=0.2)(de_1)
 
         de_2 = g_block(de_1, latent_vector, 128, True)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Concatenate()([de_2, en_2])
-        de_2 = Activation('relu')(de_2)
+        de_2 = LeakyReLU(alpha=0.2)(de_2)
 
         de_3 = g_block(de_2, latent_vector, 64, True)
         de_3 = Dropout(0.3)(de_3)
         de_3 = Concatenate()([de_3, en_1])
-        de_3 = Activation('relu')(de_3)
+        de_3 = LeakyReLU(alpha=0.2)(de_3)
 
         de_4 = g_block(de_3, latent_vector, 1, True)
 
@@ -881,7 +881,7 @@ class BalancingGAN:
 
         for c in range(self.nclasses):
             imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
-            latent = self.perceptual_model.predict(imgs)
+            latent = self.perceptual_model.predict(triple_channels(imgs))
 
             self.covariances.append(np.cov(np.transpose(latent)))
             self.means.append(np.mean(latent, axis=0))
