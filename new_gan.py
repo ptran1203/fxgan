@@ -362,6 +362,8 @@ class BalancingGAN:
         image = Input(shape=img_dim, name="unet_input")
         latent_vector = Input(shape=(self.latent_size,))
 
+        image = GaussianNoise(0.1)(image)
+
 
         en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
         en_1 = GaussianNoise(0.01)(en_1)
