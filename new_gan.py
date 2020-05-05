@@ -336,13 +336,18 @@ class BalancingGAN:
             # Multiply by x[1] (GAMMA) and add x[2] (BETA)
             return y * scale + bias
         
-        def g_block(input_tensor, filters, transpose = False):
+        def g_block(input_tensor, latent_vector, filters, transpose = False):
             if transpose:
                 out = Conv2DTranspose(filters, 5, strides = 2,padding = 'same')(input_tensor)
             else:
                 out = Conv2D(filters, 5, strides = 2, padding = 'same')(input_tensor)
 
             out = GaussianNoise(1)(out)
+
+            if latent_vector:
+                gamma = Dense(filters, bias_initializer = 'ones')(latent_vector)
+                beta = Dense(filters)(latent_vector)
+                out = Lambda(AdaIN)([out, gamma, beta])
 
             if not transpose:
                 out = LeakyReLU(alpha=0.2)(out)
@@ -384,7 +389,7 @@ class BalancingGAN:
         de_2 = Add()([de_2, en_2])
         de_2 = LeakyReLU(alpha=0.2)(de_2)
 
-        de_3 = g_block(de_2, 64, True)
+        de_3 = g_block(de_2, latent_vector, 64, True)
         de_3 = Dropout(0.3)(de_3)
         de_3 = Add()([de_3, en_1])
         de_3 = LeakyReLU(alpha=0.2)(de_3)
