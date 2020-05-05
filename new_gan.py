@@ -336,21 +336,13 @@ class BalancingGAN:
             # Multiply by x[1] (GAMMA) and add x[2] (BETA)
             return y * scale + bias
         
-        def g_block(input_tensor, latent_vector, filters, transpose = False):
-            """
-            conv2d using adaptive instance norm
-            """
-            gamma = Dense(filters, bias_initializer = 'ones')(latent_vector)
-            beta = Dense(filters)(latent_vector)
-            
-            # out = UpSampling2D()(input_tensor)
+        def g_block(input_tensor, filters, transpose = False):
             if transpose:
                 out = Conv2DTranspose(filters, 5, strides = 2,padding = 'same')(input_tensor)
             else:
                 out = Conv2D(filters, 5, strides = 2, padding = 'same')(input_tensor)
 
-            out = GaussianNoise(0.01)(out)
-            out = Lambda(AdaIN)([out, gamma, beta])
+            out = GaussianNoise(1)(out)
 
             if not transpose:
                 out = LeakyReLU(alpha=0.2)(out)
@@ -362,49 +354,47 @@ class BalancingGAN:
         image = Input(shape=img_dim, name="unet_input")
         latent_vector = Input(shape=(self.latent_size,))
 
-        image = GaussianNoise(0.1)(image)
-
-
         en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
-        en_1 = GaussianNoise(0.01)(en_1)
+        en_1 = GaussianNoise(1)(en_1)
         en_1 = BatchNormalization(name='gen_en_bn_1')(en_1)
         en_1 = LeakyReLU(alpha=0.2)(en_1)
         en_1 = Dropout(0.3)(en_1)
 
         en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
-        en_2 = GaussianNoise(0.01)(en_2)
+        en_2 = GaussianNoise(1)(en_2)
         en_2 = BatchNormalization(name='gen_en_bn_2')(en_2)
         en_2 = LeakyReLU(alpha=0.2)(en_2)
         en_2 = Dropout(0.3)(en_2)
 
-        en_3 = g_block(en_2, latent_vector, 128)
+        en_3 = g_block(en_2, 128)
         en_3 = Dropout(0.3)(en_3)
 
-        en_4 = g_block(en_3, latent_vector, 128)
+        en_4 = g_block(en_3, 128)
         en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
 
         # Decoder layers
 
-        de_1 = g_block(en_4, latent_vector, 128, True)
+        de_1 = g_block(en_4, 128, True)
         de_1 = Dropout(0.3)(de_1)
-        de_1 = Concatenate()([de_1, en_3])
+        de_1 = Add()([de_1, en_3])
         de_1 = LeakyReLU(alpha=0.2)(de_1)
 
-        de_2 = g_block(de_1, latent_vector, 128, True)
+        de_2 = g_block(de_1, 64, True)
         de_2 = Dropout(0.3)(de_2)
-        de_2 = Concatenate()([de_2, en_2])
+        de_2 = Add()([de_2, en_2])
         de_2 = LeakyReLU(alpha=0.2)(de_2)
 
-        de_3 = g_block(de_2, latent_vector, 64, True)
+        de_3 = g_block(de_2, 64, True)
         de_3 = Dropout(0.3)(de_3)
-        de_3 = Concatenate()([de_3, en_1])
+        de_3 = Add()([de_3, en_1])
         de_3 = LeakyReLU(alpha=0.2)(de_3)
 
-        de_4 = g_block(de_3, latent_vector, 1, True)
+        de_4 = g_block(de_3, 1, True)
 
         de_4 = Activation('tanh')(de_4)
 
         self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet_generator')
+        self.feature_encoder = Model(inputs = latent, outputs = [en_1, en_2, en_3, en_4], name = 'feature_encoder')
 
     def build_perceptual_model(self):
         """
@@ -677,7 +667,7 @@ class BalancingGAN:
         # self.build_generator(latent_size, init_resolution=min_latent_res)
         self.build_g_trigger()
         self.build_perceptual_model()
-        self.build_feature_encoder()
+        # self.build_feature_encoder()
 
 
         latent_gen = Input(shape=(latent_size, ))
