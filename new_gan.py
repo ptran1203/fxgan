@@ -807,7 +807,8 @@ class BalancingGAN:
             # fimage_batch, _ = self.shuffle_data(image_batch, image_batch)
             real_features = self.features_from_d_model.predict(image_batch)
             perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
-
+            latents = self.generate_latent(self._biased_sample_labels(crt_batch_size), size = 2)
+            diff = np.mean(np.square(latents))
             [
                 loss, discriminator_loss,
                 feature_matching_loss,
@@ -815,10 +816,8 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, self.generate_latent(
-                    self._biased_sample_labels(crt_batch_size), size = 2
-                )],
-                [label_batch, real_features, perceptual_features, image_batch]
+                [image_batch, latents],
+                [label_batch, real_features, perceptual_features, diff]
             )
 
             epoch_gen_loss.append({
@@ -1041,6 +1040,8 @@ class BalancingGAN:
 
                 real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                 perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
+                latents = self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]), 2)
+                diff = np.mean(np.square(latents))
                 [
                     loss, discriminator_loss,
                     feature_matching_loss,
@@ -1048,19 +1049,19 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [
-                        bg_test.dataset_x, self.generate_latent(
-                        self._biased_sample_labels(bg_test.dataset_x.shape[0]), size = 2)
-                    ],
-                    [bg_test.dataset_y, real_features, perceptual_features, bg_test.dataset_x],
+                    [bg_test.dataset_x, latents],
+                    [bg_test.dataset_y, real_features, perceptual_features, diff],
                     verbose = 0
                 )
 
                 if e % 25 == 0:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
-                        [bg_test.dataset_x, self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]))],
-                        [bg_test.dataset_y, real_features, perceptual_features]
+                        [
+                            bg_test.dataset_x,
+                            latents
+                        ],
+                        [bg_test.dataset_y, real_features, perceptual_features, diff]
                     )
 
                     crt_c = 0
