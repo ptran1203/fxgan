@@ -592,16 +592,20 @@ class BalancingGAN:
         res = self.generator.predict(latent)
         return res
 
-    def generate_latent(self, c):  # c is a vector of classes
-        res = np.array([
-            [
-                np.random.normal(0, 1, self.latent_size),
-                np.random.normal(0, 1, self.latent_size),
-            ]
-            for e in c
-        ])
+    def generate_latent(self, c, size = 1):
+        if size == 2:
+            return np.array([
+                [
+                    np.random.normal(0, 1, self.latent_size),
+                    np.random.normal(0, 1, self.latent_size),
+                ]
+                for e in c
+            ])
 
-        return res
+        return np.array([
+                np.random.normal(0, 1, self.latent_size)
+                for e in c
+            ])
         res = np.array([
             np.random.multivariate_normal(self.means[e], self.covariances[e])
             for e in c
@@ -811,7 +815,9 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, self.generate_latent(self._biased_sample_labels(crt_batch_size))],
+                [image_batch, self.generate_latent(
+                    self._biased_sample_labels(crt_batch_size), size = 2
+                )],
                 [label_batch, real_features, perceptual_features, image_batch]
             )
 
@@ -1042,7 +1048,10 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [bg_test.dataset_x, self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]))],
+                    [
+                        bg_test.dataset_x, self.generate_latent(
+                        self._biased_sample_labels(bg_test.dataset_x.shape[0]), size = 2)
+                    ],
                     [bg_test.dataset_y, real_features, perceptual_features, bg_test.dataset_x],
                     verbose = 0
                 )
