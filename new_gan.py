@@ -328,6 +328,7 @@ class BalancingGAN:
         return loss
 
     def build_res_unet(self):
+        img_dim=(self.resolution, self.resolution, self.channels)
         def _latent_encode():
             latent_vector = Input(shape=(self.latent_size,))
             x = Dense(64*64*3)(latent_vector)
@@ -338,14 +339,12 @@ class BalancingGAN:
             x3 = Conv2D(kernel_size = 3, filters = 128, strides=(2, 2), padding = 'same', activation = 'tanh')(x2)
             x4 = Conv2D(kernel_size = 3, filters = 128, strides=(2, 2), padding = 'same', activation = 'tanh')(x3)
 
-            model = Model(inputs = latent_vector, outputs = [x1,x2,x3,x4])
-            return model
+            return Model(inputs = latent_vector, outputs = [x1,x2,x3,x4])
 
-        img_dim=(self.resolution, self.resolution, self.channels)
-        image = Input(shape=img_dim, name="unet_input")
+        image = Input(shape=img_dim)
         latent_vector = Input(shape=(self.latent_size,))
-
         latent_encoder = _latent_encode()
+
         encoded = latent_encoder(latent_vector)
 
         en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
@@ -389,8 +388,7 @@ class BalancingGAN:
 
         de_4 = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
         de_4 = Activation('tanh')(de_4)
-
-        self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet_generator')
+        self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet')
 
     def build_perceptual_model(self):
         """
@@ -596,6 +594,15 @@ class BalancingGAN:
 
     def generate_latent(self, c):  # c is a vector of classes
         res = np.array([
+            [
+                np.random.normal(0, 1, self.latent_size),
+                np.random.normal(0, 1, self.latent_size),
+            ]
+            for e in c
+        ])
+
+        return res
+        res = np.array([
             np.random.multivariate_normal(self.means[e], self.covariances[e])
             for e in c
         ])
@@ -669,7 +676,7 @@ class BalancingGAN:
         # self.build_feature_encoder()
 
 
-        latent_gen = Input(shape=(latent_size, ))
+        latent_gen = Input(shape=(2, latent_size, ))
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         # external_feature = self.feature_encoder(latent_gen)
 
@@ -685,7 +692,8 @@ class BalancingGAN:
         self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
 
         # Define combined for training generator.
-        fake = self.generator([real_images, latent_gen])
+        fake_1 = self.generator([real_images, Lambda(lambda x: x[:,0,:])(latent_gen)])
+        fake_2 = self.generator([real_images, Lambda(lambda x: x[:,1,:])(latent_gen)])
 
         self.build_features_from_d_model()
 
@@ -694,15 +702,17 @@ class BalancingGAN:
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
 
-        aux = self.discriminate(fake)
-        fake_features = self.features_from_d(fake)
+        aux = self.discriminate(fake_1)
+        fake_features = self.features_from_d(fake_1)
         perceptual_features = self.perceptual_model(
-            Concatenate()([fake, fake, fake])
+            Concatenate()([fake_1, fake_1, fake_1])
         )
+
+        diff = mean_squared_error(fake_1, fake_2)
 
         self.combined = Model(
             inputs=[real_images, latent_gen],
-            outputs=[aux, fake_features, perceptual_features, fake],
+            outputs=[aux, fake_features, perceptual_features, diff],
             name = 'Combined'
         )
 
@@ -712,7 +722,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mse', 'mse', self.r_mse()],
+            loss= ['sparse_categorical_crossentropy', 'mse', 'mse', 'mse'],
             # loss_weights = [1.0, 0.0, 0.1],
         )
 
