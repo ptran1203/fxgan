@@ -6,3 +6,18 @@
 
 5. lấy latent l1 trừ or chia image l1, nếu latent giống nhau -> image giống
                                        nếu latent khác -> image phải khác
+
+
+
+
+z, g(z) }                    } adversarial loss
+        }   Discriminator -> 
+e(x), x }                    } Similiarity loss: l1(z, e(x)) / l1(g(z), x)
+
+
+* l1(z, e(x)) / l1(g(z), x)
+
+if l1(z, e(x)) small -> 
+
+
+|x_fake1 - x_fake2| - |x_real1 - x_real2|

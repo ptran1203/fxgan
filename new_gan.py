@@ -562,7 +562,10 @@ class BalancingGAN:
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
+
         image = Input(shape=(resolution, resolution,channels))
+        latent = Input(shape=(self.latent_size,))
+
         features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
