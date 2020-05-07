@@ -282,6 +282,7 @@ class BatchGenerator:
         ids = np.array(range(len(self.dataset_x)))
         for c in classes:
             self.per_class_ids[c] = ids[self.labels == c]
+        self.build_dataset()
 
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
@@ -290,6 +291,43 @@ class BatchGenerator:
         np.random.shuffle(self.per_class_ids[c])
         to_return = self.per_class_ids[c][0:samples]
         return self.dataset_x[to_return]
+
+    def build_dataset(self):
+        qidxs = [[], []]
+        train_x, train_y = self.dataset_x, self.dataset_y
+        for i in range(2): # 2 classes
+            idx = np.where(train_y == i)[0]
+            np.random.shuffle(idx)
+            qidxs[i] = idx
+
+        q_idx = np.concatenate(qidxs)
+
+        img1 = np.expand_dims(train_x[qidxs[0][0]], 0)
+        img2 = np.expand_dims(train_x[qidxs[0][1]], 0)
+        pair_x = np.array([np.concatenate((img1, img2))])
+        pair_y = [0]
+        print(len(qidxs[0]))
+        for i in range(2, len(qidxs[0]) - 1, 2):
+            img1 = np.expand_dims(train_x[qidxs[0][i]], 0)
+            img2 = np.expand_dims(train_x[qidxs[0][i + 1]], 0)
+            pair_x = np.concatenate((pair_x, np.expand_dims(
+                np.concatenate((img1, img2)), 0)))
+
+            pair_y.append(0)
+        for i in range(0, len(qidxs[1]) - 1, 2):
+            img1 = np.expand_dims(train_x[qidxs[1][i]], 0)
+            img2 = np.expand_dims(train_x[qidxs[1][i + 1]], 0)
+            pair_x = np.concatenate((pair_x, np.expand_dims(
+                np.concatenate((img1, img2)), 0)))
+
+            pair_y.append(1)
+
+
+        randomize = np.arrange(pair_y.shape[0])
+        np.random.shuffle(randomize)
+
+        self.pair_x = pair_x[randomize]
+        self.pair_y = pair_y[randomize]
 
     def get_label_table(self):
         return self.label_table
@@ -306,6 +344,22 @@ class BatchGenerator:
 
     def get_image_shape(self):
         return [self.dataset_x.shape[1], self.dataset_x.shape[2], self.dataset_x.shape[3]]
+
+    def build_dataset(self, query_size):
+        qidxs = [[], []]
+        train_x, train_y = self.dataset_x, self.dataset_y
+        for i in range(2): # 2 classes
+            idx = np.where(train_y == i)[0]
+            np.random.shuffle(idx)
+            qidxs[i] = idx
+
+        q_idx = np.concatenate(qidxs)
+
+        np.random.shuffle(q_idx)
+
+        self.pair_x = train_x[q_idx]
+        self.pair_y = train_y[q_idx]
+
 
     def next_batch(self):
         dataset_x = self.dataset_x
@@ -375,25 +429,33 @@ class BalancingGAN:
 
         # Decoder layers
 
-        de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(en_4)
+        # de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(en_4)
+        de_1 = UpSampling2D(size=(2, 2))(en_4)
+        de_1 = Conv2D(256, 5, strides= 1, padding='same')(de_1)
         de_1 = Add()([de_1, en_3])
         de_1 = BatchNormalization(momentum = 0.8)(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
 
-        de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
+        # de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
+        de_2 = UpSampling2D(size=(2, 2))(de_1)
+        de_2 = Conv2D(128, 5, strides = 1, padding = 'same')(de_2)
         de_2 = Add()([de_2, en_2])
         de_2 = BatchNormalization(momentum = 0.8)(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
 
-        de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
+        # de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
+        de_3 = UpSampling2D(size=(2, 2))(de_2)
+        de_3 = Conv2D(128, 5, strides = 1, padding = 'same')(de_3)
         de_3 = Add()([de_3, en_1])
         de_3 = BatchNormalization(momentum = 0.8)(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
 
-        de_4 = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
+        # de_4 = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
+        de_4 = UpSampling2D(size=(2, 2))(de_3)
+        de_4 = Conv2D(1, 5, strides = 1, padding = 'same')(de_4)
         de_4 = Activation('tanh')(de_4)
         self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet')
 

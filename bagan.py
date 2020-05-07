@@ -293,6 +293,7 @@ class BatchGenerator:
     def get_label_table(self):
         return self.label_table
 
+
     def get_num_classes(self):
         return len( self.label_table )
 
