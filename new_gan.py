@@ -343,42 +343,39 @@ class BalancingGAN:
 
         image = Input(shape=img_dim)
         latent_vector = Input(shape=(self.latent_size,))
-        # latent_encoder = _latent_encode()
+
+        latent_encoder = _latent_encode()
         # latent_encoder.trainable = False
 
-        # encoded = latent_encoder(latent_vector)
+        encoded = latent_encoder(latent_vector)
 
         en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
-        # en_1 = Concatenate()([en_1, encoded[0]])
         en_1 = BatchNormalization(momentum = 0.8)(en_1)
         en_1 = LeakyReLU(alpha=0.2)(en_1)
+        en_1 = Concatenate()([en_1, encoded[0]])
         en_1 = Dropout(0.3)(en_1)
 
         en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
-        # en_2 = Concatenate()([en_2, encoded[1]])
         en_2 = BatchNormalization()(en_2)
         en_2 = LeakyReLU(alpha=0.2)(en_2)
+        en_2 = Concatenate()([en_2, encoded[1]])
         en_2 = Dropout(0.3)(en_2)
 
         en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_2)
-        # en_3 = Concatenate()([en_3, encoded[2]])
         en_3 = BatchNormalization(momentum = 0.8)(en_3)
         en_3 = LeakyReLU(alpha=0.2)(en_3)
+        en_3 = Concatenate()([en_3, encoded[2]])
         en_3 = Dropout(0.3)(en_3)
 
         en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
-        # en_4 = Concatenate()([en_4, encoded[3]])
         en_4 = BatchNormalization(momentum = 0.8)(en_4)
         en_4 = LeakyReLU(alpha=0.2)(en_4)
+        en_4 = Concatenate()([en_4, encoded[3]])
         en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
 
-        internal = Flatten()(en_4)
-        internal = Concatenate()([internal, latent_vector])
-        internal = Dense(4*4*128)(internal)
-        internal = Reshape((4,4,128))(internal)
         # Decoder layers
 
-        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(internal)
+        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(en_4)
         de_1 = Add()([de_1, en_3])
         de_1 = BatchNormalization(momentum = 0.8)(de_1)
         de_1 = Activation('relu')(de_1)
