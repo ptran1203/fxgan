@@ -375,19 +375,19 @@ class BalancingGAN:
 
         # Decoder layers
 
-        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(en_4)
+        de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(en_4)
         de_1 = Add()([de_1, en_3])
         de_1 = BatchNormalization(momentum = 0.8)(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
 
-        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_1)
+        de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         de_2 = Add()([de_2, en_2])
         de_2 = BatchNormalization(momentum = 0.8)(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
 
-        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
+        de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
         de_3 = Add()([de_3, en_1])
         de_3 = BatchNormalization(momentum = 0.8)(de_3)
         de_3 = Activation('relu')(de_3)
