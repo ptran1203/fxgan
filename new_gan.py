@@ -350,23 +350,25 @@ class BalancingGAN:
 
         en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
         en_1 = Concatenate()([en_1, encoded[0]])
-        en_1 = BatchNormalization(name='gen_en_bn_1')(en_1)
+        en_1 = BatchNormalization(momentum = 0.8)(en_1)
         en_1 = LeakyReLU(alpha=0.2)(en_1)
         en_1 = Dropout(0.3)(en_1)
 
         en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
         en_2 = Concatenate()([en_2, encoded[1]])
-        en_2 = BatchNormalization(name='gen_en_bn_2')(en_2)
+        en_2 = BatchNormalization()(en_2)
         en_2 = LeakyReLU(alpha=0.2)(en_2)
         en_2 = Dropout(0.3)(en_2)
 
         en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_2)
         en_3 = Concatenate()([en_3, encoded[2]])
+        en_3 = BatchNormalization(momentum = 0.8)(en_3)
         en_3 = LeakyReLU(alpha=0.2)(en_3)
         en_3 = Dropout(0.3)(en_3)
 
         en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
         en_4 = Concatenate()([en_4, encoded[3]])
+        en_4 = BatchNormalization(momentum = 0.8)(en_4)
         en_4 = LeakyReLU(alpha=0.2)(en_4)
         en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
 
@@ -374,16 +376,19 @@ class BalancingGAN:
 
         de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(en_4)
         de_1 = Add()([de_1, en_3])
+        de_1 = BatchNormalization(momentum = 0.8)(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
 
         de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         de_2 = Add()([de_2, en_2])
+        de_2 = BatchNormalization(momentum = 0.8)(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
 
         de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
         de_3 = Add()([de_3, en_1])
+        de_3 = BatchNormalization(momentum = 0.8)(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
 
@@ -714,7 +719,7 @@ class BalancingGAN:
         )
 
         fake_diff = K.mean(K.square(fake_1 - fake_2))
-        latent_diff = K.mean(K.square(latent_gen[:,0] - latent_gen[:,1]))
+        latent_diff = 0.2 * K.mean(K.square(latent_gen[:,0] - latent_gen[:,1]))
         diffs = K.mean(K.square(fake_diff - latent_diff))
 
         self.combined = Model(
