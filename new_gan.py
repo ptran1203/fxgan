@@ -718,8 +718,12 @@ class BalancingGAN:
             Concatenate()([fake_1, fake_1, fake_1])
         )
 
-        fake_diff = K.mean(K.square(fake_1 - fake_2))
-        latent_diff = 0.2 * K.mean(K.square(latent_gen[:,0] - latent_gen[:,1]))
+        perceptual_features_2 = self.perceptual_model(
+            Concatenate()([fake_2, fake_2, fake_2])
+        )
+
+        fake_diff = K.mean(K.square(perceptual_features - perceptual_features_2))
+        latent_diff = K.mean(K.square(latent_gen[:,0] - latent_gen[:,1]))
         diffs = K.mean(K.square(fake_diff - latent_diff))
 
         self.combined = Model(
