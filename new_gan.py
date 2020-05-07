@@ -374,8 +374,8 @@ class BalancingGAN:
 
         internal = Flatten()(en_4)
         internal = Concatenate()([internal, latent_vector])
-        internal = Dense(4*4*128)
-        internal = Reshape(4,4,128)
+        internal = Dense(4*4*128)(internal)
+        internal = Reshape((4,4,128))(internal)
         # Decoder layers
 
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(internal)
