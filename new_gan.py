@@ -344,6 +344,7 @@ class BalancingGAN:
         image = Input(shape=img_dim)
         latent_vector = Input(shape=(self.latent_size,))
         latent_encoder = _latent_encode()
+        # latent_encoder.trainable = False
 
         encoded = latent_encoder(latent_vector)
 
@@ -593,7 +594,7 @@ class BalancingGAN:
         return res
 
     def generate_latent(self, c, size = 1):
-        if size == 2:
+        if size == 3:
             return np.array([
                 [
                     np.random.normal(0, 1, self.latent_size),
@@ -712,13 +713,17 @@ class BalancingGAN:
             Concatenate()([fake_1, fake_1, fake_1])
         )
 
-        diff = mean_squared_error(fake_1, fake_2)
+        fake_diff = K.mean(K.square(fake_1 - fake_2))
+        latent_diff = K.mean(K.square(latent_gen[:,0] - latent_gen[:,1]))
+        diffs = K.mean(K.square(fake_diff - latent_diff))
 
         self.combined = Model(
             inputs=[real_images, latent_gen],
-            outputs=[aux, fake_features, perceptual_features, diff],
+            outputs=[aux, fake_features, perceptual_features],
             name = 'Combined'
         )
+
+        self.combined.add_loss(diffs)
 
         self.combined.compile(
             optimizer=Adam(
@@ -726,7 +731,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mse', 'mse', 'mse'],
+            loss= ['sparse_categorical_crossentropy', 'mse', 'mse'],
             # loss_weights = [1.0, 0.0, 0.1],
         )
 
@@ -808,7 +813,7 @@ class BalancingGAN:
             real_features = self.features_from_d_model.predict(image_batch)
             perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
             latents = self.generate_latent(self._biased_sample_labels(crt_batch_size), size = 2)
-            diff = np.mean(np.square(latents))
+
             [
                 loss, discriminator_loss,
                 feature_matching_loss,
@@ -817,7 +822,7 @@ class BalancingGAN:
                 *rest
             ] = self.combined.train_on_batch(
                 [image_batch, latents],
-                [label_batch, real_features, perceptual_features, diff]
+                [label_batch, real_features, perceptual_features]
             )
 
             epoch_gen_loss.append({
@@ -1041,7 +1046,7 @@ class BalancingGAN:
                 real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                 perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
                 latents = self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]), 2)
-                diff = np.mean(np.square(latents))
+
                 [
                     loss, discriminator_loss,
                     feature_matching_loss,
@@ -1050,7 +1055,7 @@ class BalancingGAN:
                     *rest
                 ] = self.combined.evaluate(
                     [bg_test.dataset_x, latents],
-                    [bg_test.dataset_y, real_features, perceptual_features, diff],
+                    [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
 
@@ -1061,7 +1066,7 @@ class BalancingGAN:
                             bg_test.dataset_x,
                             latents
                         ],
-                        [bg_test.dataset_y, real_features, perceptual_features, diff]
+                        [bg_test.dataset_y, real_features, perceptual_features]
                     )
 
                     crt_c = 0
