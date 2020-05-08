@@ -1101,23 +1101,27 @@ class BalancingGAN:
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
+            batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
             img_samples = np.array([
                 [
-                    act_img_samples,
+                    batch_1,
+                    batch_2,
                     self.generator.predict([
                         bg_train.pair_samples(act_img_samples),
-                        self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
+                        self.generate_latent(self._biased_sample_labels(10))
                     ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
+                batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
                 new_samples = np.array([
                     [
-                        act_img_samples,
+                        batch_1,
+                        batch_2,
                         self.generator.predict([
                             bg_train.pair_samples(act_img_samples),
-                            self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
+                            self.generate_latent(self._biased_sample_labels(10))
                         ]),
                     ]
                 ])
@@ -1178,23 +1182,26 @@ class BalancingGAN:
 
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
+                    batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
                     img_samples = np.array([
                         [
-                            act_img_samples,
+                            batch_1,
+                            batch_2,
                             self.generator.predict([
                                 bg_train.pair_samples(act_img_samples),
-                                self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
+                                self.generate_latent(self._biased_sample_labels(10))
                             ]),
                         ]
                     ])
                     for crt_c in range(1, self.nclasses):
-                        act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                        act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
+                        batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
                         new_samples = np.array([
                             [
-                                act_img_samples,
+                                batch_1, batch_2,
                                 self.generator.predict([
                                    bg_train.pair_samples(act_img_samples),
-                                    self.generate_latent(self._biased_sample_labels(act_img_samples.shape[0]))
+                                    self.generate_latent(self._biased_sample_labels(10))
                                 ]),
                             ]
                         ])
@@ -1231,6 +1238,15 @@ class BalancingGAN:
                 # self.plot_his()
 
             self.trained = True
+
+    def samples_mask(self, image_batch,k_shot = 2):
+        idx = [[] for _ in range(k_shot)]
+        for i in range(0, image_batch.shape[0], k_shot):
+            for k in range(k_shot):
+                idx[k].append(i + k)
+
+        return [image_batch[np.array(mask)] for mask in idx]
+
 
     def generate_samples(self, c, samples, bg = None):
         return self.generate(np.full(samples, c), bg)
