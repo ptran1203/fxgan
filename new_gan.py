@@ -393,61 +393,61 @@ class BalancingGAN:
 
         def _latent_encode():
             latent_vector = Input(shape=(self.latent_size,))
-            x = Dense(64*64*3)(latent_vector)
-            x = Activation('tanh')(x)
-            x = Reshape((64, 64, 3))(x)
-            x1 = Conv2D(kernel_size = 3, filters = 64, strides=(2, 2), padding = 'same', activation = 'relu')(x)
-            x2 = Conv2D(kernel_size = 3, filters = 64, strides=(2, 2), padding = 'same', activation = 'relu')(x1)
-            x3 = Conv2D(kernel_size = 3, filters = 128, strides=(2, 2), padding = 'same', activation = 'relu')(x2)
-            x4 = Conv2D(kernel_size = 3, filters = 128, strides=(2, 2), padding = 'same', activation = 'relu')(x3)
+
+            x1 = Dense(32 * 32 * 64)(latent_vector)
+            x1 = Reshape((32, 32, 64))(x1)
+
+            x2 = Dense(16 * 16 * 64)(latent_vector)
+            x2 = Reshape((16, 16, 64))(x2)
+
+            x3 = Dense(8 * 8 * 128)(latent_vector)
+            x3 = Reshape((8, 8, 128))(x3)
+
+            x4 = Dense(4 * 4 * 128)(latent_vector)
+            x4 = Reshape((4, 4, 128))(x4)
 
             return Model(inputs = latent_vector, outputs = [x1,x2,x3,x4])
 
-        
-        latent_encoder = _latent_encode()
-
         def _encoder():
             image = Input(shape=(self.resolution, self.resolution, self.channels))
-            latent_vector = Input(shape=(self.latent_size,))
-
-            encoded = latent_encoder(latent_vector)
-            # latent_encoder.trainable = False
 
             en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
             en_1 = BatchNormalization(momentum = 0.8)(en_1)
             en_1 = LeakyReLU(alpha=0.2)(en_1)
-            en_1 = Average()([en_1, encoded[0]])
+            # en_1 = Average()([en_1, encoded[0]])
             en_1 = Dropout(0.3)(en_1)
 
             en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
             en_2 = BatchNormalization()(en_2)
             en_2 = LeakyReLU(alpha=0.2)(en_2)
-            en_2 = Average()([en_2, encoded[1]])
+            # en_2 = Average()([en_2, encoded[1]])
             en_2 = Dropout(0.3)(en_2)
 
             en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_2)
             en_3 = BatchNormalization(momentum = 0.8)(en_3)
             en_3 = LeakyReLU(alpha=0.2)(en_3)
-            en_3 = Average()([en_3, encoded[2]])
+            # en_3 = Average()([en_3, encoded[2]])
             en_3 = Dropout(0.3)(en_3)
 
             en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
             en_4 = BatchNormalization(momentum = 0.8)(en_4)
             en_4 = LeakyReLU(alpha=0.2)(en_4)
-            en_4 = Average()([en_4, encoded[3]])
+            # en_4 = Average()([en_4, encoded[3]])
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
-            return Model(inputs = [image, latent_vector], outputs = [en_1, en_2, en_3, en_4])
+            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
-            # Decoder layers
-
+                
+        latent_encoder = _latent_encode()
+        latent_encoder.trainable = False
+        latent_encoded = latent_encoder(latent_vector)
         encoder = _encoder()
-        f1 = encoder([Lambda(lambda x: x[:,0,:])(image_pair), latent_vector])
-        f2 = encoder([Lambda(lambda x: x[:,1,:])(image_pair), latent_vector])
+        f1 = encoder(Lambda(lambda x: x[:,0,:])(image_pair))
+        f2 = encoder(Lambda(lambda x: x[:,1,:])(image_pair))
 
-        en_1 = Add()([f1[0], f2[0]])
-        en_2 = Add()([f1[1], f2[1]])
-        en_3 = Add()([f1[2], f2[2]])
-        en_4 = Add()([f1[3], f2[3]])
+        en_1 = Add()([f1[0], f2[0], latent_encoded[0]])
+        en_2 = Add()([f1[1], f2[1], latent_encoded[1]])
+        en_3 = Add()([f1[2], f2[2], latent_encoded[2]])
+        en_4 = Add()([f1[3], f2[3], latent_encoded[3]])
 
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(en_4)
         # de_1 = UpSampling2D(size=(2, 2))(en_4)
@@ -478,6 +478,19 @@ class BalancingGAN:
         # de_4 = Conv2D(1, 5, strides = 1, padding = 'same')(de_4)
         de_4 = Activation('tanh')(de_4)
         self.generator = Model(inputs = [image_pair, latent_vector], outputs = de_4, name='unet')
+
+    def build_image_encoder(self):
+        images = Input(shape=(self.resolution, self.resolution, self.channels))
+
+        x = Conv2D(256, kernel_size = 5, strides = 2, padding = 'same', activation = 'relu')(images)
+        x = Conv2D(128, kernel_size = 5, strides = 2, padding = 'same', activation = 'relu')(x)
+        x = Conv2D(64, kernel_size = 5, strides = 2, padding = 'same', activation = 'relu')(x)
+        x = AveragePooling2D(x)
+        x = Flatten(x)
+        
+        latent_code = Dense(self.latent_size)(x)
+
+        self.image_encoder = Model(inputs  = images, outputs = latent_code, name = 'Image2latent_encoder')
 
     def build_perceptual_model(self):
         """
@@ -662,16 +675,6 @@ class BalancingGAN:
         )(features)
         self.discriminator = Model(inputs=image, outputs=aux,name='discriminator')
 
-    def build_feature_encoder(self):
-        """
-        Encode latent vector into feature
-        """
-        latent = Input(shape=(self.latent_size,))
-
-        x = Dense()
-
-        self.feature_encoder = Model(inputs = latent, outputs = x, name = 'feature_encoder')
-
 
     def generate_from_latent(self, latent):
         res = self.generator(latent)
@@ -767,10 +770,10 @@ class BalancingGAN:
         # self.build_generator(latent_size, init_resolution=min_latent_res)
         self.build_g_trigger()
         self.build_perceptual_model()
-        # self.build_feature_encoder()
+        self.build_image_encoder()
 
 
-        latent_gen = Input(shape=(2, latent_size, ))
+        latent_gen = Input(shape=(latent_size, ))
         real_images = Input(shape=(2, self.resolution, self.resolution, self.channels))
         # external_feature = self.feature_encoder(latent_gen)
 
@@ -786,8 +789,7 @@ class BalancingGAN:
         self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
 
         # Define combined for training generator.
-        fake_1 = self.generator([real_images, Lambda(lambda x: x[:,0,:])(latent_gen)])
-        fake_2 = self.generator([real_images, Lambda(lambda x: x[:,1,:])(latent_gen)])
+        fake = self.generator([real_images, latent_gen])
 
         self.build_features_from_d_model()
 
@@ -796,29 +798,22 @@ class BalancingGAN:
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
 
-        aux = self.discriminate(fake_1)
-        fake_features = self.features_from_d(fake_1)
+        aux = self.discriminate(fake)
+        fake_features = self.features_from_d(fake)
         perceptual_features = self.perceptual_model(
-            Concatenate()([fake_1, fake_1, fake_1])
+            Concatenate()([fake, fake, fake])
         )
-        fake_features_2 = self.features_from_d(fake_2)
-        perceptual_features_2 = self.perceptual_model(
-            Concatenate()([fake_2, fake_2, fake_2])
-        )
+        fake_latent = self.image_encoder(fake)
 
-        avg = Average()([perceptual_features, perceptual_features_2])
-        avgf = Average()([fake_features, fake_features_2])
-
-        fake_diff = K.mean(K.square(fake_1 - fake_2))
-        latent_diff = K.mean(K.square(latent_gen[:,0] - latent_gen[:,1]))
-        diffs =  K.mean(K.square(fake_diff - latent_diff))
         self.combined = Model(
             inputs=[real_images, latent_gen],
-            outputs=[aux, avgf, avg],
+            outputs=[aux, fake_features, perceptual_features],
             name = 'Combined'
         )
 
-        self.combined.add_loss(diffs)
+        latent_diff = K.mean(K.square(fake_latent - latent_gen))
+
+        self.combined.add_loss(latent_diff)
 
         self.combined.compile(
             optimizer=Adam(
@@ -893,7 +888,6 @@ class BalancingGAN:
         epoch_gen_acc = []
 
         for image_batch, label_batch in bg_train.next_pair_batch():
-            print(image_batch.shape, label_batch.shape)
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
@@ -924,7 +918,7 @@ class BalancingGAN:
 
             real_features, perceptual_features = self.get_pair_features(image_batch)
 
-            latents = self.generate_latent(self._biased_sample_labels(crt_batch_size), size = 2)
+            latents = self.generate_latent(self._biased_sample_labels(crt_batch_size))
 
             [
                 loss, discriminator_loss,
@@ -1158,7 +1152,7 @@ class BalancingGAN:
                 # real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                 # perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
                 real_features, perceptual_features = self.get_pair_features(bg_test.pair_x)
-                latents = self.generate_latent(self._biased_sample_labels(bg_test.pair_x.shape[0]), 2)
+                latents = self.generate_latent(self._biased_sample_labels(bg_test.pair_x.shape[0]))
 
                 [
                     loss, discriminator_loss,
