@@ -357,22 +357,6 @@ class BatchGenerator:
     def get_image_shape(self):
         return [self.dataset_x.shape[1], self.dataset_x.shape[2], self.dataset_x.shape[3]]
 
-    def build_dataset(self, query_size):
-        qidxs = [[], []]
-        train_x, train_y = self.dataset_x, self.dataset_y
-        for i in range(2): # 2 classes
-            idx = np.where(train_y == i)[0]
-            np.random.shuffle(idx)
-            qidxs[i] = idx
-
-        q_idx = np.concatenate(qidxs)
-
-        np.random.shuffle(q_idx)
-
-        self.pair_x = train_x[q_idx]
-        self.pair_y = train_y[q_idx]
-
-
     def next_batch(self):
         dataset_x = self.dataset_x
         labels = self.labels
