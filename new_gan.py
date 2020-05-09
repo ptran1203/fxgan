@@ -1115,13 +1115,7 @@ class BalancingGAN:
                         from_p= from_p
                     )
 
-                [
-                    loss, discriminator_loss,
-                    feature_matching_loss,
-                    discriminator_accuracy,
-                    feature_matching_accuracy,
-                    *rest
-                ] = self.combined.evaluate(
+                test_gen_loss, test_gen_acc = self.combined.evaluate(
                     [bg_test.dataset_x, f],
                     [bg_test.dataset_y],
                     verbose = 0
@@ -1185,16 +1179,12 @@ class BalancingGAN:
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append({
-                    'loss': loss,
-                    'loss_from_d': discriminator_loss,
-                    'fm_loss': feature_matching_loss
-                })
+                self.test_history['gen_loss'].append(test_gen_loss)
                 # accuracy
                 self.train_history['disc_acc'].append(train_disc_acc)
                 self.train_history['gen_acc'].append(train_gen_acc)
                 self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append(discriminator_accuracy)
+                self.test_history['gen_acc'].append(test_gen_acc)
                 # self.plot_his()
 
             self.trained = True
