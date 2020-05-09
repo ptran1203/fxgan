@@ -763,8 +763,8 @@ class BalancingGAN:
 
         fm_loss = cosine_sim * K.mean(K.abs(real_features - fake_features))
 
-        model.add_loss(perceptual_loss)
-        model.add_loss(fm_loss)
+        self.combined.add_loss(perceptual_loss)
+        self.combined.add_loss(fm_loss)
 
         self.combined.compile(
             optimizer=Adam(
