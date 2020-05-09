@@ -1051,11 +1051,10 @@ class BalancingGAN:
             self._set_class_ratios()
 
             # Initialization
-            print("BAGAN init_autoenc")
-            self.init_autoenc(bg_train)
-            print("BAGAN autoenc initialized, init gan")
+            print("init gan")
             start_e = self.init_gan()
-            print("BAGAN gan initialized, start_e: ", start_e)
+            self.init_autoenc(bg_train)
+            print("gan initialized, start_e: ", start_e)
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
