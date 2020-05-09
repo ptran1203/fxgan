@@ -549,7 +549,7 @@ class BalancingGAN:
         if len(train_g) == 0:
             return 
 
-        plot_g(train_g, test_g)
+        # plot_g(train_g, test_g)
         plot_d(train_d, test_d)
 
 
@@ -858,33 +858,23 @@ class BalancingGAN:
                                 from_p = from_p
                             )
 
-            [
-                loss, discriminator_loss,
-                feature_matching_loss,
-                discriminator_accuracy,
-                feature_matching_accuracy,
-                *rest
-            ] = self.combined.train_on_batch(
+            loss, acc = self.combined.train_on_batch(
                 [image_batch, f],
                 [label_batch]
             )
 
-            epoch_gen_loss.append({
-                'loss': loss,
-                'loss_from_d': discriminator_loss,
-                'fm_loss': feature_matching_loss
-            })
-            epoch_gen_acc.append(discriminator_accuracy)
+            epoch_gen_loss.append(loss)
+            epoch_gen_acc.append(acc)
 
-        epoch_gen_loss_cal = {
-            'loss': np.mean(np.array([e['loss'] for e in epoch_gen_loss])),
-            'loss_from_d': np.mean(np.array([e['loss_from_d'] for e in epoch_gen_loss])),
-            'fm_loss': np.mean(np.array([e['fm_loss'] for e in epoch_gen_loss]))
-        }
+        # epoch_gen_loss_cal = {
+        #     'loss': np.mean(np.array([e['loss'] for e in epoch_gen_loss])),
+        #     'loss_from_d': np.mean(np.array([e['loss_from_d'] for e in epoch_gen_loss])),
+        #     'fm_loss': np.mean(np.array([e['fm_loss'] for e in epoch_gen_loss]))
+        # }
 
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
-            epoch_gen_loss_cal,
+            np.mean(np.array(epoch_gen_loss), axis=0),
             np.mean(np.array(epoch_disc_acc), axis=0),
             np.mean(np.array(epoch_gen_acc), axis=0),
         )
