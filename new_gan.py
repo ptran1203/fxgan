@@ -730,11 +730,6 @@ class BalancingGAN:
             name = 'Feature_matching'
         )
 
-
-    def build_g_trigger(self):
-            self.build_res_unet()
-            # self.build_generator(self.latent_size, self.min_latent_res)
-
     def __init__(self, classes, target_class_id,
                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
                 # No relevant difference noted
@@ -765,12 +760,17 @@ class BalancingGAN:
 
         # Build generator
         # self.build_generator(latent_size, init_resolution=min_latent_res)
-        self.build_g_trigger()
+        self.build_res_unet()
         self.build_perceptual_model()
         self.build_image_encoder()
 
 
-        latent_gen = Input(shape=(latent_size, ))
+        # latent_gen = Input(shape=(latent_size, ))
+        external_feature_1 = Input(shape=(32,32,64))
+        external_feature_2 = Input(shape=(16,16,64))
+        external_feature_3 = Input(shape=(8,8,128))
+        external_feature_4 = Input(shape=(4,4,128))
+
         real_images = Input(shape=(2, self.resolution, self.resolution, self.channels))
         # external_feature = self.feature_encoder(latent_gen)
 
@@ -786,7 +786,10 @@ class BalancingGAN:
         self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
 
         # Define combined for training generator.
-        fake = self.generator([real_images, latent_gen])
+        fake = self.generator([
+            real_images, external_feature_1, external_feature_2,
+            external_feature_3, external_feature_4
+        ])
 
         self.build_features_from_d_model()
 
@@ -803,14 +806,10 @@ class BalancingGAN:
         fake_latent = self.image_encoder(fake)
 
         self.combined = Model(
-            inputs=[real_images, latent_gen],
+            inputs=[real_images, external_feature_1, external_feature_2, external_feature_3, external_feature_4],
             outputs=[aux, fake_features, perceptual_features],
             name = 'Combined'
         )
-
-        latent_diff = K.mean(K.abs(fake_latent - latent_gen))
-
-        self.combined.add_loss(latent_diff)
 
         self.combined.compile(
             optimizer=Adam(
