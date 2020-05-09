@@ -388,10 +388,7 @@ class BalancingGAN:
     def build_res_unet(self):
         img_dim=(self.resolution, self.resolution, self.channels)
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        external_feature_1 = Input(shape=(32,32,64))
-        external_feature_2 = Input(shape=(16,16,64))
-        external_feature_3 = Input(shape=(8,8,128))
-        external_feature_4 = Input(shape=(4,4,128))
+        external_feature = Input(shape=(4,4,128))
 
         def _res_block(x, activation = 'leaky_relu'):
             if activation == 'leaky_relu':
@@ -451,10 +448,13 @@ class BalancingGAN:
         self.encoder = _encoder()
         feature = self.encoder(image)
 
-        en_1 = Add()([feature[0], external_feature_1])
-        en_2 = Add()([feature[1], external_feature_2])
-        en_3 = Add()([feature[2], external_feature_3])
-        en_4 = Add()([feature[3], external_feature_4])
+        # en_1 = Add()([feature[0], external_feature_1])
+        # en_2 = Add()([feature[1], external_feature_2])
+        # en_3 = Add()([feature[2], external_feature_3])
+        en_1 = feature[0]
+        en_2 = feature[1]
+        en_3 = feature[2]
+        en_4 = Add()([feature[3], external_feature])
 
         de_1 = _res_block(en_4)
         de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
@@ -482,7 +482,7 @@ class BalancingGAN:
         de_4 = Activation('tanh')(de_4)
 
         self.generator = Model(
-            inputs = [image, external_feature_1, external_feature_2, external_feature_3, external_feature_4],
+            inputs = [image, external_feature],
             outputs = de_4,
             name='unet'
         )
@@ -642,13 +642,10 @@ class BalancingGAN:
 
     def generate_latent(self, c, size = 1):
         return np.array([
-            np.random.normal(0, 1, 32 * 32 * 64).reshape(32, 32, 64),
-            np.random.normal(0, 1, 16 * 16 * 64).reshape(16, 16, 64),
-            np.random.normal(0, 1, 8 * 8 * 128).reshape(8, 8, 128),
-            np.random.normal(0, 1, 4 * 4 * 128).reshape(4, 4, 128),
+            np.random.normal(0, 1, 4 * 4 * 128).reshape(4, 4, 128)
+            for i in c
         ])
 
-        return res
 
     def discriminate(self, image):
         return self.discriminator(image)
@@ -713,13 +710,9 @@ class BalancingGAN:
 
 
         # latent_gen = Input(shape=(latent_size, ))
-        external_feature_1 = Input(shape=(32,32,64))
-        external_feature_2 = Input(shape=(16,16,64))
-        external_feature_3 = Input(shape=(8,8,128))
-        external_feature_4 = Input(shape=(4,4,128))
+        external_feature = Input(shape=(4,4,128))
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        # external_feature = self.feature_encoder(latent_gen)
 
         # Build discriminator
         self.build_discriminator(min_latent_res=min_latent_res)
@@ -731,8 +724,7 @@ class BalancingGAN:
 
         # Define combined for training generator.
         fake = self.generator([
-            real_images, external_feature_1, external_feature_2,
-            external_feature_3, external_feature_4
+            real_images, external_feature
         ])
 
         self.build_features_from_d_model()
@@ -749,7 +741,7 @@ class BalancingGAN:
         fake_latent = self.image_encoder(fake)
 
         self.combined = Model(
-            inputs=[real_images, external_feature_1, external_feature_2, external_feature_3, external_feature_4],
+            inputs=[real_images, external_feature],
             outputs=[aux, fake_features, perceptual_features],
             name = 'Combined'
         )
@@ -828,26 +820,24 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        for image_batch, label_batch in bg_train.next_pair_batch():
+        for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
-            f1, f2, f3, f4 = self.generate_features(
+            f = self.generate_features(
                                 self._biased_sample_labels(crt_batch_size),
                                 from_p = from_p
                             )
             generated_images = self.generator.predict(
                 [
                     image_batch,
-                    f1,f2,f3,f4
+                    f,
                 ],
                 verbose=0
             )
-
-            rlabel = np.array([ [l, l] for l in label_batch]).flatten()
     
-            X = np.concatenate((image_batch.reshape(image_batch.shape[0] * image_batch.shape[1], 64,64,1), generated_images))
-            aux_y = np.concatenate((rlabel, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
+            X = np.concatenate((image_batch, generated_images))
+            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
@@ -861,7 +851,7 @@ class BalancingGAN:
 
             real_features, perceptual_features = self.get_pair_features(image_batch)
 
-            f1, f2, f3, f4 = self.generate_features(
+            f = self.generate_features(
                                 self._biased_sample_labels(crt_batch_size),
                                 from_p = from_p
                             )
@@ -873,7 +863,7 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, f1, f2, f3, f4],
+                [image_batch, f],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -960,12 +950,13 @@ class BalancingGAN:
 
     @staticmethod
     def _reshape(feature):
-            return (
-                feature[0].reshape(32,32,64),
-                feature[1].reshape(16,16,64),
-                feature[2].reshape(8,8,128),
-                feature[3].reshape(4,4,128)
-            )
+        n = 4
+        return (
+            feature[0].reshape(n,n,64),
+            feature[1].reshape(n,n,64),
+            feature[2].reshape(n,n,128),
+            feature[3].reshape(n,n,128)
+        )
 
     def generate_features(self, c, from_p = False):
         """
@@ -1075,36 +1066,33 @@ class BalancingGAN:
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-            batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
-            f1, f2, f3, f4 = self.generate_features(
+            f = self.generate_features(
                                 self._biased_sample_labels(10),
                                 from_p = from_p
                             )
             img_samples = np.array([
                 [
-                    batch_1,
-                    batch_2,
+                    act_img_samples,
                     self.generator.predict([
                         act_img_samples,
-                        f1, f2, f3, f4
+                        f
                     ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
                 new_samples = np.array([
                     [
-                        batch_1,
-                        batch_2,
+                        act_img_samples,
                         self.generator.predict([
                             act_img_samples,
-                            f1, f2, f3, f4
+                            f
                         ]),
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
+            print(img_samples.shape)
             show_samples(img_samples)
 
             # Train
@@ -1117,12 +1105,12 @@ class BalancingGAN:
                 nb_test = bg_test.get_num_samples()
             
                 # sample some labels from p_c and generate images from them
-                f1, f2, f3, f4 = self.generate_features(
+                f = self.generate_features(
                                 self._biased_sample_labels(bg_test.dataset_x.shape[0]),
                                 from_p = from_p
                             )
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, f1, f2, f3, f4],
+                    [bg_test.dataset_x, f],
                     verbose=False
                 )
 
@@ -1138,7 +1126,7 @@ class BalancingGAN:
                 # real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                 # perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
                 real_features, perceptual_features = self.get_pair_features(bg_test.dataset_x)
-                f1, f2, f3, f4 = self.generate_features(
+                f = self.generate_features(
                         self._biased_sample_labels(bg_test.dataset_x.shape[0]),
                         from_p= from_p
                     )
@@ -1150,7 +1138,7 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [bg_test.dataset_x, f1, f2, f3, f4],
+                    [bg_test.dataset_x, f],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1160,7 +1148,7 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
-                            f1, f2, f3, f4
+                            f
                         ],
                         [bg_test.dataset_y, real_features, perceptual_features]
                     )
@@ -1168,7 +1156,7 @@ class BalancingGAN:
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                     # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
-                    f1, f2, f3, f4 = self.generate_features(
+                    f = self.generate_features(
                                 self._biased_sample_labels(10),
                                 from_p = from_p
                             )
@@ -1177,7 +1165,7 @@ class BalancingGAN:
                             act_img_samples,
                             self.generator.predict([
                                 act_img_samples,
-                                f1, f2, f3, f4,
+                                f,
                             ]),
                         ]
                     ])
@@ -1189,7 +1177,7 @@ class BalancingGAN:
                                 act_img_samples,
                                 self.generator.predict([
                                    act_img_samples,
-                                    f1, f2, f3, f4,
+                                    f,
                                 ]),
                             ]
                         ])
