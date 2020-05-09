@@ -1132,7 +1132,7 @@ class BalancingGAN:
             print("BAGAN gan initialized, start_e: ", start_e)
 
             crt_c = 0
-            act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
+            act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
             batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
             f1, f2, f3, f4 = self.generate_features(
                                 self._biased_sample_labels(10),
@@ -1143,20 +1143,20 @@ class BalancingGAN:
                     batch_1,
                     batch_2,
                     self.generator.predict([
-                        bg_train.pair_samples(act_img_samples),
+                        act_img_samples,
                         f1, f2, f3, f4
                     ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses):
-                act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
+                act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                 batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
                 new_samples = np.array([
                     [
                         batch_1,
                         batch_2,
                         self.generator.predict([
-                            bg_train.pair_samples(act_img_samples),
+                            act_img_samples,
                             f1, f2, f3, f4
                         ]),
                     ]
