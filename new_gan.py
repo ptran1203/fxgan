@@ -388,24 +388,10 @@ class BalancingGAN:
     def build_res_unet(self):
         img_dim=(self.resolution, self.resolution, self.channels)
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_vector = Input(shape=(self.latent_size,))
-
-        def _latent_encode():
-            latent_vector = Input(shape=(self.latent_size,))
-
-            x1 = Dense(32 * 32 * 64)(latent_vector)
-            x1 = Reshape((32, 32, 64))(x1)
-
-            x2 = Dense(16 * 16 * 64)(latent_vector)
-            x2 = Reshape((16, 16, 64))(x2)
-
-            x3 = Dense(8 * 8 * 128)(latent_vector)
-            x3 = Reshape((8, 8, 128))(x3)
-
-            x4 = Dense(4 * 4 * 128)(latent_vector)
-            x4 = Reshape((4, 4, 128))(x4)
-
-            return Model(inputs = latent_vector, outputs = [x1,x2,x3,x4])
+        external_feature_1 = Input(shape=(32,32,64))
+        external_feature_2 = Input(shape=(16,16,64))
+        external_feature_3 = Input(shape=(8,8,128))
+        external_feature_4 = Input(shape=(4,4,128))
 
         def _res_block(x, activation = 'leaky_relu'):
             if activation == 'leaky_relu':
@@ -436,38 +422,39 @@ class BalancingGAN:
             en_1 = BatchNormalization(momentum = 0.8)(en_1)
             en_1 = LeakyReLU(alpha=0.2)(en_1)
             en_1 = Dropout(0.3)(en_1)
+            # out_shape: 32*32*64
 
             en_2 = _res_block(en_1)
             en_2 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_2)
             en_2 = BatchNormalization()(en_2)
             en_2 = LeakyReLU(alpha=0.2)(en_2)
             en_2 = Dropout(0.3)(en_2)
+            # out_shape:  16*16*64
 
             en_3 = _res_block(en_2)
             en_3 = Conv2D(128, 3, strides = 2, padding = 'same')(en_3)
             en_3 = BatchNormalization(momentum = 0.8)(en_3)
             en_3 = LeakyReLU(alpha=0.2)(en_3)
             en_3 = Dropout(0.3)(en_3)
+            # out_shape: 8*8*128
 
             en_4 = _res_block(en_3)
             en_4 = Conv2D(128, 3, strides = 2, padding = 'same')(en_4)
             en_4 = BatchNormalization(momentum = 0.8)(en_4)
             en_4 = LeakyReLU(alpha=0.2)(en_4)
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
+            # out_shape: 4*4*128
+    
             return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
                 
-        latent_encoder = _latent_encode()
-        # latent_encoder.trainable = False
-        latent_encoded = latent_encoder(latent_vector)
         self.encoder = _encoder()
-
         feature = self.encoder(image)
 
-        en_1 = Add()([feature[0], feature[0], latent_encoded[0]])
-        en_2 = Add()([feature[1], feature[1], latent_encoded[1]])
-        en_3 = Add()([feature[2], feature[2], latent_encoded[2]])
-        en_4 = Add()([feature[3], feature[3], latent_encoded[3]])
+        en_1 = Add()([feature[0], external_feature_1])
+        en_2 = Add()([feature[1], external_feature_2])
+        en_3 = Add()([feature[2], external_feature_3])
+        en_4 = Add()([feature[3], external_feature_4])
 
         de_1 = _res_block(en_4)
         de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
@@ -494,7 +481,11 @@ class BalancingGAN:
         de_4 = Conv2DTranspose(1, 3, strides = 2, padding = 'same')(de_4)
         de_4 = Activation('tanh')(de_4)
 
-        self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet')
+        self.generator = Model(
+            inputs = [image, external_feature_1, external_feature_2, external_feature_3, external_feature_4],
+            outputs = de_4,
+            name='unet'
+        )
 
     def build_image_encoder(self):
         images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -703,22 +694,11 @@ class BalancingGAN:
         return res
 
     def generate_latent(self, c, size = 1):
-        if size == 3:
-            return np.array([
-                [
-                    np.random.normal(0, 1, self.latent_size),
-                    np.random.normal(0, 1, self.latent_size),
-                ]
-                for e in c
-            ])
-
         return np.array([
-                np.random.normal(0, 1, self.latent_size)
-                for e in c
-            ])
-        res = np.array([
-            np.random.multivariate_normal(self.means[e], self.covariances[e])
-            for e in c
+            np.random.normal(0, 1, 32 * 32 * 64).reshape(32, 32, 64),
+            np.random.normal(0, 1, 16 * 16 * 64).reshape(16, 16, 64),
+            np.random.normal(0, 1, 8 * 8 * 128).reshape(8, 8, 128),
+            np.random.normal(0, 1, 4 * 4 * 128).reshape(4, 4, 128),
         ])
 
         return res
@@ -888,17 +868,19 @@ class BalancingGAN:
         return sampled_labels
 
     def get_pair_features(self, image_batch):
-        features = np.array([np.average(self.features_from_d_model.predict(pair_x), axis = 0)
-                    for pair_x in image_batch])
+        # features = np.array([np.average(self.features_from_d_model.predict(pair_x), axis = 0)
+        #             for pair_x in image_batch])
         
-        p_features = np.array([
-            np.average(self.perceptual_model.predict(triple_channels(pair_x)), axis = 0)
-                    for pair_x in image_batch
-        ])
+        # p_features = np.array([
+        #     np.average(self.perceptual_model.predict(triple_channels(pair_x)), axis = 0)
+        #             for pair_x in image_batch
+        # ])
+        features = self.features_from_d_model.predict(image_batch)
+        p_features = self.perceptual_model.predict(triple_channels(image_batch))
 
         return features, p_features
 
-    def _train_one_epoch(self, bg_train):
+    def _train_one_epoch(self, bg_train, from_p = False):
         epoch_disc_loss = []
         epoch_gen_loss = []
         epoch_disc_acc = []
@@ -908,12 +890,14 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
+            f1, f2, f3, f4 = self.generate_features(
+                                self._biased_sample_labels(crt_batch_size),
+                                from_p = from_p
+                            )
             generated_images = self.generator.predict(
                 [
                     image_batch,
-                    self.generate_latent(
-                        self._biased_sample_labels(crt_batch_size)
-                    )
+                    f1,f2,f3,f4
                 ],
                 verbose=0
             )
@@ -935,7 +919,10 @@ class BalancingGAN:
 
             real_features, perceptual_features = self.get_pair_features(image_batch)
 
-            latents = self.generate_latent(self._biased_sample_labels(crt_batch_size))
+            f1, f2, f3, f4 = self.generate_features(
+                                self._biased_sample_labels(crt_batch_size),
+                                from_p = from_p
+                            )
 
             [
                 loss, discriminator_loss,
@@ -944,7 +931,7 @@ class BalancingGAN:
                 feature_matching_accuracy,
                 *rest
             ] = self.combined.train_on_batch(
-                [image_batch, latents],
+                [image_batch, f1, f2, f3, f4],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1029,16 +1016,30 @@ class BalancingGAN:
         self.covariances = np.array(self.covariances)
         self.means = np.array(self.means)
 
-    def generate_features(self, c,):  # c is a vector of classes
+    @staticmethod
+    def _reshape(feature):
+            return (
+                feature[0].reshape(32,32,64),
+                feature[1].reshape(16,16,64),
+                feature[2].reshape(8,8,128),
+                feature[3].reshape(4,4,128)
+            )
+
+    def generate_features(self, c, from_p = False):
+        """
+        from_p: from a distribution
+        """
+
+        if not from_p:
+            return self.generate_latent(c)
+
         res = np.array([
-            [
+            self._reshape([
                 np.random.multivariate_normal(self.means[i][e], self.covariances[i][e])
                 for i in range(4)
-            ]
+            ])
             for e in c
         ])
-
-        res = 
 
         return res
 
@@ -1113,7 +1114,7 @@ class BalancingGAN:
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
-    def train(self, bg_train, bg_test, epochs=50):
+    def train(self, bg_train, bg_test, epochs=50, from_p = False):
         if not self.trained:
             self.autoenc_epochs = 100
 
@@ -1133,13 +1134,17 @@ class BalancingGAN:
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
             batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
+            f1, f2, f3, f4 = self.generate_features(
+                                self._biased_sample_labels(10),
+                                from_p = from_p
+                            )
             img_samples = np.array([
                 [
                     batch_1,
                     batch_2,
                     self.generator.predict([
                         bg_train.pair_samples(act_img_samples),
-                        self.generate_latent(self._biased_sample_labels(10))
+                        f1, f2, f3, f4
                     ]),
                 ]
             ])
@@ -1152,7 +1157,7 @@ class BalancingGAN:
                         batch_2,
                         self.generator.predict([
                             bg_train.pair_samples(act_img_samples),
-                            self.generate_latent(self._biased_sample_labels(10))
+                            f1, f2, f3, f4
                         ]),
                     ]
                 ])
@@ -1170,12 +1175,16 @@ class BalancingGAN:
                 nb_test = bg_test.get_num_samples()
             
                 # sample some labels from p_c and generate images from them
+                f1, f2, f3, f4 = self.generate_features(
+                                self._biased_sample_labels(bg_test.dataset_x.shape[0]),
+                                from_p = from_p
+                            )
                 generated_images = self.generator.predict(
-                    [bg_test.pair_x, self.generate_latent(self._biased_sample_labels(bg_test.dataset_x.shape[0]))],
+                    [bg_test.dataset_x, f1, f2, f3, f4],
                     verbose=False
                 )
 
-                X = np.concatenate( (bg_test.dataset_x, generated_images) )
+                X = np.concatenate((bg_test.dataset_x, generated_images))
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(
                     generated_images.shape[0], self.nclasses )), axis=0
                 )
@@ -1186,8 +1195,11 @@ class BalancingGAN:
 
                 # real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                 # perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
-                real_features, perceptual_features = self.get_pair_features(bg_test.pair_x)
-                latents = self.generate_latent(self._biased_sample_labels(bg_test.pair_x.shape[0]))
+                real_features, perceptual_features = self.get_pair_features(bg_test.dataset_x)
+                f1, f2, f3, f4 = self.generate_features(
+                        self._biased_sample_labels(bg_test.dataset_x.shape[0]),
+                        from_p= from_p
+                    )
 
                 [
                     loss, discriminator_loss,
@@ -1196,8 +1208,8 @@ class BalancingGAN:
                     feature_matching_accuracy,
                     *rest
                 ] = self.combined.evaluate(
-                    [bg_test.pair_x, latents],
-                    [bg_test.pair_y, real_features, perceptual_features],
+                    [bg_test.dataset_x, f1, f2, f3, f4],
+                    [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
 
@@ -1205,34 +1217,37 @@ class BalancingGAN:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         [
-                            bg_test.pair_x,
-                            latents
+                            bg_test.dataset_x,
+                            f1, f2, f3, f4
                         ],
-                        [bg_test.pair_y, real_features, perceptual_features]
+                        [bg_test.dataset_y, real_features, perceptual_features]
                     )
 
                     crt_c = 0
-                    act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
-                    batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
+                    act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                    # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
+                    f1, f2, f3, f4 = self.generate_features(
+                                self._biased_sample_labels(10),
+                                from_p = from_p
+                            )
                     img_samples = np.array([
                         [
-                            batch_1,
-                            batch_2,
+                            act_img_samples,
                             self.generator.predict([
-                                bg_train.pair_samples(act_img_samples),
-                                self.generate_latent(self._biased_sample_labels(10))
+                                act_img_samples,
+                                f1, f2, f3, f4,
                             ]),
                         ]
                     ])
                     for crt_c in range(1, self.nclasses):
-                        act_img_samples = bg_train.get_samples_for_class(crt_c, 20)
-                        batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
+                        act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                        # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
                         new_samples = np.array([
                             [
-                                batch_1, batch_2,
+                                act_img_samples,
                                 self.generator.predict([
-                                   bg_train.pair_samples(act_img_samples),
-                                    self.generate_latent(self._biased_sample_labels(10))
+                                   act_img_samples,
+                                    f1, f2, f3, f4,
                                 ]),
                             ]
                         ])
