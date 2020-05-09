@@ -47,7 +47,6 @@ CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
 def save_image_array(img_array, fname=None, show=None):
         # convert 1 channel to 3 channels
-        print(img_array.shape)
         channels = img_array.shape[-1]
         resolution = img_array.shape[2]
         img_rows = img_array.shape[0]
@@ -387,8 +386,8 @@ class BatchGenerator:
 
 class BalancingGAN:
     def build_res_unet(self):
-        img_dim=(2, self.resolution, self.resolution, self.channels)
-        image_pair = Input(shape=(2, self.resolution, self.resolution, self.channels))
+        img_dim=(self.resolution, self.resolution, self.channels)
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_vector = Input(shape=(self.latent_size,))
 
         def _latent_encode():
@@ -408,76 +407,94 @@ class BalancingGAN:
 
             return Model(inputs = latent_vector, outputs = [x1,x2,x3,x4])
 
+        def _res_block(x, activation = 'leaky_relu'):
+            if activation == 'leaky_relu':
+                actv = LeakyReLU()
+            else:
+                actv = Activation(activation)
+
+            skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
+            out = BatchNormalization()(skip)
+            out = actv(out)
+
+            out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+            out = BatchNormalization()(out)
+            out = actv(out)
+
+            out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+            out = BatchNormalization()(out)
+            out = actv(out)
+            out = Add()([out, skip])
+            return out
+
+
         def _encoder():
             image = Input(shape=(self.resolution, self.resolution, self.channels))
 
-            en_1 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(image)
+            en_1 = _res_block(image)
+            en_1 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_1)
             en_1 = BatchNormalization(momentum = 0.8)(en_1)
             en_1 = LeakyReLU(alpha=0.2)(en_1)
-            # en_1 = Average()([en_1, encoded[0]])
             en_1 = Dropout(0.3)(en_1)
 
-            en_2 = Conv2D(kernel_size=(5, 5), filters=64, strides=(2, 2), padding="same")(en_1)
+            en_2 = _res_block(en_1)
+            en_2 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_2)
             en_2 = BatchNormalization()(en_2)
             en_2 = LeakyReLU(alpha=0.2)(en_2)
-            # en_2 = Average()([en_2, encoded[1]])
             en_2 = Dropout(0.3)(en_2)
 
-            en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_2)
+            en_3 = _res_block(en_2)
+            en_3 = Conv2D(128, 3, strides = 2, padding = 'same')(en_3)
             en_3 = BatchNormalization(momentum = 0.8)(en_3)
             en_3 = LeakyReLU(alpha=0.2)(en_3)
-            # en_3 = Average()([en_3, encoded[2]])
             en_3 = Dropout(0.3)(en_3)
 
-            en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
+            en_4 = _res_block(en_3)
+            en_4 = Conv2D(128, 3, strides = 2, padding = 'same')(en_4)
             en_4 = BatchNormalization(momentum = 0.8)(en_4)
             en_4 = LeakyReLU(alpha=0.2)(en_4)
-            # en_4 = Average()([en_4, encoded[3]])
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
             return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
                 
         latent_encoder = _latent_encode()
-        latent_encoder.trainable = False
+        # latent_encoder.trainable = False
         latent_encoded = latent_encoder(latent_vector)
-        encoder = _encoder()
-        f1 = encoder(Lambda(lambda x: x[:,0,:])(image_pair))
-        f2 = encoder(Lambda(lambda x: x[:,1,:])(image_pair))
+        self.encoder = _encoder()
 
-        en_1 = Add()([f1[0], f2[0], latent_encoded[0]])
-        en_2 = Add()([f1[1], f2[1], latent_encoded[1]])
-        en_3 = Add()([f1[2], f2[2], latent_encoded[2]])
-        en_4 = Add()([f1[3], f2[3], latent_encoded[3]])
+        feature = self.encoder(image)
 
-        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(en_4)
-        # de_1 = UpSampling2D(size=(2, 2))(en_4)
-        # de_1 = Conv2D(256, 5, strides = 1, padding='same')(de_1)
-        de_1 = Add()([de_1, en_3])
+        en_1 = Add()([feature[0], feature[0], latent_encoded[0]])
+        en_2 = Add()([feature[1], feature[1], latent_encoded[1]])
+        en_3 = Add()([feature[2], feature[2], latent_encoded[2]])
+        en_4 = Add()([feature[3], feature[3], latent_encoded[3]])
+
+        de_1 = _res_block(en_4)
+        de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
         de_1 = BatchNormalization(momentum = 0.8)(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
+        de_1 = Add()([de_1, en_3])
 
-        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_1)
-        # de_2 = UpSampling2D(size=(2, 2))(de_1)
-        # de_2 = Conv2D(128, 5, strides = 1, padding = 'same')(de_2)
-        de_2 = Add()([de_2, en_2])
+        de_2 = _res_block(de_1)
+        de_2 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_2)
         de_2 = BatchNormalization(momentum = 0.8)(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
+        de_2 = Add()([de_2, en_2])
 
-        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
-        # de_3 = UpSampling2D(size=(2, 2))(de_2)
-        # de_3 = Conv2D(128, 5, strides = 1, padding = 'same')(de_3)
-        de_3 = Add()([de_3, en_1])
+        de_3 = _res_block(de_2)
+        de_3 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_3)
         de_3 = BatchNormalization(momentum = 0.8)(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
+        de_3 = Add()([de_3, en_1])
 
-        de_4 = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
-        # de_4 = UpSampling2D(size=(2, 2))(de_3)
-        # de_4 = Conv2D(1, 5, strides = 1, padding = 'same')(de_4)
+        de_4 = _res_block(de_3)
+        de_4 = Conv2DTranspose(1, 3, strides = 2, padding = 'same')(de_4)
         de_4 = Activation('tanh')(de_4)
-        self.generator = Model(inputs = [image_pair, latent_vector], outputs = de_4, name='unet')
+
+        self.generator = Model(inputs = [image, latent_vector], outputs = de_4, name='unet')
 
     def build_image_encoder(self):
         images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -811,7 +828,7 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        latent_diff = K.mean(K.square(fake_latent - latent_gen))
+        latent_diff = K.mean(K.abs(fake_latent - latent_gen))
 
         self.combined.add_loss(latent_diff)
 
@@ -821,7 +838,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mse', 'mse'],
+            loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
             # loss_weights = [1.0, 1.0, 0.0],
         )
 
@@ -996,20 +1013,34 @@ class BalancingGAN:
             self.class_dratio[self.class_dratio < 0] = 0
             self.class_dratio = self.class_dratio / sum(self.class_dratio)
 
-    def init_autoenc(self, bg_train, gen_fname=None, rec_fname=None):
-        print("BAGAN: computing multivariate")
-        self.covariances = []
-        self.means = []
+    def cal_multivariate(self, bg_train):
+        print("GAN: computing multivariate")
+        # 3 skip-connection and 1 forward connection
+        self.covariances = [[], [], [], []]
+        self.means = [[], [], [], []]
 
         for c in range(self.nclasses):
             imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
-            latent = self.perceptual_model.predict(triple_channels(imgs))
-
-            self.covariances.append(np.cov(np.transpose(latent)))
-            self.means.append(np.mean(latent, axis=0))
+            feature = self.encoder.predict(imgs)
+            for i in range(4):
+                self.covariances[i].append(np.cov(np.transpose(feature[i])))
+                self.means[i].append(np.mean(feature[i], axis=0))
 
         self.covariances = np.array(self.covariances)
         self.means = np.array(self.means)
+
+    def generate_features(self, c,):  # c is a vector of classes
+        res = np.array([
+            [
+                np.random.multivariate_normal(self.means[i][e], self.covariances[i][e])
+                for i in range(4)
+            ]
+            for e in c
+        ])
+
+        res = 
+
+        return res
 
 
     def _get_lst_bck_name(self, element):
