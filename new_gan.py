@@ -440,10 +440,10 @@ class BalancingGAN:
     
             return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
-        image = Input(shape=(3, self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(self.latent_size,))
         external_feature = Dense(4*4*128)(latent_code)
-        external_feature = Reshape(4,4,128)(external_feature)
+        external_feature = Reshape((4,4,128))(external_feature)
 
         self.encoder = _encoder()
         feature = self.encoder(image)
@@ -493,8 +493,8 @@ class BalancingGAN:
         x = Conv2D(256, kernel_size = 5, strides = 2, padding = 'same', activation = 'relu')(images)
         x = Conv2D(128, kernel_size = 5, strides = 2, padding = 'same', activation = 'relu')(x)
         x = Conv2D(64, kernel_size = 5, strides = 2, padding = 'same', activation = 'relu')(x)
-        x = AveragePooling2D(x)
-        x = Flatten(x)
+        x = AveragePooling2D(pool_size=(2, 2))(x)
+        x = Flatten()(x)
         
         latent_code = Dense(self.latent_size)(x)
 
