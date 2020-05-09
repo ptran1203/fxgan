@@ -935,28 +935,22 @@ class BalancingGAN:
     def cal_multivariate(self, bg_train):
         print("GAN: computing multivariate")
         # 3 skip-connection and 1 forward connection
-        self.covariances = [[], [], [], []]
-        self.means = [[], [], [], []]
+        self.covariances = []
+        self.means = []
 
         for c in range(self.nclasses):
             imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
             feature = self.encoder.predict(imgs)
-            for i in range(4):
-                self.covariances[i].append(np.cov(np.transpose(feature[i])))
-                self.means[i].append(np.mean(feature[i], axis=0))
+            feature = feature.reshape(4*4*128, imgs.shape[0])
+            self.covariances.append(np.cov(np.transpose()))
+            self.means.append(np.mean(feature[i], axis=0))
 
         self.covariances = np.array(self.covariances)
         self.means = np.array(self.means)
 
     @staticmethod
     def _reshape(feature):
-        n = 4
-        return (
-            feature[0].reshape(n,n,64),
-            feature[1].reshape(n,n,64),
-            feature[2].reshape(n,n,128),
-            feature[3].reshape(n,n,128)
-        )
+        return feature.reshape(4, 4, 128),
 
     def generate_features(self, c, from_p = False):
         """
@@ -967,10 +961,9 @@ class BalancingGAN:
             return self.generate_latent(c)
 
         res = np.array([
-            self._reshape([
-                np.random.multivariate_normal(self.means[i][e], self.covariances[i][e])
-                for i in range(4)
-            ])
+            self._reshape(
+                np.random.multivariate_normal(self.means[e], self.covariances[e])
+            )
             for e in c
         ])
 
