@@ -591,40 +591,6 @@ class BalancingGAN:
         plt.legend()
         plt.show()
 
-    def build_generator(self, latent_size, init_resolution=8):
-        resolution = self.resolution
-        channels = self.channels
-        init_channels = 256
-        cnn = Sequential()
-
-        cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
-        cnn.add(BatchNormalization())
-        cnn.add(LeakyReLU())
-        cnn.add(Reshape((init_resolution, init_resolution, init_channels)))
-       
-        crt_res = init_resolution
-        # upsample
-        i = 0
-        while crt_res < resolution/2:
-            i += 1
-            cnn.add(Conv2DTranspose(
-                init_channels, kernel_size = 5, strides = 2, padding='same'))
-            # cnn.add(BatchNormalization())
-            cnn.add(LeakyReLU(alpha=0.02))
-            init_channels //= 2
-            crt_res = crt_res * 2
-            assert crt_res <= resolution,\
-                "Error: final resolution [{}] must equal i*2^n. Initial resolution i is [{}]. n must be a natural number.".format(resolution, init_resolution)
-        cnn.add(Conv2DTranspose(
-                    1, kernel_size = 5,
-                    strides = 2, padding='same',
-                    activation='tanh'))
-
-        latent = Input(shape=(latent_size, ))
-
-        fake_image_from_latent = cnn(latent)
-        self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
-
     def _build_common_encoder(self, image, min_latent_res):
         resolution = self.resolution
         channels = self.channels
@@ -658,15 +624,6 @@ class BalancingGAN:
         features = cnn(image)
         return features
 
-    def build_reconstructor(self, latent_size, min_latent_res=8):
-        resolution = self.resolution
-        channels = self.channels
-        image = Input(shape=(resolution, resolution,channels))
-        features = self._build_common_encoder(image, min_latent_res)
-        # Reconstructor specific
-        latent = Dense(latent_size, activation='linear')(features)
-        self.reconstructor = Model(inputs=image, outputs=latent, name='decoder')
-
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
@@ -682,16 +639,6 @@ class BalancingGAN:
             self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
         )(features)
         self.discriminator = Model(inputs=image, outputs=aux,name='discriminator')
-
-
-    def generate_from_latent(self, latent):
-        res = self.generator(latent)
-        return res
-
-    def generate(self, c):  # c is a vector of classes
-        latent = self.generate_latent(c)
-        res = self.generator.predict(latent)
-        return res
 
     def generate_latent(self, c, size = 1):
         return np.array([
@@ -771,7 +718,7 @@ class BalancingGAN:
         external_feature_3 = Input(shape=(8,8,128))
         external_feature_4 = Input(shape=(4,4,128))
 
-        real_images = Input(shape=(2, self.resolution, self.resolution, self.channels))
+        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         # external_feature = self.feature_encoder(latent_gen)
 
         # Build discriminator
@@ -782,9 +729,6 @@ class BalancingGAN:
             loss='sparse_categorical_crossentropy'
         )
 
-        # Build reconstructor
-        self.build_reconstructor(latent_size, min_latent_res=min_latent_res)
-
         # Define combined for training generator.
         fake = self.generator([
             real_images, external_feature_1, external_feature_2,
@@ -794,7 +738,6 @@ class BalancingGAN:
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
-        self.reconstructor.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
 
