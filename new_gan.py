@@ -441,10 +441,7 @@ class BalancingGAN:
             return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(self.latent_size,))
-        external_feature = Dense(4*4*128)(latent_code)
-        external_feature = Reshape((4,4,128))(external_feature)
-
+        latent_code = Input(shape=(4, 4, 128))
         self.encoder = _encoder()
         feature = self.encoder(image)
 
@@ -454,7 +451,7 @@ class BalancingGAN:
         en_1 = feature[0]
         en_2 = feature[1]
         en_3 = feature[2]
-        en_4 = Add()([feature[3], external_feature])
+        en_4 = Add()([feature[3], latent_code])
 
         de_1 = _res_block(en_4)
         de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
@@ -642,7 +639,7 @@ class BalancingGAN:
 
     def generate_latent(self, c, size = 1):
         return np.array([
-            np.random.normal(0, 1, 100)
+            np.random.normal(0, 1, 4*4*128).reshape(4,4,128)
             for i in c
         ])
 
@@ -710,7 +707,7 @@ class BalancingGAN:
 
 
         # latent_gen = Input(shape=(latent_size, ))
-        latent_code = Input(shape=(latent_size,))
+        latent_code = Input(shape=(4,4,128))
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
@@ -734,7 +731,7 @@ class BalancingGAN:
         self.features_from_d_model.trainable = False
 
         aux = self.discriminate(fake)
-        img_latent = self.image_encoder(real_images)
+        img_latent = self.encoder(real_images)[-1]
 
         # fake info
         fake_features = self.features_from_d(fake)
@@ -748,7 +745,7 @@ class BalancingGAN:
         )
 
         # l1_distance = K.mean(K.abs(img_latent - latent_code))
-        cosine_sim = cosine_similarity(img_latent, latent_code)
+        # cosine_sim = cosine_similarity(img_latent, latent_code)
 
         self.combined = Model(
             inputs=[real_images, latent_code],
@@ -757,11 +754,13 @@ class BalancingGAN:
         )
 
         # perceptual loss
-        perceptual_loss = cosine_sim * K.mean(K.abs(
-            fake_perceptual_features - real_perceptual_features
+        perceptual_loss =  K.mean(K.abs(
+            K.sum(latent_code) * fake_perceptual_features - K.sum(img_latent) * real_perceptual_features
         ))
 
-        fm_loss = cosine_sim * K.mean(K.abs(real_features - fake_features))
+        fm_loss = K.mean(K.abs(
+            K.sum(img_latent) * real_features - K.sum(latent_code) * fake_features
+        ))
 
         self.combined.add_loss(perceptual_loss)
         self.combined.add_loss(fm_loss)
@@ -1025,7 +1024,7 @@ class BalancingGAN:
         plt.show()
 
     def evaluate_g(self, test_x, test_y):
-        y_pre, *_ = self.combined.predict(test_x)
+        y_pre = self.combined.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
