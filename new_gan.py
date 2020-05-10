@@ -1,6 +1,6 @@
 
 import csv
-from collections import defaultdict
+from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
 
@@ -294,6 +294,20 @@ class BatchGenerator:
     def get_samples_by_labels(self, labels, samples = None):
         if samples is None:
             samples = self.batch_size
+
+        count = Counter(labels)
+        class_1 = np.random.choice(self.per_class_ids[0], count[0])
+        class_2 = np.random.choice(self.per_class_ids[1], count[1])
+        new_arr = []
+
+        for label in labels:
+            if label == 0:
+                idx, class_1 = class_1[-1], class_1[:-1]
+            else:
+                idx, class_2 = class_2[-1], class_2[:-1]
+            new_arr.append(idx)
+
+        return np.array(new_arr)
 
         
 
@@ -750,7 +764,7 @@ class BalancingGAN:
         cosine_sim1 = cosine_similarity(img_codes[0], fake_codes[0])
         cosine_sim2 = cosine_similarity(img_codes[2], fake_codes[2])
         cosine_sim3 = cosine_similarity(img_codes[3], fake_codes[3])
-        cosine_sim = cosine_sim1 + cosine_sim2 + cosine_sim3
+        cosine_sim = K.mean(cosine_sim1) + K.mean(cosine_sim2) + K.mean(cosine_sim3)
 
         self.combined = Model(
             inputs=[real_images, latent_code],
@@ -848,8 +862,8 @@ class BalancingGAN:
             # fimage_batch, _ = self.shuffle_data(image_batch, image_batch)
             # real_features = self.features_from_d_model.predict(image_batch)
             # perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
-
-            real_features, perceptual_features = self.get_pair_features(image_batch)
+            shuffle_image_batch = bg_train.get_samples_by_labels(label_batch)
+            real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
 
             f = self.generate_features(
                                 self._biased_sample_labels(crt_batch_size),
@@ -1023,7 +1037,7 @@ class BalancingGAN:
         plt.show()
 
     def evaluate_g(self, test_x, test_y):
-        y_pre = self.combined.predict(test_x)
+        y_pre, *_ = self.combined.predict(test_x)
         y_pre = np.argmax(y_pre, axis=1)
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
