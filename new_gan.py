@@ -449,9 +449,9 @@ class BalancingGAN:
         # en_2 = Add()([feature[1], external_feature_2])
         # en_3 = Add()([feature[2], external_feature_3])
         en_1 = feature[0]
-        en_2 = feature[1]
+        # en_2 = feature[1]
         en_3 = feature[2]
-        en_4 = Add()([feature[3], latent_code])
+        en_4 = Concatenate()([feature[3], latent_code])
 
         de_1 = _res_block(en_4)
         de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
@@ -465,7 +465,7 @@ class BalancingGAN:
         de_2 = BatchNormalization(momentum = 0.8)(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
-        de_2 = Add()([de_2, en_2])
+        # de_2 = Add()([de_2, en_2])
 
         de_3 = _res_block(de_2)
         de_3 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_3)
@@ -731,39 +731,25 @@ class BalancingGAN:
         self.features_from_d_model.trainable = False
 
         aux = self.discriminate(fake)
-        img_latent = self.encoder(real_images)[-1]
+        img_codes = self.encoder(real_images)
+        fake_codes = self.encoder(fake_images)
 
         # fake info
         fake_features = self.features_from_d(fake)
         fake_perceptual_features = self.perceptual_model(
             Concatenate()([fake, fake, fake])
         )
-        # real info
-        real_features = self.features_from_d(real_images)
-        real_perceptual_features = self.perceptual_model(
-            Concatenate()([real_images, real_images, real_images])
-        )
 
         # l1_distance = K.mean(K.abs(img_latent - latent_code))
-        # cosine_sim = cosine_similarity(img_latent, latent_code)
+        cosine_sim = cosine_similarity(img_codes, fake_codes)
 
         self.combined = Model(
             inputs=[real_images, latent_code],
-            outputs=[aux],
+            outputs=[aux, fake_features, fake_perceptual_features],
             name = 'Combined'
         )
 
-        # perceptual loss
-        perceptual_loss =  K.mean(K.abs(
-            K.sum(latent_code) * fake_perceptual_features - K.sum(img_latent) * real_perceptual_features
-        ))
-
-        fm_loss = K.mean(K.abs(
-            K.sum(img_latent) * real_features - K.sum(latent_code) * fake_features
-        ))
-
-        self.combined.add_loss(perceptual_loss)
-        self.combined.add_loss(fm_loss)
+        self.combined.add_loss(cosine_sim)
 
         self.combined.compile(
             optimizer=Adam(
@@ -771,7 +757,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy'],
+            loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
             # loss_weights = [1.0, 1.0, 0.0],
         )
 
@@ -829,17 +815,20 @@ class BalancingGAN:
                                 self._biased_sample_labels(crt_batch_size),
                                 from_p = from_p
                             )
-            batch_size = image_batch.shape[0] // 2
+            
+            img_1 = bg_train.get_samples_for_class(0, crt_batch_size // 4)
+            img_2 =  bg_train.get_samples_for_class(1, crt_batch_size // 4)
+
             generated_images = self.generator.predict(
                 [
-                    image_batch[:batch_size],
+                    np.concatenate([img_1, img_2]),
                     f,
                 ],
                 verbose=0
             )
     
-            X = np.concatenate((image_batch[batch_size:], generated_images))
-            aux_y = np.concatenate((label_batch[batch_size:], np.full(generated_images.shape[0] , self.nclasses )), axis=0)
+            X = np.concatenate((image_batch, generated_images))
+            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
