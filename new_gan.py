@@ -747,7 +747,10 @@ class BalancingGAN:
         )
 
         # l1_distance = K.mean(K.abs(img_latent - latent_code))
-        cosine_sim = cosine_similarity(img_codes, fake_codes)
+        cosine_sim1 = cosine_similarity(img_codes[0], fake_codes[0])
+        cosine_sim2 = cosine_similarity(img_codes[2], fake_codes[2])
+        cosine_sim3 = cosine_similarity(img_codes[3], fake_codes[3])
+        cosine_sim = cosine_sim1 + cosine_sim2 + cosine_sim3
 
         self.combined = Model(
             inputs=[real_images, latent_code],
