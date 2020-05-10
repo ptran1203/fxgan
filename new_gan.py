@@ -291,6 +291,12 @@ class BatchGenerator:
         to_return = self.per_class_ids[c][0:samples]
         return self.dataset_x[to_return]
 
+    def get_samples_by_labels(self, labels, samples = None):
+        if samples is None:
+            samples = self.batch_size
+
+        
+
     def pair_samples(self, train_x):
         # merge 2 nearest image
         img1 = np.expand_dims(train_x[0], 0)
@@ -732,7 +738,7 @@ class BalancingGAN:
 
         aux = self.discriminate(fake)
         img_codes = self.encoder(real_images)
-        fake_codes = self.encoder(fake_images)
+        fake_codes = self.encoder(fake)
 
         # fake info
         fake_features = self.features_from_d(fake)
@@ -840,16 +846,16 @@ class BalancingGAN:
             # real_features = self.features_from_d_model.predict(image_batch)
             # perceptual_features = self.perceptual_model.predict(triple_channels(image_batch))
 
-            # real_features, perceptual_features = self.get_pair_features(image_batch)
+            real_features, perceptual_features = self.get_pair_features(image_batch)
 
             f = self.generate_features(
                                 self._biased_sample_labels(crt_batch_size),
                                 from_p = from_p
                             )
 
-            loss, acc = self.combined.train_on_batch(
+            [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, f],
-                [label_batch]
+                [label_batch, real_features, perceptual_features]
             )
 
             epoch_gen_loss.append(loss)
@@ -1098,15 +1104,15 @@ class BalancingGAN:
 
                 # real_features = self.features_from_d_model.predict(bg_test.dataset_x)
                 # perceptual_features = self.perceptual_model.predict(triple_channels(bg_test.dataset_x))
-                # real_features, perceptual_features = self.get_pair_features(bg_test.dataset_x)
+                real_features, perceptual_features = self.get_pair_features(bg_test.dataset_x)
                 f = self.generate_features(
                         self._biased_sample_labels(bg_test.dataset_x.shape[0]),
                         from_p= from_p
                     )
 
-                test_gen_loss, test_gen_acc = self.combined.evaluate(
+                [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, f],
-                    [bg_test.dataset_y],
+                    [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
 
