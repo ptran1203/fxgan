@@ -829,16 +829,17 @@ class BalancingGAN:
                                 self._biased_sample_labels(crt_batch_size),
                                 from_p = from_p
                             )
+            batch_size = image_batch.shape[0] // 2
             generated_images = self.generator.predict(
                 [
-                    image_batch,
+                    image_batch[:batch_size],
                     f,
                 ],
                 verbose=0
             )
     
-            X = np.concatenate((image_batch, generated_images))
-            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
+            X = np.concatenate((image_batch[batch_size:], generated_images))
+            aux_y = np.concatenate((label_batch[batch_size:], np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
