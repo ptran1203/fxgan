@@ -307,7 +307,7 @@ class BatchGenerator:
                 idx, class_2 = class_2[-1], class_2[:-1]
             new_arr.append(idx)
 
-        return np.array(new_arr)
+        return self.dataset_x[np.array(new_arr)]
 
         
 
