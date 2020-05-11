@@ -1153,7 +1153,8 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
-                            f
+                            f,
+                            bg_test.dataset_x,
                         ],
                         [bg_test.dataset_y]
                     )
