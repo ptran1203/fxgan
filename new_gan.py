@@ -468,7 +468,7 @@ class BalancingGAN:
 
         noise = Dense(64*64*1)(latent_code)
         noise = Reshape((64,64,1))(noise)
-        noise_image = keras.layers.Concatenate()([image, noise])
+        noise_image = Concatenate()([image, noise])
         
         self.encoder = _encoder()
         feature = self.encoder(noise_image)
