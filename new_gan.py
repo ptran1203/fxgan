@@ -438,7 +438,7 @@ class FeatureGan:
         self.f_generator = Model(
             inputs = latent_code,
             # outputs = [x1 ,x2, x3]
-            outputs = x1
+            outputs = x1,
             name = 'Feature_generator'
         )
 
