@@ -465,18 +465,30 @@ class BalancingGAN:
 
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(100,))
-
-        noise = Dense(64*64*1)(latent_code)
-        noise = Reshape((64,64,1))(noise)
-        noise_image = Concatenate()([image, noise])
-        
+       
         self.encoder = _encoder()
-        feature = self.encoder(noise_image)
+        feature = self.encoder(image)
+
 
         en_1 = feature[0]
-        en_2 = feature[1]
+        # en_2 = feature[1]
         en_3 = feature[2]
-        en_4 = feature[3]                
+        en_4 = feature[3]
+
+        en_1 = Add()([
+                en_1,
+                Reshape((32,32,64))(Dense(32*32*64)(latent_code))
+            ])         
+
+        en_3 = Add()([
+                en_3,
+                Reshape((8,8,128))(Dense(8*8*128)(latent_code))
+            ])
+        
+        en_4 = Add()([
+                en_4,
+                Reshape((4,4,128))(Dense(4*4*128)(latent_code))
+            ])
         
         # botteneck
         de_1 = _res_block(en_4)
@@ -733,7 +745,7 @@ class BalancingGAN:
 
 
         # latent_gen = Input(shape=(latent_size, ))
-        latent_code = Input(shape=(4,4,128))
+        latent_code = Input(shape=(100,))
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -768,9 +780,9 @@ class BalancingGAN:
         )
 
         # l1_distance = K.mean(K.abs(img_latent - latent_code))
-        l_1 = K.mean(K.abs(img_codes[0], fake_codes[0]))
-        l_2 = K.mean(K.abs(img_codes[2], fake_codes[2]))
-        l_3 = K.mean(K.abs(img_codes[3], fake_codes[3]))
+        l_1 = K.mean(K.abs(img_codes[0] - fake_codes[0]))
+        l_2 = K.mean(K.abs(img_codes[2] - fake_codes[2]))
+        l_3 = K.mean(K.abs(img_codes[3] - fake_codes[3]))
         l1_distance = l_1 + l_2 + l_3
 
         self.combined = Model(
@@ -779,7 +791,7 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(l1_distance)
+        self.combined.add_loss(0.7 * l1_distance)
 
         self.combined.compile(
             optimizer=Adam(
@@ -788,7 +800,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
-            # loss_weights = [1.0, 1.0, 0.0],
+            loss_weights = [1.0, 0.7, 0.5],
         )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
