@@ -19,8 +19,10 @@ from keras.layers import (
     Lambda,Layer, Add, Concatenate,
     Average,GaussianNoise,
     MaxPooling2D, AveragePooling2D,
-    InstanceNormalization,
 )
+
+from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+
 
 from keras.applications.vgg16 import VGG16
 
