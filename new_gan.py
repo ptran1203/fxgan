@@ -395,7 +395,7 @@ class BatchGenerator:
             access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
 
             yield (
-                dataset_x[access_pattern, :, :, :], labels[access_pattern]
+                dataset_x[access_pattern, :, :, :], labels[access_pattern],
                 dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
 
