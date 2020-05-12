@@ -459,7 +459,7 @@ class BalancingGAN:
         x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
-        x = Activation('relu')(x)
+        x = Activation('sigmoid')(x)
         x = Dropout(0.3)(x)
         # 4*4*32
 
@@ -470,8 +470,6 @@ class BalancingGAN:
             inputs = image,
             outputs = latent    
         )
-
-
 
     def build_res_unet(self):
         def _encoder():
@@ -822,8 +820,8 @@ class BalancingGAN:
         # l_2 = K.mean(K.abs(img_codes[2] - fake_codes[2]))
         # l_3 = K.mean(K.abs(img_codes[3] - fake_codes[3]))
         # l1_distance = l_1 + l_2 + l_3
-        l1_distance = 0.5 * K.mean(K.abs(fake - real_images)) \
-                      + 0.5 * K.mean(K.abs(fake - shuffle_images))
+        l1_distance = K.mean(K.abs(fake - 0.5 * real_images)) \
+                      + 0.5 * K.mean(K.abs(fake - 0.5 * shuffle_images))
 
         self.combined = Model(
             inputs=[real_images, shuffle_images],
@@ -831,7 +829,7 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        # self.combined.add_loss(0.7 * l1_distance)
+        self.combined.add_loss(0.7 * l1_distance)
 
         self.combined.compile(
             optimizer=Adam(
