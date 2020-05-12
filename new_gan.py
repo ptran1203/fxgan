@@ -899,7 +899,7 @@ class BalancingGAN:
             
             img_1 = bg_train.get_samples_for_class(0, crt_batch_size // 2)
             img_2 =  bg_train.get_samples_for_class(1, crt_batch_size // 2)
-            s1, s2 = img_1.shape[0], img_2.shape[0]
+            s1, s2 = img_1.shape[0] // 2, img_2.shape[0] // 2
 
             generated_images = self.generator.predict(
                 [
