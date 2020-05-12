@@ -460,12 +460,12 @@ class BalancingGAN:
         # x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
-        x = Activation('sigmoid')(x)
+        x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 4*4*32
 
         latent = Flatten()(x)
-        latent = Dense(self.latent_size)(latent)
+        latent = Dense(self.latent_size, activation = 'sigmoid')(latent)
 
         self.latent_encoder = Model(
             inputs = image,
@@ -507,7 +507,7 @@ class BalancingGAN:
             return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(100,))
+        latent_code = Input(shape=(self.latent_size,))
        
         self.encoder = _encoder()
         feature = self.encoder(image)
@@ -520,17 +520,17 @@ class BalancingGAN:
 
         en_1 = Concatenate()([
                 en_1,
-                Reshape((32,32,64))(Dense(32*32*64)(latent_code))
+                Reshape((32,32,64))(RepeatVector(16*16)(latent_code))
             ])         
 
         en_3 = Concatenate()([
                 en_3,
-                Reshape((8,8,128))(Dense(8*8*128)(latent_code))
+                Reshape((8,8,128))(RepeatVector(8*8)(latent_code))
             ])
         
         en_4 = Concatenate()([
                 en_4,
-                Reshape((4,4,128))(Dense(4*4*128)(latent_code))
+                Reshape((4,4,128))(RepeatVector(4*4)(latent_code))
             ])
         
         # botteneck
