@@ -385,14 +385,19 @@ class BatchGenerator:
         labels = self.labels
 
         indices = np.arange(dataset_x.shape[0])
+        indices2 = np.arange(dataset_x.shape[0])
 
         np.random.shuffle(indices)
+        np.random.shuffle(indices2)
 
         for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
             access_pattern = indices[start_idx:start_idx + self.batch_size]
-            access_pattern = sorted(access_pattern)
+            access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
 
-            yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
+            yield (
+                dataset_x[access_pattern, :, :, :], labels[access_pattern]
+                dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
+            )
 
     def next_pair_batch(self):
         dataset_x = self.pair_x
@@ -888,25 +893,14 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        for image_batch, label_batch in bg_train.next_batch():
+        for image_batch, label_batch, image_batch2, label_batch2 in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
-            f = self.generate_features(
-                                self._biased_sample_labels(crt_batch_size),
-                                from_p = from_p
-                            )
-            
-            img_1 = bg_train.get_samples_for_class(0, crt_batch_size // 2)
-            img_2 =  bg_train.get_samples_for_class(1, crt_batch_size // 2)
-            s1, s2 = img_1.shape[0] // 2, img_2.shape[0] // 2
-
             generated_images = self.generator.predict(
                 [
-                    np.concatenate([img_1[:s1], img_2[:s2]]),
-                    self.latent_encoder.predict(np.concatenate([
-                        img_1[s1:], img_2[s2:]
-                    ])),
+                    image_batch2,
+                    self.latent_encoder.predict(image_batch),
                 ],
                 verbose=0
             )
