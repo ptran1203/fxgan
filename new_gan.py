@@ -1201,10 +1201,12 @@ class BalancingGAN:
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                     # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
-                    f = self.generate_features(
-                                self._biased_sample_labels(10),
-                                from_p = from_p
-                            )
+                    # f = self.generate_features(
+                    #             self._biased_sample_labels(10),
+                    #             from_p = from_p
+                    #         )
+
+                    f = self.latent_encoder.predict(bg_train.get_samples_for_class(crt_c, 10))
                     img_samples = np.array([
                         [
                             act_img_samples,
@@ -1217,6 +1219,7 @@ class BalancingGAN:
                     for crt_c in range(1, self.nclasses):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                         # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
+                        f = self.latent_encoder.predict(bg_train.get_samples_for_class(crt_c, 10))
                         new_samples = np.array([
                             [
                                 act_img_samples,
