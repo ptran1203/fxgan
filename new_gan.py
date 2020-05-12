@@ -435,28 +435,28 @@ class BalancingGAN:
     def build_latent_encoder(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        x = _res_block(image, 'relu')
+        x = self._res_block(image, 'relu')
         x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 32 * 32 * 128
 
-        x = _res_block(x, 'relu')
+        x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
-        x = _res_block(x, 'relu')
+        x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 8*8*64
 
-        x = _res_block(x, 'relu')
+        x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('relu')(x)
