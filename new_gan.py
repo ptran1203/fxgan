@@ -520,7 +520,7 @@ class BalancingGAN:
 
         en_1 = Concatenate()([
                 en_1,
-                Reshape((32,32,64))(RepeatVector(16*16)(latent_code))
+                Reshape((32,32,128))(Dense(32*32)(latent_code))
             ])         
 
         en_3 = Concatenate()([
@@ -897,13 +897,16 @@ class BalancingGAN:
                                 from_p = from_p
                             )
             
-            img_1 = bg_train.get_samples_for_class(0, crt_batch_size // 4)
-            img_2 =  bg_train.get_samples_for_class(1, crt_batch_size // 4)
+            img_1 = bg_train.get_samples_for_class(0, crt_batch_size // 2)
+            img_2 =  bg_train.get_samples_for_class(1, crt_batch_size // 2)
+            s1, s2 = img_1.shape[0], img_2.shape[0]
 
             generated_images = self.generator.predict(
                 [
-                    np.concatenate([img_1, img_2]),
-                    f,
+                    np.concatenate([img_1[:s1], img_2[:s2]]),
+                    self.latent_encoder.predict(np.concatenate([
+                        img_1[s1:], img_2[s2:]
+                    ])),
                 ],
                 verbose=0
             )
