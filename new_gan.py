@@ -442,21 +442,21 @@ class BalancingGAN:
         x = Dropout(0.3)(x)
         # 32 * 32 * 128
 
-        x = self._res_block(x, 'relu')
+        # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
-        x = self._res_block(x, 'relu')
+        # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 8*8*64
 
-        x = self._res_block(x, 'relu')
+        # x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
         x = InstanceNormalization()(x)
         x = Activation('sigmoid')(x)
@@ -517,38 +517,38 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_1 = Add()([
+        en_1 = Concatenate()([
                 en_1,
                 Reshape((32,32,64))(Dense(32*32*64)(latent_code))
             ])         
 
-        en_3 = Add()([
+        en_3 = Concatenate()([
                 en_3,
                 Reshape((8,8,128))(Dense(8*8*128)(latent_code))
             ])
         
-        en_4 = Add()([
+        en_4 = Concatenate()([
                 en_4,
                 Reshape((4,4,128))(Dense(4*4*128)(latent_code))
             ])
         
         # botteneck
         de_1 = self._res_block(en_4)
-        de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
+        de_1 = Conv2DTranspose(256, 3, strides = 2, padding = 'same')(de_1)
         de_1 = BatchNormalization(momentum = 0.8)(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
-        de_2 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_2)
+        de_2 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_2)
         de_2 = BatchNormalization(momentum = 0.8)(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
         # de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
-        de_3 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_3)
+        de_3 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_3)
         de_3 = BatchNormalization(momentum = 0.8)(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
