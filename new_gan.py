@@ -469,6 +469,8 @@ class BalancingGAN:
         x = Dropout(0.3)(x)
         # 4*4*32
 
+        x = AveragePooling2D()(x)
+
         latent = Flatten()(x)
         latent = Dense(self.latent_size, activation = 'sigmoid')(latent)
 
@@ -517,7 +519,6 @@ class BalancingGAN:
         self.encoder = _encoder()
         feature = self.encoder(image)
 
-
         en_1 = feature[0]
         # en_2 = feature[1]
         en_3 = feature[2]
@@ -525,7 +526,7 @@ class BalancingGAN:
 
         en_1 = Concatenate()([
                 en_1,
-                Reshape((32,32,128))(Dense(32*32)(latent_code))
+                Reshape((32,32,128))(RepeatVector(32*32)(latent_code))
             ])         
 
         en_3 = Concatenate()([
@@ -541,21 +542,21 @@ class BalancingGAN:
         # botteneck
         de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(256, 3, strides = 2, padding = 'same')(de_1)
-        de_1 = BatchNormalization(momentum = 0.8)(de_1)
+        de_1 = InstanceNormalization()(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_2)
-        de_2 = BatchNormalization(momentum = 0.8)(de_2)
+        de_2 = InstanceNormalization()(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
         # de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
-        de_3 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_3)
-        de_3 = BatchNormalization(momentum = 0.8)(de_3)
+        de_3 = Conv2DTranspose(192, 3, strides = 2, padding = 'same')(de_3)
+        de_3 = InstanceNormalization()(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
         de_3 = Add()([de_3, en_1])
@@ -805,11 +806,13 @@ class BalancingGAN:
             real_images, latent_code
         ])
 
+
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
+        self.latent_encoder.trainable = True
 
         aux = self.discriminate(fake)
         # img_codes = self.encoder(shuffle_images)
@@ -821,13 +824,8 @@ class BalancingGAN:
             Concatenate()([fake, fake, fake])
         )
 
-        # l1_distance = K.mean(K.abs(img_latent - latent_code))
-        # l_1 = K.mean(K.abs(img_codes[0] - fake_codes[0]))
-        # l_2 = K.mean(K.abs(img_codes[2] - fake_codes[2]))
-        # l_3 = K.mean(K.abs(img_codes[3] - fake_codes[3]))
-        # l1_distance = l_1 + l_2 + l_3
-        l1_distance = K.mean(K.abs(fake - 0.5 * real_images)) \
-                      + 0.5 * K.mean(K.abs(fake - 0.5 * shuffle_images))
+        re_latent = self.latent_encoder(fake)
+
 
         self.combined = Model(
             inputs=[real_images, shuffle_images],
@@ -835,7 +833,7 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(0.7 * l1_distance)
+        self.combined.add_loss(5 * K.mean(K.abs(re_latent - latent_code))))
 
         self.combined.compile(
             optimizer=Adam(
@@ -844,7 +842,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
-            loss_weights = [1.0, 0.7, 0.5],
+            # loss_weights = [1.0, 1.0, 0.0],
         )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
@@ -914,7 +912,7 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            shuffle_image_batch = bg_train.get_samples_by_labels(label_batch)
+            shuffle_image_batch = self.shuffle_data(image_batch)
             real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
 
             # f = self.generate_features(
