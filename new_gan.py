@@ -833,7 +833,7 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(5 * K.mean(K.abs(re_latent - latent_code))))
+        self.combined.add_loss(5 * K.mean(K.abs(re_latent - latent_code)))
 
         self.combined.compile(
             optimizer=Adam(
