@@ -425,15 +425,15 @@ class BalancingGAN:
                 actv = Activation(activation)
 
             skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
-            out = BatchNormalization()(skip)
+            out = InstanceNormalization()(skip)
             out = actv(out)
 
             out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = BatchNormalization()(out)
+            out = InstanceNormalization()(out)
             out = actv(out)
 
             out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = BatchNormalization()(out)
+            out = InstanceNormalization()(out)
             out = actv(out)
             out = Add()([out, skip])
             return out
@@ -895,10 +895,15 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
+            f = self.generate_features(
+                                self._biased_sample_labels(crt_batch_size),
+                                from_p = from_p
+                            )
             generated_images = self.generator.predict(
                 [
+                    image_batch,
                     image_batch2,
-                    self.latent_encoder.predict(image_batch),
+                    f,
                 ],
                 verbose=0
             )
@@ -921,7 +926,7 @@ class BalancingGAN:
             #                 )
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, shuffle_image_batch],
+                [image_batch, shuffle_image_batch, f],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1112,6 +1117,7 @@ class BalancingGAN:
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+            random_samples = bg_train.get_samples_for_class(crt_c, 10)
             f = self.generate_features(
                                 self._biased_sample_labels(10),
                                 from_p = from_p
@@ -1121,17 +1127,20 @@ class BalancingGAN:
                     act_img_samples,
                     self.generator.predict([
                         act_img_samples,
+                        random_samples,
                         f
                     ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                random_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
                         act_img_samples,
                         self.generator.predict([
                             act_img_samples,
+                            new_samples,
                             f
                         ]),
                     ]
@@ -1155,7 +1164,7 @@ class BalancingGAN:
                                 from_p = from_p
                             )
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, f],
+                    [bg_test.dataset_x, bg_test.dataset_x, f],
                     verbose=False
                 )
 
@@ -1177,7 +1186,7 @@ class BalancingGAN:
                 #     )
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x],
+                    [bg_test.dataset_x, bg_test.dataset_x, f],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1188,6 +1197,7 @@ class BalancingGAN:
                         [
                             bg_test.dataset_x,
                             bg_test.dataset_x,
+                            f,
                         ],
                         [bg_test.dataset_y]
                     )
@@ -1208,6 +1218,7 @@ class BalancingGAN:
                             random_imgs,
                             self.generator.predict([
                                 act_img_samples,
+                                random_imgs,
                                 f,
                             ]),
                         ]
@@ -1223,6 +1234,7 @@ class BalancingGAN:
                                 random_imgs,
                                 self.generator.predict([
                                    act_img_samples,
+                                   random_imgs,
                                     f,
                                 ]),
                             ]
