@@ -1140,7 +1140,7 @@ class BalancingGAN:
                         act_img_samples,
                         self.generator.predict([
                             act_img_samples,
-                            new_samples,
+                            random_samples,
                             f
                         ]),
                     ]
