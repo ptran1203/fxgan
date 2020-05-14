@@ -917,7 +917,7 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            shuffle_image_batch = self.get_samples_by_labels(label_batch)
+            shuffle_image_batch = bg_train.get_samples_by_labels(label_batch)
             real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
 
             f = self.generate_features(
