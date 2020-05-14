@@ -702,24 +702,23 @@ class BalancingGAN:
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),
-        input_shape=(resolution, resolution,channels)))
+        cnn.add(Conv2D(64, (3, 3), padding='same', strides=(2, 2),
+            input_shape=(resolution, resolution,channels)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        size = 128
-        cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(BatchNormalization())
+        cnn.add(Conv2D(128, (3, 3), padding='same', strides=(2, 2)))
+        cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(BatchNormalization())
+        cnn.add(Conv2D(256, (3, 3), padding='same', strides=(2, 2)))
+        cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(BatchNormalization())
+        cnn.add(Conv2D(512, (3, 3), padding='same', strides=(2, 2)))
+        cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
@@ -937,8 +936,8 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            # shuffle_image_batch = bg_train.get_samples_by_labels(label_batch)
-            shuffle_image_batch = image_batch2
+            shuffle_image_batch = bg_train.get_samples_by_labels(label_batch)
+            # shuffle_image_batch = image_batch2
             real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
 
             f = self.generate_features(
