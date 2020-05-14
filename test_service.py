@@ -2,7 +2,7 @@ import requests
 from jsondiff import diff
 bkg_no = 'BKKVL8636600'
 
-r1 = requests.get(url='http://localhost:5012/opus/booking-info/' + bkg_no)
+r1 = requests.get(url='http://si-automation.dounets.com:8803/opus/booking-info/' + bkg_no)
 r2 = requests.get(url='http://si-automation.dounets.com:8803/result/booking-info/' + bkg_no)
 
 json1 = r1.json()
