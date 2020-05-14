@@ -259,7 +259,7 @@ class BatchGenerator:
                 self.dataset_y = y
 
         # Arrange x: channel first
-        if self.data_src == self.TEST:
+        if self.data_src == self.TEST and rst == 32:
             self.dataset_x = np.transpose(self.dataset_x, axes=(0, 3, 2, 1))
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
