@@ -3,6 +3,7 @@ import csv
 from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import (
