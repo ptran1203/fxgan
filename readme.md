@@ -22,3 +22,8 @@ if l1(z, e(x)) small ->
 
 |x_fake1 - x_fake2| - |x_real1 - x_real2|
 
+gioi thieu bai toan
+thach thuc
+uu nhuoc diem pp hien co
+phuong phap de xuat
+ket luan

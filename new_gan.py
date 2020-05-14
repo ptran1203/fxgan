@@ -230,15 +230,31 @@ class BatchGenerator:
     ):
         self.batch_size = batch_size
         self.data_src = data_src
-        if self.data_src == self.TEST:
-            x, y = load_test_data(rst)
-            self.dataset_x = x
-            self.dataset_y = y
+        if dataset == 'MNIST':
+            mnist = input_data.read_data_sets("dataset/mnist", one_hot=False)
 
+            if self.data_src == self.TEST:
+                self.dataset_x = mnist.test.images
+                self.dataset_y = mnist.test.labels
+            else:
+                self.dataset_x = mnist.train.images
+                self.dataset_y = mnist.train.labels
+
+            # Normalize between -1 and 1
+            self.dataset_x = (np.reshape(self.dataset_x, (self.dataset_x.shape[0], 28, 28)) - 0.5) * 2
+
+            # Include 1 single color channel
+            self.dataset_x = np.expand_dims(self.dataset_x, axis=-1)
         else:
-            x, y = load_train_data(rst)
-            self.dataset_x = x
-            self.dataset_y = y
+            if self.data_src == self.TEST:
+                x, y = load_test_data(rst)
+                self.dataset_x = x
+                self.dataset_y = y
+
+            else:
+                x, y = load_train_data(rst)
+                self.dataset_x = x
+                self.dataset_y = y
 
         # Arrange x: channel first
         self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
