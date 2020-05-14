@@ -917,13 +917,13 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            shuffle_image_batch, _ = self.shuffle_data(image_batch, label_batch)
+            shuffle_image_batch = self.get_samples_by_labels(label_batch)
             real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
 
-            # f = self.generate_features(
-            #                     self._biased_sample_labels(crt_batch_size),
-            #                     from_p = from_p
-            #                 )
+            f = self.generate_features(
+                                self._biased_sample_labels(crt_batch_size),
+                                from_p = from_p
+                            )
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, shuffle_image_batch, f],
