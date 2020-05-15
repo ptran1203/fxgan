@@ -732,10 +732,9 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution,channels))
-        noise_image = GaussianNoise(0.1)(image)
         latent = Input(shape=(self.latent_size,))
 
-        features = self._build_common_encoder(noise_image, min_latent_res)
+        features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
         aux = Dense(
