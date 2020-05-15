@@ -1231,7 +1231,7 @@ class BalancingGAN:
                     #             from_p = from_p
                     #         )
 
-                    f = self.latent_encoder.predict(random_imgs)
+                    f = self.generate_latent(range(10))
                     img_samples = np.array([
                         [
                             act_img_samples,
@@ -1247,7 +1247,7 @@ class BalancingGAN:
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                         random_imgs = bg_train.get_samples_for_class(crt_c, 10)
                         # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
-                        f = self.latent_encoder.predict(random_imgs)
+                        f = self.generate_latent(range(10))
                         new_samples = np.array([
                             [
                                 act_img_samples,
