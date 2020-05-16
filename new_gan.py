@@ -446,15 +446,15 @@ class BalancingGAN:
                 actv = Activation(activation)
 
             skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
-            out = self.norm_layer(skip)
+            out = self._norm()(skip)
             out = actv(out)
 
             out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = self.norm_layer(out)
+            out = self._norm()(out)
             out = actv(out)
 
             out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = self.norm_layer(out)
+            out = self._norm()(out)
             out = actv(out)
             out = Add()([out, skip])
             return out
@@ -464,28 +464,28 @@ class BalancingGAN:
 
         x = self._res_block(image, 'relu')
         x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
-        x = self.norm_layer(x)
+        x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 32 * 32 * 128
 
         # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
-        x = self.norm_layer(x)
+        x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
         # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
-        x = self.norm_layer(x)
+        x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 8*8*64
 
         # x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
-        x = self.norm_layer(x)
+        x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 4*4*32
@@ -506,28 +506,28 @@ class BalancingGAN:
 
             en_1 = self._res_block(image)
             en_1 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_1)
-            en_1 = self.norm_layer(en_1)
+            en_1 = self._norm()(en_1)
             en_1 = LeakyReLU(alpha=0.2)(en_1)
             en_1 = Dropout(0.3)(en_1)
             # out_shape: 32*32*64
 
             en_2 = self._res_block(en_1)
             en_2 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_2)
-            en_2 = self.norm_layer(en_2)
+            en_2 = self._norm()(en_2)
             en_2 = LeakyReLU(alpha=0.2)(en_2)
             en_2 = Dropout(0.3)(en_2)
             # out_shape:  16*16*64
 
             en_3 = self._res_block(en_2)
             en_3 = Conv2D(128, 3, strides = 2, padding = 'same')(en_3)
-            en_3 = self.norm_layer(en_3)
+            en_3 = self._norm()(en_3)
             en_3 = LeakyReLU(alpha=0.2)(en_3)
             en_3 = Dropout(0.3)(en_3)
             # out_shape: 8*8*128
 
             en_4 = self._res_block(en_3)
             en_4 = Conv2D(128, 3, strides = 2, padding = 'same')(en_4)
-            en_4 = self.norm_layer(en_4)
+            en_4 = self._norm()(en_4)
             en_4 = LeakyReLU(alpha=0.2)(en_4)
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
             # out_shape: 4 4 128
@@ -590,21 +590,21 @@ class BalancingGAN:
         # botteneck
         de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
-        de_1 = self.norm_layer(de_1)
+        de_1 = self._norm()(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_2)
-        de_2 = self.norm_layer(de_2)
+        de_2 = self._norm()(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
         # de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
         de_3 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_3)
-        de_3 = self.norm_layer(de_3)
+        de_3 = self._norm()(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
 
@@ -790,6 +790,9 @@ class BalancingGAN:
             name = 'Feature_matching'
         )
 
+    def _norm(self):
+        return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
+
     def __init__(self, classes, target_class_id,
                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
                 # No relevant difference noted
@@ -808,7 +811,7 @@ class BalancingGAN:
         self.resolution = image_shape[0]
         self.g_lr = g_lr
 
-        self.norm_layer = BatchNormalization() if norm == 'batch' else InstanceNormalization()
+        self.norm = norm
 
         self.min_latent_res = min_latent_res
         # Initialize learning variables
