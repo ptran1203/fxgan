@@ -12,7 +12,7 @@ from keras.layers.convolutional import (
 )
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
-from keras.losses import mean_squared_error, cosine_similarity
+from keras.losses import mean_squared_error, cosine_similarity, KLDivergence
 from keras.layers import (
     Input, Dense, Reshape,
     Flatten, Embedding, Dropout,
@@ -22,6 +22,8 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D,
     RepeatVector,
 )
+
+from keras_contrib.losses import DSSIMObjective
 
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 
@@ -263,7 +265,7 @@ class BatchGenerator:
             self.dataset_x = np.transpose(self.dataset_x, axes=(0, 3, 2, 1))
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
-        if self.data_src == self.TRAIN:
+        if self.data_src == self.TRAIN or rst == 64:
             self.dataset_x = np.expand_dims(self.dataset_x, axis = -1)
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
@@ -437,23 +439,22 @@ class BatchGenerator:
 
 
 class BalancingGAN:
-    @staticmethod
-    def _res_block(x, activation = 'leaky_relu'):
+    def _res_block(self,  x, activation = 'leaky_relu'):
             if activation == 'leaky_relu':
                 actv = LeakyReLU()
             else:
                 actv = Activation(activation)
 
             skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
-            out = InstanceNormalization()(skip)
+            out = self.norm_layer(skip)
             out = actv(out)
 
             out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = InstanceNormalization()(out)
+            out = self.norm_layer(out)
             out = actv(out)
 
             out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = InstanceNormalization()(out)
+            out = self.norm_layer(out)
             out = actv(out)
             out = Add()([out, skip])
             return out
@@ -463,28 +464,28 @@ class BalancingGAN:
 
         x = self._res_block(image, 'relu')
         x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
-        x = InstanceNormalization()(x)
+        x = self.norm_layer(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 32 * 32 * 128
 
         # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
-        x = InstanceNormalization()(x)
+        x = self.norm_layer(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
         # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
-        x = InstanceNormalization()(x)
+        x = self.norm_layer(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 8*8*64
 
         # x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
-        x = InstanceNormalization()(x)
+        x = self.norm_layer(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 4*4*32
@@ -505,88 +506,113 @@ class BalancingGAN:
 
             en_1 = self._res_block(image)
             en_1 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_1)
-            en_1 = BatchNormalization(momentum = 0.8)(en_1)
+            en_1 = self.norm_layer(en_1)
             en_1 = LeakyReLU(alpha=0.2)(en_1)
             en_1 = Dropout(0.3)(en_1)
             # out_shape: 32*32*64
 
             en_2 = self._res_block(en_1)
             en_2 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_2)
-            en_2 = BatchNormalization()(en_2)
+            en_2 = self.norm_layer(en_2)
             en_2 = LeakyReLU(alpha=0.2)(en_2)
             en_2 = Dropout(0.3)(en_2)
             # out_shape:  16*16*64
 
             en_3 = self._res_block(en_2)
             en_3 = Conv2D(128, 3, strides = 2, padding = 'same')(en_3)
-            en_3 = BatchNormalization(momentum = 0.8)(en_3)
+            en_3 = self.norm_layer(en_3)
             en_3 = LeakyReLU(alpha=0.2)(en_3)
             en_3 = Dropout(0.3)(en_3)
             # out_shape: 8*8*128
 
             en_4 = self._res_block(en_3)
             en_4 = Conv2D(128, 3, strides = 2, padding = 'same')(en_4)
-            en_4 = BatchNormalization(momentum = 0.8)(en_4)
+            en_4 = self.norm_layer(en_4)
             en_4 = LeakyReLU(alpha=0.2)(en_4)
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
-            # out_shape: 4*4*128
+            # out_shape: 4 4 128
 
-            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
+            return Model(inputs = image, outputs = [en_2, en_3, en_4])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(self.latent_size,))
-       
+        image2 = Input(shape=(self.resolution, self.resolution, self.channels))
+        latent_code = Input(shape=(2, 2, 128))
+
         self.encoder = _encoder()
         feature = self.encoder(image)
+        feature2 = self.encoder(image2)
 
-        en_1 = feature[0]
-        # en_2 = feature[1]
-        en_3 = feature[2]
-        en_4 = feature[3]
+        latent_1 = self.latent_encoder(image)
+        latent_2 = self.latent_encoder(image2)
 
-        en_1 = Concatenate()([
-                en_1,
-                Reshape((32,32,128))(RepeatVector(32*32)(latent_code))
+        # cosine_sm1 = K.mean( K.sum(K.l2_normalize(latent_1) * K.l2_normalize(latent_code)))
+        # cosine_sm2 = K.mean(  K.sum(K.l2_normalize(latent_2) * K.l2_normalize(latent_code)))
+        cosine_sm1 = 0.5
+
+        cosine_sm2 = 0.5
+        cosine_sm3 = 0.5
+
+        # en_2_1 = Lambda(lambda x: cosine_sm1 * x, name = 'lambda_2_1')(feature[0])
+        # en_3_1 = Lambda(lambda x: cosine_sm2 * x, name = 'lambda_3_1')(feature[1])
+        # en_4_1 = Lambda(lambda x: cosine_sm3 * x, name = 'lambda_4_1')(feature[2])
+
+        # en_2_2 = Lambda(lambda x: (1  - cosine_sm1) * x, name = 'lambda_2_2')(feature2[0])
+        # en_3_2 = Lambda(lambda x: (1  - cosine_sm2) * x, name = 'lambda_3_2')(feature2[1])
+        # en_4_2 = Lambda(lambda x: (1  - cosine_sm3) * x, name = 'lambda_4_2')(feature2[2])
+
+        en_2_1 = feature[0]
+        en_3_1 = feature[1]
+        en_4_1 = feature[2]
+
+        en_2_2 = feature2[0]
+        en_3_2 = feature2[1]
+        en_4_2 = feature2[2]
+
+        # en_2_2 = Lambda(lambda x: 0 * x, name = 'lambda_2_2')(feature2[0])
+        # en_3_2 = Lambda(lambda x: 0 * x, name = 'lambda_3_2')(feature2[1])
+        # en_4_2 = Lambda(lambda x: 0 * x, name = 'lambda_4_2')(feature2[2])
+ 
+        en_2 = Add()([
+                en_2_1,
+                en_2_2,
             ])         
 
-        en_3 = Concatenate()([
-                en_3,
-                Reshape((8,8,128))(RepeatVector(8*8)(latent_code))
+        en_3 = Add()([
+                en_3_1,
+                en_3_2,
             ])
         
-        en_4 = Concatenate()([
-                en_4,
-                Reshape((4,4,128))(RepeatVector(4*4)(latent_code))
+        en_4 = Add()([
+                en_4_1,
+                en_4_2,
             ])
         
         # botteneck
         de_1 = self._res_block(en_4)
-        de_1 = Conv2DTranspose(256, 3, strides = 2, padding = 'same')(de_1)
-        de_1 = InstanceNormalization()(de_1)
+        de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
+        de_1 = self.norm_layer(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
-        de_2 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_2)
-        de_2 = InstanceNormalization()(de_2)
+        de_2 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_2)
+        de_2 = self.norm_layer(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
         # de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
-        de_3 = Conv2DTranspose(192, 3, strides = 2, padding = 'same')(de_3)
-        de_3 = InstanceNormalization()(de_3)
+        de_3 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_3)
+        de_3 = self.norm_layer(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
-        de_3 = Add()([de_3, en_1])
 
-        de_4 = self._res_block(de_3)
-        de_4 = Conv2DTranspose(1, 3, strides = 2, padding = 'same')(de_4)
+        de_4 = Conv2DTranspose(1, 3, strides = 2, padding = 'same')(de_3)
         de_4 = Activation('tanh')(de_4)
 
         self.generator = Model(
-            inputs = [image, latent_code],
+            inputs = [image, image2, latent_code],
             outputs = de_4,
             name='unet'
         )
@@ -708,17 +734,14 @@ class BalancingGAN:
         cnn.add(Dropout(0.3))
 
         cnn.add(Conv2D(128, (3, 3), padding='same', strides=(2, 2)))
-        cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
         cnn.add(Conv2D(256, (3, 3), padding='same', strides=(2, 2)))
-        cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
         cnn.add(Conv2D(512, (3, 3), padding='same', strides=(2, 2)))
-        cnn.add(BatchNormalization())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
@@ -773,7 +796,7 @@ class BalancingGAN:
                 dratio_mode="uniform", gratio_mode="uniform",
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8,
-                g_lr = 0.000005):
+                g_lr = 0.000005, norm = 'batch'):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
         self.classes = classes
@@ -784,6 +807,8 @@ class BalancingGAN:
         self.channels = image_shape[-1]
         self.resolution = image_shape[0]
         self.g_lr = g_lr
+
+        self.norm_layer = BatchNormalization() if norm == 'batch' else InstanceNormalization()
 
         self.min_latent_res = min_latent_res
         # Initialize learning variables
@@ -797,10 +822,10 @@ class BalancingGAN:
 
         # Build generator
         # self.build_generator(latent_size, init_resolution=min_latent_res)
+        self.build_latent_encoder()
         self.build_res_unet()
         self.build_perceptual_model()
         self.build_image_encoder()
-        self.build_latent_encoder()
 
 
         # latent_gen = Input(shape=(latent_size, ))
@@ -808,6 +833,9 @@ class BalancingGAN:
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        latent_code = Input(shape=(2, 2, 128))
+
+        avg_img = Average()([shuffle_images, real_images])
 
         # Build discriminator
         self.build_discriminator(min_latent_res=min_latent_res)
@@ -817,11 +845,9 @@ class BalancingGAN:
             loss='sparse_categorical_crossentropy'
         )
 
-        latent_code = self.latent_encoder(shuffle_images)
-
         # Define combined for training generator.
         fake = self.generator([
-            real_images, latent_code
+            real_images, shuffle_images ,latent_code
         ])
 
 
@@ -830,7 +856,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = True
+        self.latent_encoder.trainable = False
 
         aux = self.discriminate(fake)
         # img_codes = self.encoder(shuffle_images)
@@ -842,16 +868,29 @@ class BalancingGAN:
             Concatenate()([fake, fake, fake])
         )
 
-        re_latent = self.latent_encoder(fake)
+        real_features = self.features_from_d(avg_img)
+        real_perceptual_features = self.perceptual_model(
+            Concatenate()([avg_img, avg_img, avg_img])
+        )
+
+
+        f1, f2 = self.encoder(real_images), self.encoder(shuffle_images)
+
+        combined_f = Average()([f1[-1], f2[-1]])
 
 
         self.combined = Model(
-            inputs=[real_images, shuffle_images],
+            inputs=[real_images, shuffle_images, latent_code],
             outputs=[aux, fake_features, fake_perceptual_features],
             name = 'Combined'
         )
+        ssim = DSSIMObjective()
+        kl = KLDivergence()
 
-        self.combined.add_loss(5 * K.mean(K.abs(re_latent - latent_code)))
+        # self.combined.add_loss(2.0 *(1.0 - ssim(shuffle_images, avg_img)))
+        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        self.combined.add_loss(K.mean(K.abs(avg_img - fake)))
+        self.combined.add_loss(kl(latent_code ,combined_f))
 
         self.combined.compile(
             optimizer=Adam(
@@ -860,7 +899,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
-            # loss_weights = [1.0, 1.0, 0.0],
+            loss_weights = [1.0, 0.0, 0.0],
         )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
@@ -913,14 +952,15 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
+            fake_size = crt_batch_size // self.nclasses
             f = self.generate_features(
-                                self._biased_sample_labels(crt_batch_size),
+                                self._biased_sample_labels(fake_size),
                                 from_p = from_p
                             )
             generated_images = self.generator.predict(
                 [
-                    image_batch,
-                    image_batch2,
+                    image_batch[:fake_size],
+                    image_batch2[:fake_size],
                     f,
                 ],
                 verbose=0
@@ -1230,7 +1270,7 @@ class BalancingGAN:
                     #             from_p = from_p
                     #         )
 
-                    f = self.latent_encoder.predict(random_imgs)
+                    f = self.generate_latent(range(10))
                     img_samples = np.array([
                         [
                             act_img_samples,
@@ -1246,7 +1286,7 @@ class BalancingGAN:
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                         random_imgs = bg_train.get_samples_for_class(crt_c, 10)
                         # batch_1, batch_2 = self.samples_mask(act_img_samples, 2)
-                        f = self.latent_encoder.predict(random_imgs)
+                        f = self.generate_latent(range(10))
                         new_samples = np.array([
                             [
                                 act_img_samples,
