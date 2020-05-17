@@ -991,7 +991,7 @@ class BalancingGAN:
                     image_batch[:fake_size],
                     image_batch2[:fake_size],
                     f,
-                    np.random.randint(0, 63),
+                    np.random.rand(1),
                 ],
                 verbose=0
             )
@@ -1015,7 +1015,7 @@ class BalancingGAN:
                             )
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, shuffle_image_batch, f, np.random.randint(0, 63)],
+                [image_batch, shuffle_image_batch, f, np.random.rand(1)],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1218,7 +1218,7 @@ class BalancingGAN:
                         act_img_samples,
                         random_samples,
                         f,
-                        np.random.randint(0, 63)
+                        np.random.rand(1)
                     ]),
                 ]
             ])
@@ -1232,7 +1232,7 @@ class BalancingGAN:
                             act_img_samples,
                             random_samples,
                             f,
-                            np.random.randint(0, 63)
+                            np.random.rand(1)
                         ]),
                     ]
                 ])
@@ -1255,7 +1255,7 @@ class BalancingGAN:
                                 from_p = from_p
                             )
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.randint(0, 63)],
+                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.rand(1)],
                     verbose=False
                 )
 
@@ -1277,7 +1277,7 @@ class BalancingGAN:
                 #     )
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.randint(0, 63)],
+                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.rand(1)],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1289,7 +1289,7 @@ class BalancingGAN:
                             bg_test.dataset_x,
                             bg_test.dataset_x,
                             f,
-                            np.random.randint(0, 63),
+                            np.random.rand(1),
                         ],
                         [bg_test.dataset_y]
                     )
@@ -1312,7 +1312,7 @@ class BalancingGAN:
                                 act_img_samples,
                                 random_imgs,
                                 f,
-                                np.random.randint(0, 63),
+                                np.random.rand(1),
                             ]),
                         ]
                     ])
@@ -1329,7 +1329,7 @@ class BalancingGAN:
                                     act_img_samples,
                                     random_imgs,
                                     f,
-                                    np.random.randint(0, 63),
+                                    np.random.rand(1),
                                 ]),
                             ]
                         ])
