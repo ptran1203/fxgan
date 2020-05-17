@@ -505,38 +505,42 @@ class BalancingGAN:
             image = Input(shape=(self.resolution, self.resolution, self.channels))
 
             en_1 = self._res_block(image)
-            en_1 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_1)
+            en_1 = GaussianNoise(0.1)(en_1)
+            en_1 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_1)
             en_1 = self._norm()(en_1)
             en_1 = LeakyReLU(alpha=0.2)(en_1)
             en_1 = Dropout(0.3)(en_1)
             # out_shape: 32*32*64
 
             en_2 = self._res_block(en_1)
-            en_2 = Conv2D(64, 3, strides=(2, 2), padding="same")(en_2)
+            en_2 = GaussianNoise(0.1)(en_2)
+            en_2 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_2)
             en_2 = self._norm()(en_2)
             en_2 = LeakyReLU(alpha=0.2)(en_2)
             en_2 = Dropout(0.3)(en_2)
             # out_shape:  16*16*64
 
             en_3 = self._res_block(en_2)
-            en_3 = Conv2D(128, 3, strides = 2, padding = 'same')(en_3)
+            en_3 = GaussianNoise(0.1)(en_3)
+            en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
             en_3 = self._norm()(en_3)
             en_3 = LeakyReLU(alpha=0.2)(en_3)
             en_3 = Dropout(0.3)(en_3)
             # out_shape: 8*8*128
 
             en_4 = self._res_block(en_3)
-            en_4 = Conv2D(128, 3, strides = 2, padding = 'same')(en_4)
+            en_4 = GaussianNoise(0.1)(en_4)
+            en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
             en_4 = self._norm()(en_4)
             en_4 = LeakyReLU(alpha=0.2)(en_4)
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
             # out_shape: 4 4 128
 
-            return Model(inputs = image, outputs = [en_2, en_3, en_4])
+            return Model(inputs = image, outputs = [en_1, en_2, en_4])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         image2 = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(2, 2, 128))
+        latent_code = Input(shape=(4, 4, 128))
 
         self.encoder = _encoder()
         feature = self.encoder(image)
@@ -547,18 +551,35 @@ class BalancingGAN:
 
         # cosine_sm1 = K.mean( K.sum(K.l2_normalize(latent_1) * K.l2_normalize(latent_code)))
         # cosine_sm2 = K.mean(  K.sum(K.l2_normalize(latent_2) * K.l2_normalize(latent_code)))
-        cosine_sm1 = 0.5
+        rand =  K.cast(K.random_uniform(shape = (1,)), 'int32')
+        random_split = Input(shape = (1,))
 
-        cosine_sm2 = 0.5
-        cosine_sm3 = 0.5
+        rate_2 = rand * 64
+        rate_3 = rand * 64
 
-        # en_2_1 = Lambda(lambda x: cosine_sm1 * x, name = 'lambda_2_1')(feature[0])
-        # en_3_1 = Lambda(lambda x: cosine_sm2 * x, name = 'lambda_3_1')(feature[1])
-        # en_4_1 = Lambda(lambda x: cosine_sm3 * x, name = 'lambda_4_1')(feature[2])
+        f_2_1 = Lambda(lambda x, random_split: x[:,:random_split,])
+        f_2_1.arguments = {'random_split': random_split}
+        en_2_1 = f_2_1(feature[0])
 
-        # en_2_2 = Lambda(lambda x: (1  - cosine_sm1) * x, name = 'lambda_2_2')(feature2[0])
-        # en_3_2 = Lambda(lambda x: (1  - cosine_sm2) * x, name = 'lambda_3_2')(feature2[1])
-        # en_4_2 = Lambda(lambda x: (1  - cosine_sm3) * x, name = 'lambda_4_2')(feature2[2])
+        f_3_1 = Lambda(lambda x, random_split: x[:,:random_split,])
+        f_3_1.arguments = {'random_split': random_split}
+        en_3_1 = f_3_1(feature[1])
+
+        f_4_1 = Lambda(lambda x, random_split: x[:,:random_split,])
+        f_4_1.arguments= {'random_split': random_split}
+        en_4_1 = f_4_1(feature[2])
+
+        f_2_2 = Lambda(lambda x, random_split: x[:,random_split:,])
+        f_2_2.arguments= {'random_split': random_split}
+        en_2_2 = f_2_2(feature[0])
+
+        f_3_2 = Lambda(lambda x, random_split: x[:,random_split:,])
+        f_3_2.arguments= {'random_split': random_split}
+        en_3_2 = f_3_2(feature[1])
+
+        f_4_2 = Lambda(lambda x, random_split: x[:,random_split:,])
+        f_4_2.arguments= {'random_split': random_split}
+        en_4_2 = f_4_2(feature[2])
 
         en_2_1 = feature[0]
         en_3_1 = feature[1]
@@ -572,47 +593,51 @@ class BalancingGAN:
         # en_3_2 = Lambda(lambda x: 0 * x, name = 'lambda_3_2')(feature2[1])
         # en_4_2 = Lambda(lambda x: 0 * x, name = 'lambda_4_2')(feature2[2])
  
-        en_2 = Add()([
+        en_1 = Concatenate()([
                 en_2_1,
                 en_2_2,
             ])         
 
-        en_3 = Add()([
+        en_2 = Concatenate()([
                 en_3_1,
                 en_3_2,
             ])
         
-        en_4 = Add()([
+        en_4 = Concatenate()([
                 en_4_1,
                 en_4_2,
             ])
         
         # botteneck
         de_1 = self._res_block(en_4)
-        de_1 = Conv2DTranspose(128, 3, strides = 2, padding = 'same')(de_1)
+        de_1 = GaussianNoise(0.1)(de_1)
+        de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
         de_1 = self._norm()(de_1)
         de_1 = Activation('relu')(de_1)
         de_1 = Dropout(0.3)(de_1)
-        de_1 = Add()([de_1, en_3])
+        # de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
-        de_2 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_2)
+        de_2 = GaussianNoise(0.1)(de_2)
+        de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
         de_2 = self._norm()(de_2)
         de_2 = Activation('relu')(de_2)
         de_2 = Dropout(0.3)(de_2)
-        # de_2 = Add()([de_2, en_2])
+        de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
-        de_3 = Conv2DTranspose(64, 3, strides = 2, padding = 'same')(de_3)
+        de_3 = GaussianNoise(0.1)(de_3)
+        de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_3)
         de_3 = self._norm()(de_3)
         de_3 = Activation('relu')(de_3)
         de_3 = Dropout(0.3)(de_3)
+        de_3 = Add()([de_3, en_1])
 
-        de_4 = Conv2DTranspose(1, 3, strides = 2, padding = 'same')(de_3)
+        de_4 = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
         de_4 = Activation('tanh')(de_4)
 
         self.generator = Model(
-            inputs = [image, image2, latent_code],
+            inputs = [image, image2, latent_code, random_split],
             outputs = de_4,
             name='unet'
         )
@@ -836,7 +861,9 @@ class BalancingGAN:
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(2, 2, 128))
+        latent_code = Input(shape=(4, 4, 128))
+        random_split = Input(shape = (1,))
+
 
         avg_img = Average()([shuffle_images, real_images])
 
@@ -850,7 +877,7 @@ class BalancingGAN:
 
         # Define combined for training generator.
         fake = self.generator([
-            real_images, shuffle_images ,latent_code
+            real_images, shuffle_images ,latent_code, random_split
         ])
 
 
@@ -881,9 +908,8 @@ class BalancingGAN:
 
         combined_f = Average()([f1[-1], f2[-1]])
 
-
         self.combined = Model(
-            inputs=[real_images, shuffle_images, latent_code],
+            inputs=[real_images, shuffle_images, latent_code, random_split],
             outputs=[aux, fake_features, fake_perceptual_features],
             name = 'Combined'
         )
@@ -892,8 +918,8 @@ class BalancingGAN:
 
         # self.combined.add_loss(2.0 *(1.0 - ssim(shuffle_images, avg_img)))
         self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        self.combined.add_loss(K.mean(K.abs(avg_img - fake)))
-        self.combined.add_loss(kl(latent_code ,combined_f))
+        self.combined.add_loss(0.5*K.mean(K.abs(avg_img - fake)))
+        # self.combined.add_loss(kl(latent_code ,combined_f))
 
         self.combined.compile(
             optimizer=Adam(
@@ -965,6 +991,7 @@ class BalancingGAN:
                     image_batch[:fake_size],
                     image_batch2[:fake_size],
                     f,
+                    np.random.randint(0, 63),
                 ],
                 verbose=0
             )
@@ -988,7 +1015,7 @@ class BalancingGAN:
                             )
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, shuffle_image_batch, f],
+                [image_batch, shuffle_image_batch, f, np.random.randint(0, 63)],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1190,7 +1217,8 @@ class BalancingGAN:
                     self.generator.predict([
                         act_img_samples,
                         random_samples,
-                        f
+                        f,
+                        np.random.randint(0, 63)
                     ]),
                 ]
             ])
@@ -1203,7 +1231,8 @@ class BalancingGAN:
                         self.generator.predict([
                             act_img_samples,
                             random_samples,
-                            f
+                            f,
+                            np.random.randint(0, 63)
                         ]),
                     ]
                 ])
@@ -1226,7 +1255,7 @@ class BalancingGAN:
                                 from_p = from_p
                             )
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, bg_test.dataset_x, f],
+                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.randint(0, 63)],
                     verbose=False
                 )
 
@@ -1248,7 +1277,7 @@ class BalancingGAN:
                 #     )
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x, f],
+                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.randint(0, 63)],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1260,6 +1289,7 @@ class BalancingGAN:
                             bg_test.dataset_x,
                             bg_test.dataset_x,
                             f,
+                            np.random.randint(0, 63),
                         ],
                         [bg_test.dataset_y]
                     )
@@ -1282,6 +1312,7 @@ class BalancingGAN:
                                 act_img_samples,
                                 random_imgs,
                                 f,
+                                np.random.randint(0, 63),
                             ]),
                         ]
                     ])
@@ -1295,9 +1326,10 @@ class BalancingGAN:
                                 act_img_samples,
                                 random_imgs,
                                 self.generator.predict([
-                                   act_img_samples,
-                                   random_imgs,
+                                    act_img_samples,
+                                    random_imgs,
                                     f,
+                                    np.random.randint(0, 63),
                                 ]),
                             ]
                         ])
