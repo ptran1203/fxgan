@@ -862,7 +862,6 @@ class BalancingGAN:
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(4, 4, 128))
-        random_split = Input(shape = (1,))
 
 
         avg_img = Average()([shuffle_images, real_images])
@@ -877,7 +876,7 @@ class BalancingGAN:
 
         # Define combined for training generator.
         fake = self.generator([
-            real_images, shuffle_images ,latent_code, random_split
+            real_images, shuffle_images ,latent_code
         ])
 
 
@@ -909,7 +908,7 @@ class BalancingGAN:
         combined_f = Average()([f1[-1], f2[-1]])
 
         self.combined = Model(
-            inputs=[real_images, shuffle_images, latent_code, random_split],
+            inputs=[real_images, shuffle_images, latent_code],
             outputs=[aux, fake_features, fake_perceptual_features],
             name = 'Combined'
         )
@@ -991,7 +990,7 @@ class BalancingGAN:
                     image_batch[:fake_size],
                     image_batch2[:fake_size],
                     f,
-                    np.random.rand(1),
+                    
                 ],
                 verbose=0
             )
@@ -1015,7 +1014,7 @@ class BalancingGAN:
                             )
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, shuffle_image_batch, f, np.random.rand(1)],
+                [image_batch, shuffle_image_batch, f],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1218,7 +1217,6 @@ class BalancingGAN:
                         act_img_samples,
                         random_samples,
                         f,
-                        np.random.rand(1)
                     ]),
                 ]
             ])
@@ -1232,7 +1230,6 @@ class BalancingGAN:
                             act_img_samples,
                             random_samples,
                             f,
-                            np.random.rand(1)
                         ]),
                     ]
                 ])
@@ -1255,7 +1252,7 @@ class BalancingGAN:
                                 from_p = from_p
                             )
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.rand(1)],
+                    [bg_test.dataset_x, bg_test.dataset_x, f],
                     verbose=False
                 )
 
@@ -1277,7 +1274,7 @@ class BalancingGAN:
                 #     )
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x, f,  np.random.rand(1)],
+                    [bg_test.dataset_x, bg_test.dataset_x, f],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1289,7 +1286,7 @@ class BalancingGAN:
                             bg_test.dataset_x,
                             bg_test.dataset_x,
                             f,
-                            np.random.rand(1),
+                            
                         ],
                         [bg_test.dataset_y]
                     )
@@ -1312,7 +1309,7 @@ class BalancingGAN:
                                 act_img_samples,
                                 random_imgs,
                                 f,
-                                np.random.rand(1),
+                                
                             ]),
                         ]
                     ])
@@ -1329,7 +1326,7 @@ class BalancingGAN:
                                     act_img_samples,
                                     random_imgs,
                                     f,
-                                    np.random.rand(1),
+                                    
                                 ]),
                             ]
                         ])
