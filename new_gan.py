@@ -859,12 +859,12 @@ class BalancingGAN:
         # latent_gen = Input(shape=(latent_size, ))
         # latent_code = Input(shape=(100,))
 
+        shape0 = int(0.0625 * self.resolution)
+
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(4, 4, 128))
-
-
-        avg_img = Average()([shuffle_images, real_images])
+        diff_target = Input(shape=(self.resolution, self.resolution, self.channels))
+        latent_code = Input(shape=(shape0, shape0, 128))
 
         # Build discriminator
         self.build_discriminator(min_latent_res=min_latent_res)
@@ -897,27 +897,23 @@ class BalancingGAN:
             Concatenate()([fake, fake, fake])
         )
 
-        real_features = self.features_from_d(avg_img)
+        real_features = self.features_from_d(diff_target)
         real_perceptual_features = self.perceptual_model(
-            Concatenate()([avg_img, avg_img, avg_img])
+            Concatenate()([diff_target, diff_target, diff_target])
         )
 
 
-        f1, f2 = self.encoder(real_images), self.encoder(shuffle_images)
-
-        combined_f = Average()([f1[-1], f2[-1]])
-
         self.combined = Model(
-            inputs=[real_images, shuffle_images, latent_code],
+            inputs=[real_images, shuffle_images, diff_target, latent_code],
             outputs=[aux, fake_features, fake_perceptual_features],
             name = 'Combined'
         )
         ssim = DSSIMObjective()
         kl = KLDivergence()
 
-        # self.combined.add_loss(2.0 *(1.0 - ssim(shuffle_images, avg_img)))
+        self.combined.add_loss(K.mean(K.abs(real_perceptual_features - fake_perceptual_features)))
         self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        self.combined.add_loss(0.5*K.mean(K.abs(avg_img - fake)))
+        self.combined.add_loss(0.5*K.mean(K.abs(diff_target - fake)))
         # self.combined.add_loss(kl(latent_code ,combined_f))
 
         self.combined.compile(
@@ -1005,16 +1001,14 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             shuffle_image_batch = bg_train.get_samples_by_labels(label_batch)
+            diff_target = bg_train.get_samples_by_labels(label_batch)
             # shuffle_image_batch = image_batch2
             real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
 
-            f = self.generate_features(
-                                self._biased_sample_labels(crt_batch_size),
-                                from_p = from_p
-                            )
+            f = self.generate_latent(range(crt_batch_size))
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, shuffle_image_batch, f],
+                [image_batch, shuffle_image_batch, diff_target, f],
                 [label_batch, real_features, perceptual_features]
             )
 
@@ -1274,7 +1268,7 @@ class BalancingGAN:
                 #     )
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x, f],
+                    [bg_test.dataset_x, bg_test.dataset_x, bg_test.dataset_x, f],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1283,6 +1277,7 @@ class BalancingGAN:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         [
+                            bg_test.dataset_x,
                             bg_test.dataset_x,
                             bg_test.dataset_x,
                             f,
