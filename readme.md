@@ -24,3 +24,5 @@ combine = f[:] + f2[:]
 f = combine(f1, f2) # [1, 2, 3, 9, 10]
 
 tìm hiểu joint 2 feature bằng một vector z kiểu phép lai
+
+triplet loss??
