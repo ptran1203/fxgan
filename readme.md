@@ -1,29 +1,26 @@
-1. Apply Unet and resNet for Generator like suggested architechure in DAGAN and Few-shot face genreration
-2. Input is the real images (from specific class), go througt a Decoder into latent vector, and then merge that vector with **latent space** of this class
-3. **latent space** is learned via another decoder
-4. Use L1 loss combine with feature matching loss, perceptual loss for Generator
-
-
-5. lấy latent l1 trừ or chia image l1, nếu latent giống nhau -> image giống
-                                       nếu latent khác -> image phải khác
 
 
 
 
-z, g(z) }                    } adversarial loss
-        }   Discriminator -> 
-e(x), x }                    } Similiarity loss: l1(z, e(x)) / l1(g(z), x)
+G =   e1                          d4 -> (d5)
+        e2 ----------------> d3
+            e3 ---------> d2
+                e4 -> d1
 
 
-* l1(z, e(x)) / l1(g(z), x)
+x' = G(x1,x2,z)
 
-if l1(z, e(x)) small -> 
+Gloss = Fm loss + Perceptual loss + Adv loss
+    + Fm loss = ||fm(x') - (fm(x1) + fm(x2)) / 2||
 
 
-|x_fake1 - x_fake2| - |x_real1 - x_real2|
+en = encoder
 
-gioi thieu bai toan
-thach thuc
-uu nhuoc diem pp hien co
-phuong phap de xuat
-ket luan
+f1 = en(x1) # [1, 2, 3, 4, 5]
+f2 = en(x2) # [6, 7, 8, 9, 10]
+
+combine = f[:] + f2[:]
+
+f = combine(f1, f2) # [1, 2, 3, 9, 10]
+
+tìm hiểu joint 2 feature bằng một vector z kiểu phép lai

@@ -753,20 +753,20 @@ class BalancingGAN:
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(64, (3, 3), padding='same', strides=(2, 2),
+        cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2),
             input_shape=(resolution, resolution,channels)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(Conv2D(128, (3, 3), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(Conv2D(256, (3, 3), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(Conv2D(512, (3, 3), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
