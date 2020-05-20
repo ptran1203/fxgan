@@ -1091,7 +1091,7 @@ class BalancingGAN:
 
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x, bg_test.dataset_x, f],
+                    [bg_test.dataset_x, bg_test.dataset_x, f],
                     [bg_test.dataset_y, real_features, perceptual_features],
                     verbose = 0
                 )
@@ -1100,7 +1100,6 @@ class BalancingGAN:
                     self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         [
-                            bg_test.dataset_x,
                             bg_test.dataset_x,
                             bg_test.dataset_x,
                             f,
