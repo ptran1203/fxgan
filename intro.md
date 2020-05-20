@@ -8,4 +8,9 @@ Trong trường hợp bộ dữ liệu có số lượng nhỏ và đôi khi m�
 
 Trong nghiên cứu này, chúng tôi giải quyết trường hợp thử thách hơn trong bài toán phân lớp các bệnh về phổi qua ảnh X-quang (chest X-ray classification) khi mà một số class chỉ có số lượng nhỏ ảnh được gán nhãn (từ 0 đến 5 ảnh mỗi lớp), vấn đề này liên quan đến bài toán few-shot learning [4]. Chúng tôi tiếp cận bằng phương pháp sử dụng GAN sản sinh ra ảnh và sau đó tăng cường dữ liệu cho các mô hình few-shot learning như MatchingNet [5], RelationNet[6]. 
 
-Chúng đề xuất mô hình GAN có thể sản sinh ra ảnh giả dựa vào một vài ảnh Xs {s: 1->k} thuộc cùng một lớp, trong đó k là số lượng ảnh. Trong giai đoạn huấn luyện, GAN sẽ được huấn luyện với những lớp Cs (Seen category), sau đó trong giai đoạn thử nghiệm GAN sẽ được dùng để sản sinh ảnh dựa vào những ảnh từ những lớp Cu (Unseen category)
+Chúng tôi đề xuất mô hình GAN có thể sản sinh ra ảnh giả dựa vào một vài ảnh Xs {s: 1->k} thuộc cùng một lớp, trong đó k là số lượng ảnh. Trong giai đoạn huấn luyện, GAN sẽ được huấn luyện với những lớp Cs (Seen category), sau đó trong giai đoạn thử nghiệm GAN sẽ được dùng để sản sinh ảnh dựa vào những ảnh từ những lớp Cu (Unseen category) mà GAN không được học trong qúa trình huấn luyện. Cụ thể về phương pháp sẽ được bàn luận chi tiết ở mục ...
+
+Những đóng góp chính của chúng tôi trong nghiên cứu lần này bao gồm:
++ Xây dựng mô hình few-shot image generation
++ Thực hiện các thử nghiệp và so sánh hiệu suất dựa vào bộ dữ liệu Chest-xray
++ So sánh với các mô hình few-shot image generation khác thông qua các bộ dữ liệu tiêu chuẩn như EMNIST, ...
