@@ -1071,7 +1071,7 @@ class BalancingGAN:
                 nb_test = bg_test.get_num_samples()
             
                 # sample some labels from p_c and generate images from them
-                f = self.generate_latent(range(g_test.dataset_x.shape[0]))
+                f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
 
                 generated_images = self.generator.predict(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
