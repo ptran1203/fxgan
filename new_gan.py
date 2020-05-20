@@ -1119,10 +1119,7 @@ class BalancingGAN:
         ]
         if len(files) > 0:
             fname = files[0]
-            e_str = os.path.splitext(fname)[0].split("_")[-1]
-
-            epoch = int(e_str)
-
+            epoch = 0
             return epoch, fname
 
         else:
