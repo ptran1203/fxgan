@@ -1148,18 +1148,10 @@ class BalancingGAN:
             return 0
 
     def backup_point(self, epoch):
-        # Remove last bck
-        _, old_bck_g = self._get_lst_bck_name("generator")
-        _, old_bck_d = self._get_lst_bck_name("discriminator")
-        try:
-            os.remove(os.path.join(self.res_dir, old_bck_g))
-            os.remove(os.path.join(self.res_dir, old_bck_d))
-        except:
-            pass
-
         # Bck
-        generator_fname = "{}/bck_c_{}_generator_e_{}.h5".format(self.res_dir, self.target_class_id, epoch)
-        discriminator_fname = "{}/bck_c_{}_discriminator_e_{}.h5".format(self.res_dir, self.target_class_id, epoch)
+        print('Save weights at epochs : ', epoch)
+        generator_fname = "{}/bck_c_{}_generator.h5".format(self.res_dir, self.target_class_id)
+        discriminator_fname = "{}/bck_c_{}_discriminator.h5".format(self.res_dir, self.target_class_id)
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
