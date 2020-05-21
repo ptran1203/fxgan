@@ -526,7 +526,7 @@ class BalancingGAN:
 
         hw = int(0.0625 * self.resolution)
         latent_noise = Dense(hw*hw*128)(latent_code)
-        latent_noise = Reshape((hw, hw, 128))
+        latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
         en_2 = randomPick()([
                 feature[0],
@@ -798,8 +798,8 @@ class BalancingGAN:
             real_images, shuffle_images ,latent_code
         ])
 
-        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.5), tf.int32))
-        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.5), tf.int32))
+        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.5), tf.float32))
+        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.5), tf.float32))
 
         avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, shuffle_images])
 
