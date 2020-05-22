@@ -483,7 +483,6 @@ class BalancingGAN:
             outputs = latent    
         )
 
-
     def __init__(self, classes, target_class_id,
                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
                 # No relevant difference noted
@@ -544,22 +543,22 @@ class BalancingGAN:
         avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, shuffle_images])
 
 
-        self.build_features_from_d_model()
+        # self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.generator.trainable = True
-        self.features_from_d_model.trainable = False
+        # self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
-        aux = self.discriminator([fake, avg_img])
+        aux_fake = self.discriminator([fake, real_images])
 
         # fake info
-        fake_features = self.features_from_d_model([avg_img, fake])
+        # fake_features = self.features_from_d_model([avg_img, fake])
         fake_perceptual_features = self.perceptual_model(
             Concatenate()([fake, fake, fake])
         )
 
-        real_features = self.features_from_d_model([avg_img, other_batch])
+        # real_features = self.features_from_d_model([avg_img, other_batch])
         real_perceptual_features = self.perceptual_model(
             Concatenate()([other_batch, other_batch, other_batch])
         )
@@ -567,7 +566,7 @@ class BalancingGAN:
 
         self.combined = Model(
             inputs=[real_images, shuffle_images, other_batch, latent_code],
-            outputs=[aux],
+            outputs=[aux_fake],
             name = 'Combined'
         )
         # ssim = DSSIMObjective()
@@ -575,7 +574,7 @@ class BalancingGAN:
         d2 = K.mean(K.abs(avg_img - fake))
 
         self.combined.add_loss(d1 + 0.5 * d2)
-        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         # self.combined.add_loss(0.1 * K.mean(K.abs(avg_img - fake)))
 
         self.combined.compile(
@@ -584,8 +583,8 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
-            loss_weights = [1.0, 0.0, 0.0],
+            loss= ['sparse_categorical_crossentropy'],
+            loss_weights = [1.0],
         )
 
     def build_res_unet(self):
@@ -835,7 +834,7 @@ class BalancingGAN:
         image2 = Input(shape=(self.resolution, self.resolution, self.channels))
         model_output = self.discriminator.layers[-3]([image, image2])
         self.features_from_d_model = Model(
-            inputs = image,
+            inputs = [image,image2],
             output = model_output,
             name = 'Feature_matching'
         )
@@ -901,7 +900,7 @@ class BalancingGAN:
             generated_images = self.generator.predict(
                 [
                     image_batch[:fake_size],
-                    bg_train.get_samples_by_labels(label_batch[:fake_size]),
+                    real_img_for_fake,
                     f,
                 ],
                 verbose=0
@@ -912,8 +911,8 @@ class BalancingGAN:
                 generated_images
             ])
             X2 = np.concatenate([
-                image_batch,
-                real_img_for_fake,
+                image_batch2,
+                image_batch[:fake_size],
             ])
 
             aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
