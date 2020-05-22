@@ -408,9 +408,9 @@ class randomPick(keras.layers.Layer):
         ip1, ip2, vector = inputs
         out = []
         for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[0,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
-            # out.append( vector[0,i] * ip1[:, :, :, i] + (1 - vector[0,i]) * ip2[:, :, :, i] )
-            out.append(r)
+            # r = tf.cond(vector[:,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
+            out.append( vector[...,i] * ip1[:, :, :, i] + (1 - vector[...,i]) * ip2[:, :, :, i] )
+            # out.append(r)
         # a, b = vector[0, 0], 1 - vector[0, 0]
         # return a * ip1 + b * ip2
         # return out
@@ -631,25 +631,29 @@ class BalancingGAN:
         feature2 = self.encoder(image2)
 
         hw = int(0.0625 * self.resolution)
-        latent_noise = Dense(hw*hw*128)(latent_code)
+        latent_noise = Dense(hw*hw*128, activation  = 'relu')(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
+
+        new_latent_code = Dense(512, activation = 'relu')(latent_code)
+        new_latent_code = Dense(256, activation = 'relu')(new_latent_code)
+        new_latent_code = Dense(128, activation = 'sigmoid')(new_latent_code)
 
         en_2 = randomPick()([
                 feature[0],
                 feature2[0],
-                latent_code
+                new_latent_code
             ])
 
         en_3 = randomPick()([
                 feature[1],
                 feature2[1],
-                latent_code
+                new_latent_code
             ])
 
         en_4 = randomPick()([
                 feature[2],
                 feature2[2],
-                latent_code
+                new_latent_code
             ])
     
         en_4 = Concatenate()([
