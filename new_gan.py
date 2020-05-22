@@ -481,6 +481,110 @@ class BalancingGAN:
         )
 
 
+    def __init__(self, classes, target_class_id,
+                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
+                # No relevant difference noted
+                dratio_mode="uniform", gratio_mode="uniform",
+                adam_lr=0.00005, latent_size=100,
+                res_dir = "./res-tmp", image_shape=[32, 32, 1], min_latent_res=8,
+                g_lr = 0.000005, norm = 'batch'):
+        self.gratio_mode = gratio_mode
+        self.dratio_mode = dratio_mode
+        self.classes = classes
+        self.target_class_id = target_class_id  # target_class_id is used only during saving, not to overwrite other class results.
+        self.nclasses = len(classes)
+        self.latent_size = latent_size
+        self.res_dir = res_dir
+        self.channels = image_shape[-1]
+        self.resolution = image_shape[0]
+        self.g_lr = g_lr
+
+        self.norm = norm
+
+        self.min_latent_res = min_latent_res
+        # Initialize learning variables
+        self.adam_lr = adam_lr 
+        self.adam_beta_1 = 0.5
+
+        # Initialize stats
+        self.train_history = defaultdict(list)
+        self.test_history = defaultdict(list)
+        self.trained = False
+
+        # Build generator
+        # self.build_generator(latent_size, init_resolution=min_latent_res)
+        self.build_latent_encoder()
+        self.build_res_unet()
+        self.build_perceptual_model()
+
+        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
+        latent_code = Input(shape=(self.latent_size,))
+
+        # Build discriminator
+        self.build_discriminator(min_latent_res=min_latent_res)
+        self.discriminator.compile(
+            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics=['accuracy'],
+            loss='sparse_categorical_crossentropy'
+        )
+
+        # Define combined for training generator.
+        fake = self.generator([
+            real_images, shuffle_images ,latent_code
+        ])
+
+        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.5), tf.float32))
+        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.5), tf.float32))
+
+        avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, shuffle_images])
+
+
+        self.build_features_from_d_model()
+
+        self.discriminator.trainable = False
+        self.generator.trainable = True
+        self.features_from_d_model.trainable = False
+        self.latent_encoder.trainable = False
+
+        aux = self.discriminator([fake, avg_img])
+
+        # fake info
+        fake_features = self.features_from_d_model([avg_img, fake])
+        fake_perceptual_features = self.perceptual_model(
+            Concatenate()([fake, fake, fake])
+        )
+
+        real_features = self.features_from_d_model([avg_img, other_batch])
+        real_perceptual_features = self.perceptual_model(
+            Concatenate()([other_batch, other_batch, other_batch])
+        )
+
+
+        self.combined = Model(
+            inputs=[real_images, shuffle_images, other_batch, latent_code],
+            outputs=[aux],
+            name = 'Combined'
+        )
+        # ssim = DSSIMObjective()
+        d1 = K.mean(K.abs(other_batch - fake))
+        d2 = K.mean(K.abs(avg_img - fake))
+
+        self.combined.add_loss(d1 + 0.5 * d2)
+        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        # self.combined.add_loss(0.1 * K.mean(K.abs(avg_img - fake)))
+
+        self.combined.compile(
+            optimizer=Adam(
+                lr=self.g_lr,
+                beta_1=self.adam_beta_1
+            ),
+            metrics=['accuracy'],
+            loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
+            loss_weights = [1.0, 0.0, 0.0],
+        )
+
     def build_res_unet(self):
         def _encoder():
             image = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -679,8 +783,7 @@ class BalancingGAN:
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2),
-            input_shape=(resolution, resolution,channels)))
+        cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
@@ -706,15 +809,17 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution,channels))
-        latent = Input(shape=(self.latent_size,))
+        real_image = Input(shape=(resolution, resolution,channels))
+        combine_img = Concatenate()([image, real_image])
 
-        features = self._build_common_encoder(image, min_latent_res)
-        # Discriminator specific
+        features = self._build_common_encoder(combine_img, min_latent_res)
+
         features = Dropout(0.4)(features)
         aux = Dense(
-            self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
+            self.nclasses+1, activation='softmax', name='auxiliary'
         )(features)
-        self.discriminator = Model(inputs=image, outputs=aux,name='discriminator')
+
+        self.discriminator = Model(inputs=[image, real_image], outputs=aux, name='discriminator')
 
     def generate_latent(self, c, size = 1):
         return np.array([
@@ -722,19 +827,10 @@ class BalancingGAN:
             for i in c
         ])
 
-
-    def discriminate(self, image):
-        return self.discriminator(image)
-
-    def features_from_d(self, image):
-        return self.features_from_d_model(image)
-
-    def discriminator_feature_layer(self):
-        return self.discriminator.layers[-3]
-
     def build_features_from_d_model(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.discriminator.layers[-3](image)
+        image2 = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.discriminator.layers[-3]([image, image2])
         self.features_from_d_model = Model(
             inputs = image,
             output = model_output,
@@ -744,107 +840,6 @@ class BalancingGAN:
     def _norm(self):
         return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
 
-    def __init__(self, classes, target_class_id,
-                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
-                # No relevant difference noted
-                dratio_mode="uniform", gratio_mode="uniform",
-                adam_lr=0.00005, latent_size=100,
-                res_dir = "./res-tmp", image_shape=[32, 32, 1], min_latent_res=8,
-                g_lr = 0.000005, norm = 'batch'):
-        self.gratio_mode = gratio_mode
-        self.dratio_mode = dratio_mode
-        self.classes = classes
-        self.target_class_id = target_class_id  # target_class_id is used only during saving, not to overwrite other class results.
-        self.nclasses = len(classes)
-        self.latent_size = latent_size
-        self.res_dir = res_dir
-        self.channels = image_shape[-1]
-        self.resolution = image_shape[0]
-        self.g_lr = g_lr
-
-        self.norm = norm
-
-        self.min_latent_res = min_latent_res
-        # Initialize learning variables
-        self.adam_lr = adam_lr 
-        self.adam_beta_1 = 0.5
-
-        # Initialize stats
-        self.train_history = defaultdict(list)
-        self.test_history = defaultdict(list)
-        self.trained = False
-
-        # Build generator
-        # self.build_generator(latent_size, init_resolution=min_latent_res)
-        self.build_latent_encoder()
-        self.build_res_unet()
-        self.build_perceptual_model()
-
-        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        shuffle_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(self.latent_size,))
-
-        # Build discriminator
-        self.build_discriminator(min_latent_res=min_latent_res)
-        self.discriminator.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
-        )
-
-        # Define combined for training generator.
-        fake = self.generator([
-            real_images, shuffle_images ,latent_code
-        ])
-
-        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.5), tf.float32))
-        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.5), tf.float32))
-
-        avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, shuffle_images])
-
-
-        self.build_features_from_d_model()
-
-        self.discriminator.trainable = False
-        self.generator.trainable = True
-        self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = False
-
-        aux = self.discriminate(fake)
-
-        # fake info
-        fake_features = self.features_from_d_model(fake)
-        fake_perceptual_features = self.perceptual_model(
-            Concatenate()([fake, fake, fake])
-        )
-
-        real_features = self.features_from_d_model(other_batch)
-        real_perceptual_features = self.perceptual_model(
-            Concatenate()([avg_img, avg_img, avg_img])
-        )
-
-
-        self.combined = Model(
-            inputs=[real_images, shuffle_images, other_batch, latent_code],
-            outputs=[aux, fake_features, fake_perceptual_features],
-            name = 'Combined'
-        )
-        # ssim = DSSIMObjective()
-
-        self.combined.add_loss(K.mean(K.abs(real_perceptual_features - fake_perceptual_features)))
-        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        # self.combined.add_loss(0.1 * K.mean(K.abs(avg_img - fake)))
-
-        self.combined.compile(
-            optimizer=Adam(
-                lr=self.g_lr,
-                beta_1=self.adam_beta_1
-            ),
-            metrics=['accuracy'],
-            loss= ['sparse_categorical_crossentropy', 'mae', 'mae'],
-            loss_weights = [1.0, 0.0, 0.0],
-        )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
         all_labels = np.full(samples, 0)
@@ -898,21 +893,30 @@ class BalancingGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(fake_size))
+            real_img = bg_train.get_samples_by_labels(label_batch)
+            real_img_for_fake = bg_train.get_samples_by_labels(label_batch[:fake_size])
             generated_images = self.generator.predict(
                 [
                     image_batch[:fake_size],
                     bg_train.get_samples_by_labels(label_batch[:fake_size]),
                     f,
-                    
                 ],
                 verbose=0
             )
-    
-            X = np.concatenate((image_batch, generated_images))
+
+            X = np.concatenate([
+                image_batch,
+                generated_images
+            ])
+            X2 = np.concatenate([
+                image_batch,
+                real_img_for_fake,
+            ])
+
             aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
-            X, aux_y = self.shuffle_data(X, aux_y)
-            loss, acc = self.discriminator.train_on_batch(X, aux_y)
+            # X, aux_y = self.shuffle_data(X, aux_y)
+            loss, acc = self.discriminator.train_on_batch([X, X2], aux_y)
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
@@ -926,7 +930,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, shuffle_image_batch, other_batch, f],
-                [label_batch, real_features, perceptual_features]
+                [label_batch]
             )
 
             epoch_gen_loss.append(loss)
@@ -1091,19 +1095,19 @@ class BalancingGAN:
 
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                    X, aux_y, verbose=False)
+                    [X, X], aux_y, verbose=False)
 
                 real_features, perceptual_features = self.get_pair_features(bg_test.dataset_x)
 
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, bg_test.dataset_x, f],
-                    [bg_test.dataset_y, real_features, perceptual_features],
+                    [bg_test.dataset_y],
                     verbose = 0
                 )
 
                 if e % 25 == 0:
-                    self.evaluate_d(X, aux_y)
+                    self.evaluate_d([X, X], aux_y)
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
