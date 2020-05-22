@@ -409,7 +409,7 @@ class randomPick(keras.layers.Layer):
         out = []
         for i in range(ip1.shape[-1]):
             # r = tf.cond(vector[:,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
-            out.append( vector[...,i] * ip1[:, :, :, i] + (1 - vector[...,i]) * ip2[:, :, :, i] )
+            out.append( vector[0,i] * ip1[:, :, :, i] + (1 - vector[0,i]) * ip2[:, :, :, i] )
             # out.append(r)
         # a, b = vector[0, 0], 1 - vector[0, 0]
         # return a * ip1 + b * ip2
