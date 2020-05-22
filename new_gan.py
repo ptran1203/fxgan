@@ -401,21 +401,24 @@ class BatchGenerator:
 
 
 class randomPick(keras.layers.Layer):
-
     def __init__(self):
         super(randomPick, self).__init__()
 
-    def call(self, inputs, vector):
-        ip1, ip2 = inputs
+    def call(self, inputs):
+        ip1, ip2, vector = inputs
         out = []
         for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
+            r = tf.cond(vector[0,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
+            # out.append( vector[0,i] * ip1[:, :, :, i] + (1 - vector[0,i]) * ip2[:, :, :, i] )
             out.append(r)
+        # a, b = vector[0, 0], 1 - vector[0, 0]
+        # return a * ip1 + b * ip2
         # return out
         return tf.transpose(tf.stack(out), [1, 2, 3, 0])
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
+
 
 
 class BalancingGAN:
