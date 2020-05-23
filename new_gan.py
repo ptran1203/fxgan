@@ -408,12 +408,9 @@ class randomPick(keras.layers.Layer):
         ip1, ip2, vector = inputs
         out = []
         for i in range(ip1.shape[-1]):
-            # r = tf.cond(vector[:,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
-            out.append( vector[0,i] * ip1[:, :, :, i] + (1 - vector[0,i]) * ip2[:, :, :, i] )
-            # out.append(r)
-        # a, b = vector[0, 0], 1 - vector[0, 0]
-        # return a * ip1 + b * ip2
-        # return out
+            r = tf.cond(vector[0,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
+            out.append(r)
+
         return tf.transpose(tf.stack(out), [1, 2, 3, 0])
 
     def compute_output_shape(self, input_shape):
@@ -514,7 +511,6 @@ class BalancingGAN:
         self.trained = False
 
         # Build generator
-        # self.build_generator(latent_size, init_resolution=min_latent_res)
         self.build_latent_encoder()
         self.build_res_unet()
         self.build_perceptual_model()
@@ -542,11 +538,11 @@ class BalancingGAN:
         avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, other_batch])
 
 
-        # self.build_features_from_d_model()
+        self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.generator.trainable = True
-        # self.features_from_d_model.trainable = False
+        self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
         aux_fake = self.discriminator(fake)
