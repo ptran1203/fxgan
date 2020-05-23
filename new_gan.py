@@ -407,7 +407,7 @@ class randomPick(keras.layers.Layer):
     def call(self, inputs):
         ip1, ip2, vector = inputs
         out = []
-        batch_size = ip1.shape[0]
+        batch_size = 48
         for b in range(batch_size):
             per_batch_r = []
             for i in range(ip1.shape[-1]):
