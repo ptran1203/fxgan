@@ -822,7 +822,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            2, activation='softmax', name='auxiliary'
+            self.nclasses+1, activation='softmax', name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=[image, real_image], outputs=aux, name='discriminator')
@@ -919,8 +919,7 @@ class BalancingGAN:
                 image_batch[:fake_size],
             ])
 
-            # aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
-            aux_y = np.concatenate((np.full(label_batch.shape[0], 1), np.full(generated_images.shape[0] , 0 )), axis=0)
+            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
             
             # X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch([X, X2], aux_y)
@@ -937,7 +936,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, shuffle_image_batch, other_batch, f],
-                [np.full(label_batch.shape[0], 1)]
+                [label_batch]
             )
 
             epoch_gen_loss.append(loss)
@@ -1096,10 +1095,9 @@ class BalancingGAN:
                 )
 
                 X = np.concatenate((bg_test.dataset_x, generated_images))
-                aux_y = np.concatenate((
-                    np.full(bg_test.dataset_y.shape[0], 1),
-                    np.full(generated_images.shape[0], 0)
-                ), axis=0)
+                aux_y = np.concatenate((bg_test.dataset_y, np.full(
+                    generated_images.shape[0], self.nclasses )), axis=0
+                )
 
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
@@ -1110,7 +1108,7 @@ class BalancingGAN:
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, bg_test.dataset_x, f],
-                    [np.full(bg_test.dataset_y.shape[0], 1)],
+                    [bg_test.dataset_y],
                     verbose = 0
                 )
 
@@ -1124,7 +1122,7 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [np.full(bg_test.dataset_y.shape[0], 1)]
+                        [bg_test.dataset_y]
                     )
 
                     crt_c = 0
