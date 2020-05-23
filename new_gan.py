@@ -552,14 +552,14 @@ class BalancingGAN:
         aux_fake = self.discriminator(fake)
 
         # fake info
-        # fake_features = self.features_from_d_model([avg_img, fake])
+        fake_features = self.features_from_d_model(fake)
         fake_perceptual_features = self.perceptual_model(
             Concatenate()([fake, fake, fake])
         )
 
-        # real_features = self.features_from_d_model([avg_img, other_batch])
+        real_features = self.features_from_d_model(avg_img)
         real_perceptual_features = self.perceptual_model(
-            Concatenate()([other_batch, other_batch, other_batch])
+            Concatenate()([avg_img, avg_img, avg_img])
         )
 
 
@@ -568,13 +568,9 @@ class BalancingGAN:
             outputs=[aux_fake],
             name = 'Combined'
         )
-        # ssim = DSSIMObjective()
-        d1 = K.mean(K.abs(other_batch - fake))
-        d2 = K.mean(K.abs(avg_img - fake))
-
-        self.combined.add_loss(d1 + 0.5 * d2)
-        # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        # self.combined.add_loss(0.1 * K.mean(K.abs(avg_img - fake)))
+ 
+        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        self.combined.add_loss(K.mean(K.abs(real_perceptual_features - fake_perceptual_features)))
 
         self.combined.compile(
             optimizer=Adam(
