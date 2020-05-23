@@ -622,8 +622,8 @@ class BalancingGAN:
         feature2 = self.encoder(image2)
 
         hw = int(0.0625 * self.resolution)
-        # latent_noise = Dense(hw*hw*128, activation  = 'relu')(latent_code)
-        # latent_noise = Reshape((hw, hw, 128))(latent_noise)
+        latent_noise = Dense(hw*hw*128, activation  = 'relu')(latent_code)
+        latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
         new_latent_code = Dense(512, activation = 'relu')(latent_code)
         new_latent_code = Dense(256, activation = 'relu')(new_latent_code)
@@ -648,6 +648,11 @@ class BalancingGAN:
                 feature2[2],
                 new_latent_code3
             ])
+
+        en_4 = Concatenate()([
+            en_4,
+            latent_noise
+        ])
 
         # botteneck
         de_1 = self._res_block(en_4)
