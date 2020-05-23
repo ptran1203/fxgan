@@ -919,7 +919,8 @@ class BalancingGAN:
                 image_batch[:fake_size],
             ])
 
-            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
+            # aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
+            aux_y = np.concatenate((np.full(label_batch.shape[0], 1), np.full(generated_images.shape[0] , 0 )), axis=0)
             
             # X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch([X, X2], aux_y)
@@ -936,7 +937,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, shuffle_image_batch, other_batch, f],
-                [label_batch]
+                [np.full(label_batch.shape[0], 1)]
             )
 
             epoch_gen_loss.append(loss)
@@ -1095,9 +1096,10 @@ class BalancingGAN:
                 )
 
                 X = np.concatenate((bg_test.dataset_x, generated_images))
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(
-                    generated_images.shape[0], self.nclasses )), axis=0
-                )
+                aux_y = np.concatenate((
+                    np.full(bg_test.dataset_y.shape[0], 1),
+                    np.full(generated_images.shape[0], 0)
+                ), axis=0)
 
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
@@ -1108,7 +1110,7 @@ class BalancingGAN:
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, bg_test.dataset_x, f],
-                    [bg_test.dataset_y],
+                    [np.full(bg_test.dataset_y.shape[0], 1)],
                     verbose = 0
                 )
 
@@ -1122,7 +1124,7 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [bg_test.dataset_y]
+                        [np.full(bg_test.dataset_y.shape[0], 1)]
                     )
 
                     crt_c = 0
