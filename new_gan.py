@@ -407,9 +407,13 @@ class randomPick(keras.layers.Layer):
     def call(self, inputs):
         ip1, ip2, vector = inputs
         out = []
-        for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[0,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
-            out.append(r)
+        batch_size = ip1.shape[0]
+        for b in range(batch_size):
+            per_batch_r = []
+            for i in range(ip1.shape[-1]):
+                r = tf.cond(vector[b,i] >= 0.5, lambda: ip2[b, :, :, i], lambda: ip1[b, :, :, i])
+                per_batch_r.append(r)
+            out.append(per_batch_r)
 
         return tf.transpose(tf.stack(out), [1, 2, 3, 0])
 
