@@ -626,7 +626,7 @@ class BalancingGAN:
         feature2 = self.encoder(image2)
 
         hw = int(0.0625 * self.resolution)
-        latent_noise = Dense(hw*hw*128, activation  = 'relu')(latent_code)
+        latent_noise = Dense(hw*hw*128, activation = 'relu')(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
         new_latent_code = Dense(512, activation = 'relu')(latent_code)
@@ -1100,7 +1100,7 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    self.evaluate_d([X, X], aux_y)
+                    self.evaluate_d(X, aux_y)
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
