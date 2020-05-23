@@ -914,13 +914,16 @@ class BalancingGAN:
                 image_batch,
                 generated_images
             ])
+
             X2 = np.concatenate([
-                image_batch2,
+                real_img,
                 image_batch[:fake_size],
             ])
 
+            # 
+
             aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
-            
+
             # X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch([X, X2], aux_y)
             epoch_disc_loss.append(loss)
