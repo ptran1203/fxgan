@@ -549,7 +549,7 @@ class BalancingGAN:
         # self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
-        aux_fake = self.discriminator([fake, real_images])
+        aux_fake = self.discriminator(fake)
 
         # fake info
         # fake_features = self.features_from_d_model([avg_img, fake])
