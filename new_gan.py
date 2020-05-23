@@ -622,55 +622,52 @@ class BalancingGAN:
         feature2 = self.encoder(image2)
 
         hw = int(0.0625 * self.resolution)
-        latent_noise = Dense(hw*hw*128, activation  = 'relu')(latent_code)
-        latent_noise = Reshape((hw, hw, 128))(latent_noise)
+        # latent_noise = Dense(hw*hw*128, activation  = 'relu')(latent_code)
+        # latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
         new_latent_code = Dense(512, activation = 'relu')(latent_code)
         new_latent_code = Dense(256, activation = 'relu')(new_latent_code)
-        new_latent_code = Dense(128, activation = 'sigmoid')(new_latent_code)
+        new_latent_code1 = Dense(64, activation = 'sigmoid')(new_latent_code)
+        new_latent_code2 = Dense(128, activation = 'sigmoid')(new_latent_code)
+        new_latent_code3 = Dense(128, activation = 'sigmoid')(new_latent_code)
 
         en_2 = randomPick()([
                 feature[0],
                 feature2[0],
-                new_latent_code
+                new_latent_code1
             ])
 
         en_3 = randomPick()([
                 feature[1],
                 feature2[1],
-                new_latent_code
+                new_latent_code2
             ])
 
         en_4 = randomPick()([
                 feature[2],
                 feature2[2],
-                new_latent_code
+                new_latent_code3
             ])
-    
-        en_4 = Concatenate()([
-            en_4,
-            latent_noise,
-        ])
 
         # botteneck
         de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         de_1 = self._norm()(de_1)
-        de_1 = Activation('relu')(de_1)
+        de_1 = LeakyReLU()(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         de_2 = self._norm()(de_2)
-        de_2 = Activation('relu')(de_2)
+        de_2 = LeakyReLU()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         de_3 = self._norm()(de_3)
-        de_3 = Activation('relu')(de_3)
+        de_3 = LeakyReLU()(de_3)
         de_3 = Dropout(0.3)(de_3)
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
@@ -911,7 +908,7 @@ class BalancingGAN:
             ################## Train Generator ##################
             other_batch = bg_train.get_samples_by_labels(label_batch)
 
-            real_features, perceptual_features = self.get_pair_features(shuffle_image_batch)
+            real_features, perceptual_features = self.get_pair_features(other_batch)
 
             f = self.generate_latent(range(crt_batch_size))
 
