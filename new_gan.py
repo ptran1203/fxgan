@@ -505,7 +505,7 @@ class BalancingGAN:
         self.min_latent_res = min_latent_res
         # Initialize learning variables
         self.adam_lr = adam_lr 
-        self.adam_beta_1 = 0.5
+        self.adam_beta_1 = 0.99
 
         # Initialize stats
         self.train_history = defaultdict(list)
@@ -784,7 +784,7 @@ class BalancingGAN:
 
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
+        # cnn.add(Dropout(0.3))
 
         cnn.add(Flatten())
 
@@ -891,15 +891,15 @@ class BalancingGAN:
             ], axis = -1)
 
             fake_distr = np.concatenate([
-                image_batch, real_img_for_fake,  generated_images,
+                image_batch, real_img_for_fake, generated_images,
             ], axis = -1)
 
-            X = np.concatenate([
+            X = np.concatenate((
                 real_distr,
                 fake_distr,
-            ])
+            ), axis = 0)
 
-            aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
+            aux_y = np.concatenate((label_batch, np.full(fake_distr.shape[0] , self.nclasses )), axis=0)
 
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
@@ -907,14 +907,10 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            other_batch = bg_train.get_samples_by_labels(label_batch)
-
-            # real_features, perceptual_features = self.get_pair_features(other_batch)
-
             f = self.generate_latent(range(crt_batch_size))
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, other_batch, f],
+                [image_batch, real_img_for_fake, f],
                 [label_batch]
             )
 
