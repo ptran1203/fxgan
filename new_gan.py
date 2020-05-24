@@ -407,12 +407,10 @@ class randomPick(keras.layers.Layer):
     def call(self, inputs):
         ip1, ip2, vector = inputs
         out = []
-        batch_size = 48
-        # for b in range(batch_size):
-            # per_batch_r = []
+
         for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[0,i] >= 0.5, lambda: ip2[:, :, :, i], lambda: ip1[:, :, :, i])
-            # per_batch_r.append(r)
+            r = tf.cond(vector[0,i] >= 0.5, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
+            # merged = vector[0, i] * ip1[]
             out.append(r)
 
         return tf.transpose(tf.stack(out), [1, 2, 3, 0])
@@ -629,28 +627,22 @@ class BalancingGAN:
         latent_noise = Dense(hw*hw*128, activation = 'relu')(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
-        new_latent_code = Dense(512, activation = 'relu')(latent_code)
-        new_latent_code = Dense(256, activation = 'relu')(new_latent_code)
-        new_latent_code1 = Dense(64, activation = 'sigmoid')(new_latent_code)
-        new_latent_code2 = Dense(128, activation = 'sigmoid')(new_latent_code)
-        new_latent_code3 = Dense(128, activation = 'sigmoid')(new_latent_code)
-
         en_2 = randomPick()([
                 feature[0],
                 feature2[0],
-                new_latent_code1
+                latent_code
             ])
 
         en_3 = randomPick()([
                 feature[1],
                 feature2[1],
-                new_latent_code2
+                latent_code
             ])
 
         en_4 = randomPick()([
                 feature[2],
                 feature2[2],
-                new_latent_code3
+                latent_code
             ])
 
         en_4 = Concatenate()([
