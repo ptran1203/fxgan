@@ -505,7 +505,7 @@ class BalancingGAN:
         self.min_latent_res = min_latent_res
         # Initialize learning variables
         self.adam_lr = adam_lr 
-        self.adam_beta_1 = 0.5
+        self.adam_beta_1 = 0.99
 
         # Initialize stats
         self.train_history = defaultdict(list)
@@ -547,9 +547,17 @@ class BalancingGAN:
 
         # fake info
         # fake_features = self.features_from_d_model(fake)
-        # fake_perceptual_features = self.perceptual_model(
-        #     Concatenate()([fake, fake, fake])
-        # )
+        fake_perceptual_features = self.perceptual_model(
+            Concatenate()([fake, fake, fake])
+        )
+
+        real_perceptual_features1 = self.perceptual_model(
+            Concatenate()([real_images, real_images, real_images])
+        )
+        real_perceptual_features2 = self.perceptual_model(
+            Concatenate()([other_batch, other_batch, other_batch])
+        )
+        
 
         # real info
         # r_feature1 =  self.features_from_d_model(real_images)
@@ -564,8 +572,10 @@ class BalancingGAN:
             name = 'Combined'
         )
  
-        # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        # self.combined.add_loss(K.mean(K.abs(real_perceptual_features - fake_perceptual_features)))
+        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        self.combined.add_loss(K.mean(K.abs(
+            fake_perceptual_features - (0.5*real_perceptual_features1 + 0.5*real_perceptual_features2)
+        )))
 
         self.combined.compile(
             optimizer=Adam(
