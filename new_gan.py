@@ -409,7 +409,7 @@ class randomPick(keras.layers.Layer):
         out = []
 
         for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[0,i] >= 0.5, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
+            r = tf.cond(vector[0,i] >= 0.0, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
             # merged = vector[0, i] * ip1[]
             out.append(r)
 
@@ -534,8 +534,8 @@ class BalancingGAN:
             real_images, other_batch ,latent_code
         ])
 
-        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.5), tf.float32))
-        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.5), tf.float32))
+        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.0), tf.float32))
+        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.0), tf.float32))
 
         avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, other_batch])
 
@@ -555,11 +555,15 @@ class BalancingGAN:
             Concatenate()([fake, fake, fake])
         )
 
-        real_features = self.features_from_d_model(avg_img)
-        real_perceptual_features = self.perceptual_model(
-            Concatenate()([avg_img, avg_img, avg_img])
-        )
+        # real info
+        r_feature1 =  self.features_from_d_model(real_images)
+        rp_feature1 =  self.perceptual_model(Concatenate()([real_images, real_images, real_images]))
 
+        r_feature2 =  self.features_from_d_model(other_batch)
+        rp_feature2 =  self.perceptual_model(Concatenate()([other_batch, other_batch, other_batch]))
+
+        real_features = Lambda(lambda x: count1  * x[0] + count2  * x[1])([r_feature1,  r_feature2])
+        real_perceptual_features = Lambda(lambda x: count1  * x[0] + count2  * x[1])([rp_feature1,  rp_feature2])
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
