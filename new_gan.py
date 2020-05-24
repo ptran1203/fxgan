@@ -534,12 +534,6 @@ class BalancingGAN:
             real_images, other_batch ,latent_code
         ])
 
-        count1 = tf.reduce_sum(tf.cast(tf.greater_equal(latent_code[0], 0.0), tf.float32))
-        count2 = tf.reduce_sum(tf.cast(tf.less(latent_code[0], 0.0), tf.float32))
-
-        avg_img = Lambda(lambda x: count1 * x[0] + count2 * x[1])([real_images, other_batch])
-
-
         self.build_features_from_d_model()
 
         self.discriminator.trainable = False
@@ -547,23 +541,22 @@ class BalancingGAN:
         self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
-        aux_fake = self.discriminator(fake)
-
-        # fake info
-        fake_features = self.features_from_d_model(fake)
-        fake_perceptual_features = self.perceptual_model(
-            Concatenate()([fake, fake, fake])
+        aux_fake = self.discriminator(
+            Concatenate()([real_images, other_batch, fake])
         )
 
+        # fake info
+        # fake_features = self.features_from_d_model(fake)
+        # fake_perceptual_features = self.perceptual_model(
+        #     Concatenate()([fake, fake, fake])
+        # )
+
         # real info
-        r_feature1 =  self.features_from_d_model(real_images)
-        rp_feature1 =  self.perceptual_model(Concatenate()([real_images, real_images, real_images]))
+        # r_feature1 =  self.features_from_d_model(real_images)
+        # rp_feature1 =  self.perceptual_model(Concatenate()([real_images, real_images, real_images]))
 
-        r_feature2 =  self.features_from_d_model(other_batch)
-        rp_feature2 =  self.perceptual_model(Concatenate()([other_batch, other_batch, other_batch]))
-
-        real_features = Lambda(lambda x: count1  * x[0] + count2  * x[1])([r_feature1,  r_feature2])
-        real_perceptual_features = Lambda(lambda x: count1  * x[0] + count2  * x[1])([rp_feature1,  rp_feature2])
+        # r_feature2 =  self.features_from_d_model(other_batch)
+        # rp_feature2 =  self.perceptual_model(Concatenate()([other_batch, other_batch, other_batch]))
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -571,8 +564,8 @@ class BalancingGAN:
             name = 'Combined'
         )
  
-        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        self.combined.add_loss(K.mean(K.abs(real_perceptual_features - fake_perceptual_features)))
+        # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        # self.combined.add_loss(K.mean(K.abs(real_perceptual_features - fake_perceptual_features)))
 
         self.combined.compile(
             optimizer=Adam(
@@ -631,23 +624,11 @@ class BalancingGAN:
         latent_noise = Dense(hw*hw*128, activation = 'relu')(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
-        en_2 = randomPick()([
-                feature[0],
-                feature2[0],
-                latent_code
-            ])
+        en_2 = Add()([feature[0], feature2[0]])
 
-        en_3 = randomPick()([
-                feature[1],
-                feature2[1],
-                latent_code
-            ])
+        en_3 = Add()([feature1[1], feature2[1]])
 
-        en_4 = randomPick()([
-                feature[2],
-                feature2[2],
-                latent_code
-            ])
+        en_4 = Concatenate()([feature[2], feature2[2], latent_noise])
 
         # botteneck
         de_1 = self._res_block(en_4)
@@ -802,7 +783,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        image = Input(shape=(resolution, resolution,channels))
+        image = Input(shape=(resolution, resolution, channels * 3))
         features = self._build_common_encoder(image, min_latent_res)
 
         features = Dropout(0.4)(features)
@@ -819,7 +800,7 @@ class BalancingGAN:
         ])
 
     def build_features_from_d_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels * 3))
         model_output = self.discriminator.layers[-3](image)
         self.features_from_d_model = Model(
             inputs = image,
@@ -881,21 +862,29 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
-            fake_size = crt_batch_size // self.nclasses
-            f = self.generate_latent(range(fake_size))
-            real_img_for_fake = bg_train.get_samples_by_labels(label_batch[:fake_size])
+            f = self.generate_latent(range(crt_batch_size))
+            real_img_for_fake = bg_train.get_samples_by_labels(label_batch)
+            other_imgs = bg_train.get_samples_by_labels(label_batch)
             generated_images = self.generator.predict(
                 [
-                    image_batch[:fake_size],
+                    image_batch,
                     real_img_for_fake,
                     f,
                 ],
                 verbose=0
             )
 
+            real_distr = np.concatenate([
+                image_batch, real_img_for_fake, other_imgs,
+            ], axis = -1)
+
+            fake_distr = np.concatenate([
+                image_batch, real_img_for_fake,  generated_images,
+            ], axis = -1)
+
             X = np.concatenate([
-                image_batch,
-                generated_images
+                real_distr,
+                fake_distr,
             ])
 
             aux_y = np.concatenate((label_batch, np.full(generated_images.shape[0] , self.nclasses )), axis=0)
@@ -908,7 +897,7 @@ class BalancingGAN:
             ################## Train Generator ##################
             other_batch = bg_train.get_samples_by_labels(label_batch)
 
-            real_features, perceptual_features = self.get_pair_features(other_batch)
+            # real_features, perceptual_features = self.get_pair_features(other_batch)
 
             f = self.generate_latent(range(crt_batch_size))
 
@@ -1060,24 +1049,30 @@ class BalancingGAN:
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
-
-                # Test: # generate a new batch of noise
-                nb_test = bg_test.get_num_samples()
             
-                # sample some labels from p_c and generate images from them
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
 
                 generated_images = self.generator.predict(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
                     verbose=False
                 )
+                real_distr = np.concatenate([
+                    bg_test.dataset_x,
+                    bg_test.dataset_x,
+                    bg_test.dataset_x,
+                ], axis=-1)
 
-                X = np.concatenate((bg_test.dataset_x, generated_images))
+                fake_distr = np.concatenate([
+                    bg_test.dataset_x,
+                    bg_test.dataset_x,
+                    generated_images,
+                ],axis=-1)
+
+                X = np.concatenate([real_distr, fake_distr])
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(
                     generated_images.shape[0], self.nclasses )), axis=0
                 )
 
-                # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
 
