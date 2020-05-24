@@ -531,7 +531,7 @@ class BalancingGAN:
 
         # Define combined for training generator.
         fake = self.generator([
-            real_images, other_batch ,latent_code
+            real_images, other_batch, latent_code
         ])
 
         self.build_features_from_d_model()
@@ -874,12 +874,13 @@ class BalancingGAN:
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
-            f = self.generate_latent(range(crt_batch_size))
-            real_img_for_fake = bg_train.get_samples_by_labels(label_batch)
-            other_imgs = bg_train.get_samples_by_labels(label_batch)
+            fake_size = crt_batch_size // self.nclasses
+            f = self.generate_latent(range(fake_size))
+            real_img_for_fake = bg_train.get_samples_by_labels(label_batch[:fake_size])
+            other_imgs = bg_train.get_samples_by_labels(label_batch[:fake_size])
             generated_images = self.generator.predict(
                 [
-                    image_batch,
+                    image_batch[:fake_size],
                     real_img_for_fake,
                     f,
                 ],
@@ -891,7 +892,7 @@ class BalancingGAN:
             ], axis = -1)
 
             fake_distr = np.concatenate([
-                image_batch, real_img_for_fake, generated_images,
+                image_batch[:fake_size], real_img_for_fake, generated_images,
             ], axis = -1)
 
             X = np.concatenate((
