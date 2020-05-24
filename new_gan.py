@@ -649,11 +649,6 @@ class BalancingGAN:
                 latent_code
             ])
 
-        en_4 = Concatenate()([
-            en_4,
-            latent_noise
-        ])
-
         # botteneck
         de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
