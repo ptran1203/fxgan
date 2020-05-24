@@ -505,7 +505,7 @@ class BalancingGAN:
         self.min_latent_res = min_latent_res
         # Initialize learning variables
         self.adam_lr = adam_lr 
-        self.adam_beta_1 = 0.99
+        self.adam_beta_1 = 0.5
 
         # Initialize stats
         self.train_history = defaultdict(list)
@@ -557,6 +557,8 @@ class BalancingGAN:
         real_perceptual_features2 = self.perceptual_model(
             Concatenate()([other_batch, other_batch, other_batch])
         )
+
+        real_perceptual_features = Average()([real_perceptual_features1, real_perceptual_features2])
         
 
         # real info
@@ -574,7 +576,7 @@ class BalancingGAN:
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         self.combined.add_loss(K.mean(K.abs(
-            fake_perceptual_features - (0.5*real_perceptual_features1 + 0.5*real_perceptual_features2)
+            fake_perceptual_features - real_perceptual_features
         )))
 
         self.combined.compile(
