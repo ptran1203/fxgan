@@ -572,7 +572,7 @@ class BalancingGAN:
             name = 'Combined'
         )
  
-        self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
+        # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         self.combined.add_loss(K.mean(K.abs(
             fake_perceptual_features - (0.5*real_perceptual_features1 + 0.5*real_perceptual_features2)
         )))
