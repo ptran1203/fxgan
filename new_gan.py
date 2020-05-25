@@ -935,7 +935,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, real_img_for_fake, f],
-                [np_utils.to_categorical(np.full(label.shape[0], 0), 2)]
+                [np_utils.to_categorical(np.full(label_batch.shape[0], 0), 2)]
             )
 
             epoch_gen_loss.append(loss)
