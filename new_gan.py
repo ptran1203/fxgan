@@ -505,7 +505,7 @@ class BalancingGAN:
         self.min_latent_res = min_latent_res
         # Initialize learning variables
         self.adam_lr = adam_lr 
-        self.adam_beta_1 = 0.99
+        self.adam_beta_1 = 0.5
 
         # Initialize stats
         self.train_history = defaultdict(list)
@@ -657,7 +657,7 @@ class BalancingGAN:
         ])
 
 
-        en_4 = Concatenate()([en_4, latent_noise])
+        # en_4 = Concatenate()([en_4, latent_noise])
 
         # botteneck
         de_1 = self._res_block(en_4)
@@ -906,10 +906,10 @@ class BalancingGAN:
             ], axis = -1)
 
             X = np.concatenate((
-                # real_distr,
-                # fake_distr,
-                image_batch,
-                generated_images,
+                real_distr,
+                fake_distr,
+                # image_batch,
+                # generated_images,
             ), axis = 0)
 
             aux_y = np.concatenate((label_batch, np.full(fake_distr.shape[0] , self.nclasses )), axis=0)
@@ -1089,8 +1089,8 @@ class BalancingGAN:
                     generated_images,
                 ],axis=-1)
 
-                # X = np.concatenate([real_distr, fake_distr])
-                X = np.concatenate([bg_test.dataset_x, generated_images])
+                X = np.concatenate([real_distr, fake_distr])
+                # X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
                     bg_test.dataset_y,
                     np.full(generated_images.shape[0], self.nclasses)
