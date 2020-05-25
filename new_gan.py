@@ -637,10 +637,10 @@ class BalancingGAN:
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
         en_2 = Add()([feature[0], feature2[0]])
-
         en_3 = Add()([feature[1], feature2[1]])
+        en_4 = Add()([feature[2], feature2[2]])
 
-        en_4 = Concatenate()([feature[2], feature2[2], latent_noise])
+        en_4 = Concatenate()([en_4, latent_noise])
 
         # botteneck
         de_1 = self._res_block(en_4)
