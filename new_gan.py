@@ -633,7 +633,7 @@ class BalancingGAN:
         feature2 = self.encoder(image2)
 
         hw = int(0.0625 * self.resolution)
-        latent_noise = Dense(hw*hw*128, activation = 'relu')(latent_code)
+        latent_noise = Dense(hw*hw*128,)(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
         # en_2 = Average()([feature[0], feature2[0]])
@@ -906,8 +906,10 @@ class BalancingGAN:
             ], axis = -1)
 
             X = np.concatenate((
-                real_distr,
-                fake_distr,
+                # real_distr,
+                # fake_distr,
+                image_batch,
+                generated_images,
             ), axis = 0)
 
             aux_y = np.concatenate((label_batch, np.full(fake_distr.shape[0] , self.nclasses )), axis=0)
@@ -1087,8 +1089,8 @@ class BalancingGAN:
                     generated_images,
                 ],axis=-1)
 
-                X = np.concatenate([real_distr, fake_distr])
-                # X = np.concatenate([bg_test.dataset_x, generated_images])
+                # X = np.concatenate([real_distr, fake_distr])
+                X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
                     bg_test.dataset_y,
                     np.full(generated_images.shape[0], self.nclasses)
