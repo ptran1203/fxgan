@@ -636,11 +636,28 @@ class BalancingGAN:
         latent_noise = Dense(hw*hw*128, activation = 'relu')(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
-        en_2 = Average()([feature[0], feature2[0]])
-        en_3 = Average()([feature[1], feature2[1]])
-        en_4 = Average()([feature[2], feature2[2]])
+        # en_2 = Average()([feature[0], feature2[0]])
+        # en_3 = Average()([feature[1], feature2[1]])
+        # en_4 = Average()([feature[2], feature2[2]])
+        en_2 = RandomPick()([
+            feature[0],
+            feature2[0],
+            latent_code
+        ])
+        en_3 = RandomPick()([
+            feature[1],
+            feature2[1],
+            latent_code
+        ])
 
-        en_4 = Concatenate()([en_4, latent_noise])
+        en_4 = RandomPick()([
+            feature[2],
+            feature2[2],
+            latent_code
+        ])
+
+
+        # en_4 = Concatenate()([en_4, latent_noise])
 
         # botteneck
         de_1 = self._res_block(en_4)
