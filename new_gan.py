@@ -422,24 +422,24 @@ class randomPick(keras.layers.Layer):
 
 class BalancingGAN:
     def _res_block(self,  x, activation = 'leaky_relu'):
-            if activation == 'leaky_relu':
-                actv = LeakyReLU()
-            else:
-                actv = Activation(activation)
+        if activation == 'leaky_relu':
+            actv = LeakyReLU()
+        else:
+            actv = Activation(activation)
 
-            skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
-            out = self._norm()(skip)
-            out = actv(out)
+        skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
+        out = self._norm()(skip)
+        out = actv(out)
 
-            out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = self._norm()(out)
-            out = actv(out)
+        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = self._norm()(out)
+        out = actv(out)
 
-            out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-            out = self._norm()(out)
-            out = actv(out)
-            out = Add()([out, skip])
-            return out
+        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = self._norm()(out)
+        out = actv(out)
+        out = Add()([out, skip])
+        return out
 
     def build_latent_encoder(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -636,9 +636,9 @@ class BalancingGAN:
         latent_noise = Dense(hw*hw*128, activation = 'relu')(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
-        en_2 = Add()([feature[0], feature2[0]])
-        en_3 = Add()([feature[1], feature2[1]])
-        en_4 = Add()([feature[2], feature2[2]])
+        en_2 = Average()([feature[0], feature2[0]])
+        en_3 = Average()([feature[1], feature2[1]])
+        en_4 = Average()([feature[2], feature2[2]])
 
         en_4 = Concatenate()([en_4, latent_noise])
 
