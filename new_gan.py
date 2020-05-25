@@ -657,7 +657,7 @@ class BalancingGAN:
         ])
 
 
-        # en_4 = Concatenate()([en_4, latent_noise])
+        en_4 = Concatenate()([en_4, latent_noise])
 
         # botteneck
         de_1 = self._res_block(en_4)
