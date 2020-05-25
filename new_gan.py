@@ -23,7 +23,6 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D,
     RepeatVector,
 )
-
 from keras_contrib.losses import DSSIMObjective
 
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
@@ -554,12 +553,6 @@ class BalancingGAN:
         real_perceptual_features1 = self.perceptual_model(
             Concatenate()([real_images, real_images, real_images])
         )
-        real_perceptual_features2 = self.perceptual_model(
-            Concatenate()([other_batch, other_batch, other_batch])
-        )
-
-        real_perceptual_features = Average()([real_perceptual_features1, real_perceptual_features2])
-        
 
         # real info
         # r_feature1 =  self.features_from_d_model(real_images)
@@ -576,7 +569,7 @@ class BalancingGAN:
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         self.combined.add_loss(K.mean(K.abs(
-            fake_perceptual_features - real_perceptual_features
+            fake_perceptual_features - real_perceptual_features1
         )))
 
         self.combined.compile(
@@ -930,6 +923,7 @@ class BalancingGAN:
                 np.full(label_batch.shape[0] , 0),
                 np.full(fake_distr.shape[0] , 1)
             ), axis=0)
+            aux_y = np_utils.to_categorical(aux_y, 2)
 
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
@@ -941,7 +935,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, real_img_for_fake, f],
-                [np.full(label.shape[0], 0)]
+                [np_utils.to_categorical(np.full(label.shape[0], 0), 2)]
             )
 
             epoch_gen_loss.append(loss)
@@ -1112,6 +1106,7 @@ class BalancingGAN:
                     np.full(bg_test.dataset_y.shape[0], 0),
                     np.full(generated_images.shape[0], 1)
                 ])
+                aux_y = np_utils.to_categorical(aux_y, 2)
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
@@ -1121,7 +1116,10 @@ class BalancingGAN:
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
-                    [bg_test.dataset_y],
+                    [np_utils.to_categorical(
+                        np.full(bg_train.dataset_y.shape[0], 0),
+                        2
+                    )],
                     verbose = 0
                 )
 
@@ -1134,7 +1132,8 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [np.full(bg_test.dataset_y.shape[0], 0)]
+                        [np_utils.to_categorical(
+                            np.full(bg_test.dataset_y.shape[0], 0), 2)]
                     )
 
                     crt_c = 0
