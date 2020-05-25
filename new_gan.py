@@ -400,9 +400,9 @@ class BatchGenerator:
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
 
-class randomPick(keras.layers.Layer):
+class RandomPick(keras.layers.Layer):
     def __init__(self):
-        super(randomPick, self).__init__()
+        super(RandomPick, self).__init__()
 
     def call(self, inputs):
         ip1, ip2, vector = inputs
