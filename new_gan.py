@@ -795,7 +795,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        image = Input(shape=(resolution, resolution, channels * 3))
+        image = Input(shape=(resolution, resolution, channels))
         features = self._build_common_encoder(image, min_latent_res)
 
         features = Dropout(0.4)(features)
@@ -896,8 +896,8 @@ class BalancingGAN:
             ], axis = -1)
 
             X = np.concatenate((
-                real_distr,
-                fake_distr,
+                image_batch, #  real_distr,
+                generated_images  # fake_distr
             ), axis = 0)
 
             aux_y = np.concatenate((label_batch, np.full(fake_distr.shape[0] , self.nclasses )), axis=0)
@@ -1077,10 +1077,12 @@ class BalancingGAN:
                     generated_images,
                 ],axis=-1)
 
-                X = np.concatenate([real_distr, fake_distr])
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(
-                    generated_images.shape[0], self.nclasses )), axis=0
-                )
+                # X = np.concatenate([real_distr, fake_distr])
+                X = np.concatenate([bg_test.dataset_x, generated_images])
+                aux_y = np.concatenate([
+                    bg_test.dataset_y,
+                    np.full(generated_images.shape[0], self.nclasses)
+                ])
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
