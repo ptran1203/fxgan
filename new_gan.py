@@ -534,11 +534,11 @@ class BalancingGAN:
             real_images, other_batch, latent_code
         ])
 
-        self.build_features_from_d_model()
+        # self.build_features_from_d_model()
 
         self.discriminator.trainable = False
         self.generator.trainable = True
-        self.features_from_d_model.trainable = False
+        # self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
         aux_fake = self.discriminator(
