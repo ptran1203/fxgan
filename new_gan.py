@@ -634,15 +634,15 @@ class BalancingGAN:
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
-        latent_noise1 = Reshape((hw, hw, 128))(latent_noise)
+        latent_noise1 = Reshape((hw, hw, 128))(latent_noise1)
 
         hw *= 2
         latent_noise2 = Dense(hw*hw*128,)(latent_code)
-        latent_noise2 = Reshape((hw, hw, 128))(latent_noise)
+        latent_noise2 = Reshape((hw, hw, 128))(latent_noise2)
 
         hw *= 2
         latent_noise3 = Dense(hw*hw*128,)(latent_code)
-        latent_noise3 = Reshape((hw, hw, 128))(latent_noise)
+        latent_noise3 = Reshape((hw, hw, 128))(latent_noise3)
 
         # en_2 = Average()([feature[0], feature2[0]])
         # en_3 = Average()([feature[1], feature2[1]])
