@@ -657,7 +657,7 @@ class BalancingGAN:
         ])
 
 
-        # en_4 = Concatenate()([en_4, latent_noise])
+        en_4 = Concatenate()([en_4, latent_noise])
 
         # botteneck
         de_1 = self._res_block(en_4)
@@ -812,7 +812,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        image = Input(shape=(resolution, resolution, channels))
+        image = Input(shape=(resolution, resolution, channels * 3))
         features = self._build_common_encoder(image, min_latent_res)
 
         features = Dropout(0.4)(features)
@@ -869,13 +869,6 @@ class BalancingGAN:
         return sampled_labels
 
     def get_pair_features(self, image_batch):
-        # features = np.array([np.average(self.features_from_d_model.predict(pair_x), axis = 0)
-        #             for pair_x in image_batch])
-        
-        # p_features = np.array([
-        #     np.average(self.perceptual_model.predict(triple_channels(pair_x)), axis = 0)
-        #             for pair_x in image_batch
-        # ])
         features = self.features_from_d_model.predict(image_batch)
         p_features = self.perceptual_model.predict(triple_channels(image_batch))
 
@@ -913,8 +906,8 @@ class BalancingGAN:
             ], axis = -1)
 
             X = np.concatenate((
-                image_batch, #  real_distr,
-                generated_images  # fake_distr
+                real_distr,
+                fake_distr,
             ), axis = 0)
 
             aux_y = np.concatenate((label_batch, np.full(fake_distr.shape[0] , self.nclasses )), axis=0)
@@ -1094,8 +1087,8 @@ class BalancingGAN:
                     generated_images,
                 ],axis=-1)
 
-                # X = np.concatenate([real_distr, fake_distr])
-                X = np.concatenate([bg_test.dataset_x, generated_images])
+                X = np.concatenate([real_distr, fake_distr])
+                # X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
                     bg_test.dataset_y,
                     np.full(generated_images.shape[0], self.nclasses)
