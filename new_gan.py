@@ -641,8 +641,8 @@ class BalancingGAN:
         latent_noise2 = Reshape((hw, hw, 128))(latent_noise2)
 
         hw *= 2
-        latent_noise3 = Dense(hw*hw*128,)(latent_code)
-        latent_noise3 = Reshape((hw, hw, 128))(latent_noise3)
+        latent_noise3 = Dense(hw*hw*64,)(latent_code)
+        latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
 
         # en_2 = Average()([feature[0], feature2[0]])
         # en_3 = Average()([feature[1], feature2[1]])
