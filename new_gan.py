@@ -621,7 +621,7 @@ class BalancingGAN:
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
             # out_shape: 4 4 128
 
-            return Model(inputs = image, outputs = [en_2, en_3, en_4])
+            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
         image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
@@ -633,49 +633,63 @@ class BalancingGAN:
         feature2 = self.encoder(image2)
 
         hw = int(0.0625 * self.resolution)
-        latent_noise = Dense(hw*hw*128,)(latent_code)
-        latent_noise = Reshape((hw, hw, 128))(latent_noise)
+        latent_noise1 = Dense(hw*hw*128,)(latent_code)
+        latent_noise1 = Reshape((hw, hw, 128))(latent_noise)
+
+        hw *= 2
+        latent_noise2 = Dense(hw*hw*128,)(latent_code)
+        latent_noise2 = Reshape((hw, hw, 128))(latent_noise)
+
+        hw *= 2
+        latent_noise3 = Dense(hw*hw*128,)(latent_code)
+        latent_noise3 = Reshape((hw, hw, 128))(latent_noise)
 
         # en_2 = Average()([feature[0], feature2[0]])
         # en_3 = Average()([feature[1], feature2[1]])
         # en_4 = Average()([feature[2], feature2[2]])
-        en_2 = RandomPick()([
+        en_1 = RandomPick()([
             feature[0],
             feature2[0],
-            latent_code
+            latent_code,
         ])
-        en_3 = RandomPick()([
+        en_2 = RandomPick()([
             feature[1],
             feature2[1],
             latent_code
         ])
-
-        en_4 = RandomPick()([
+        en_3 = RandomPick()([
             feature[2],
             feature2[2],
             latent_code
         ])
+        en_4 = RandomPick()([
+            feature[3],
+            feature2[3],
+            latent_code
+        ])
 
 
-        en_4 = Concatenate()([en_4, latent_noise])
+        en_4 = Concatenate()([en_4, latent_noise1])
+        en_3 = Concatenate()([en_3, latent_noise2])
+        en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
         de_1 = self._res_block(en_4)
-        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
+        de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
         de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
-        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
+        de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
         de_2 = self._norm()(de_2)
         de_2 = LeakyReLU()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
-        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
+        de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_3)
         de_3 = self._norm()(de_3)
         de_3 = LeakyReLU()(de_3)
         de_3 = Dropout(0.3)(de_3)
