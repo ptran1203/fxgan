@@ -784,7 +784,7 @@ class BalancingGAN:
 
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
-        # cnn.add(Dropout(0.3))
+        cnn.add(Dropout(0.3))
 
         cnn.add(Flatten())
 
