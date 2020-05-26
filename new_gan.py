@@ -824,7 +824,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            2, activation='tanh', name='auxiliary'
+            1, activation='tanh', name='auxiliary' # use hinge loss
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
@@ -920,10 +920,9 @@ class BalancingGAN:
             ), axis = 0)
 
             aux_y = np.concatenate((
-                np.full(label_batch.shape[0] , 0),
+                np.full(label_batch.shape[0] , -1),
                 np.full(fake_distr.shape[0] , 1)
             ), axis=0)
-            aux_y = np_utils.to_categorical(aux_y, 2)
 
             X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
@@ -935,7 +934,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, real_img_for_fake, f],
-                [np_utils.to_categorical(np.full(label_batch.shape[0], 0), 2)]
+                [np.full(label_batch.shape[0], -1)]
             )
 
             epoch_gen_loss.append(loss)
@@ -1103,10 +1102,9 @@ class BalancingGAN:
                 X = np.concatenate([real_distr, fake_distr])
                 # X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
-                    np.full(bg_test.dataset_y.shape[0], 0),
+                    np.full(bg_test.dataset_y.shape[0], -1),
                     np.full(generated_images.shape[0], 1)
                 ])
-                aux_y = np_utils.to_categorical(aux_y, 2)
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
@@ -1116,10 +1114,7 @@ class BalancingGAN:
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
-                    [np_utils.to_categorical(
-                        np.full(bg_test.dataset_y.shape[0], 0),
-                        2
-                    )],
+                    [np.full(bg_test.dataset_y.shape[0], -1)],
                     verbose = 0
                 )
 
@@ -1132,8 +1127,7 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [np_utils.to_categorical(
-                            np.full(bg_test.dataset_y.shape[0], 0), 2)]
+                        [np.full(bg_test.dataset_y.shape[0], -1)]
                     )
 
                     crt_c = 0
