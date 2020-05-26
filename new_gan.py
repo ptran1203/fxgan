@@ -934,7 +934,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, real_img_for_fake, f],
-                [np.full(label_batch.shape[0], -1)]
+                [np.full(label_batch.shape[0], 1)]
             )
 
             epoch_gen_loss.append(loss)
@@ -1114,7 +1114,7 @@ class BalancingGAN:
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
-                    [np.full(bg_test.dataset_y.shape[0], -1)],
+                    [np.full(bg_test.dataset_y.shape[0], 1)],
                     verbose = 0
                 )
 
@@ -1127,7 +1127,7 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [np.full(bg_test.dataset_y.shape[0], -1)]
+                        [np.full(bg_test.dataset_y.shape[0], 1)]
                     )
 
                     crt_c = 0
