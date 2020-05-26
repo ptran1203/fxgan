@@ -824,7 +824,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            2, activation='softmax', name='auxiliary'
+            2, activation='tanh', name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
