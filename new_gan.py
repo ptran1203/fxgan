@@ -127,6 +127,9 @@ def pickle_load(path):
         return None
 
 def add_padding(img):
+    """
+    Add black padding
+    """
     w, h, _ = img.shape
     size = abs(w - h) // 2
     value= [0, 0, 0]
@@ -153,11 +156,6 @@ def get_img(path, rst):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return np.expand_dims(img, axis=0)
     return img.tolist()
-
-def bound(list, s):
-    if s == 0:
-        return list
-    return list[:s]
 
 def load_train_data(resolution=52):
     labels = []
@@ -410,7 +408,7 @@ class RandomPick(keras.layers.Layer):
         out = []
 
         for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[0,i] >= 0.0, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
+            r = tf.cond(vector[0,i] >= -5, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
             # merged = vector[0, i] * ip1[]
             out.append(r)
 
@@ -443,6 +441,9 @@ class BalancingGAN:
         return out
 
     def build_latent_encoder(self):
+        """
+        Mapping image to latent code
+        """
         image = Input(shape=(self.resolution, self.resolution, self.channels))
 
         x = self._res_block(image, 'relu')
@@ -484,8 +485,6 @@ class BalancingGAN:
         )
 
     def __init__(self, classes, target_class_id,
-                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
-                # No relevant difference noted
                 dratio_mode="uniform", gratio_mode="uniform",
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1], min_latent_res=8,
@@ -528,7 +527,7 @@ class BalancingGAN:
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
             # loss = keras.losses.Hinge()
-            loss = wasserstein_loss
+            loss = keras.losses.BinaryCrossentropy()
         )
 
         # Define combined for training generator.
@@ -571,9 +570,9 @@ class BalancingGAN:
         )
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        self.combined.add_loss(K.mean(K.abs(
-            fake_perceptual_features - real_perceptual_features1
-        )))
+        # self.combined.add_loss(K.mean(K.abs(
+        #     fake_perceptual_features - real_perceptual_features1
+        # )))
 
         self.combined.compile(
             optimizer=Adam(
@@ -582,7 +581,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             # loss= keras.losses.Hinge(),
-            loss = wasserstein_loss,
+            loss = keras.losses.BinaryCrossentropy(),
             # loss_weights = [1.0],
         )
 
@@ -641,9 +640,6 @@ class BalancingGAN:
         latent_noise3 = Dense(hw*hw*64,)(latent_code)
         latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
 
-        # en_2 = Average()([feature[0], feature2[0]])
-        # en_3 = Average()([feature[1], feature2[1]])
-        # en_4 = Average()([feature[2], feature2[2]])
         en_1 = RandomPick()([
             feature[0],
             feature2[0],
@@ -783,13 +779,6 @@ class BalancingGAN:
         plot_g(train_g, test_g)
         plot_d(train_d, test_d)
 
-    
-    def plot_classifier_acc(self):
-        plt.plot(self.classifier_acc, label='classifier_acc')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch(x5)')
-        plt.legend()
-        plt.show()
 
     def _build_common_encoder(self, image, min_latent_res):
         resolution = self.resolution
@@ -833,7 +822,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            1, activation='linear', name='auxiliary' # use hinge loss
+            1, activation='sigmoid', name='auxiliary' # use hinge loss
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
@@ -856,33 +845,6 @@ class BalancingGAN:
     def _norm(self):
         return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
 
-
-    def _biased_sample_labels(self, samples, target_distribution="uniform"):
-        all_labels = np.full(samples, 0)
-        splited = np.array_split(all_labels, self.nclasses)
-        all_labels = np.concatenate(
-            [
-                np.full(splited[classid].shape[0], classid) \
-                for classid in range(self.nclasses)
-            ]
-        )
-        np.random.shuffle(all_labels)
-        return all_labels
-
-        distribution = self.class_uratio
-        if target_distribution == "d":
-            distribution = self.class_dratio
-        elif target_distribution == "g":
-            distribution = self.class_gratio
-            
-        sampled_labels = np.full(samples,0)
-        sampled_labels_p = np.random.normal(0, 1, samples)
-        for c in list(range(self.nclasses)):
-            mask = np.logical_and((sampled_labels_p > 0), (sampled_labels_p <= distribution[c]))
-            sampled_labels[mask] = self.classes[c]
-            sampled_labels_p = sampled_labels_p - distribution[c]
-
-        return sampled_labels
 
     def get_pair_features(self, image_batch):
         features = self.features_from_d_model.predict(image_batch)
@@ -949,6 +911,7 @@ class BalancingGAN:
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
+        # In case generator have multiple metrics
         # epoch_gen_loss_cal = {
         #     'loss': np.mean(np.array([e['loss'] for e in epoch_gen_loss])),
         #     'loss_from_d': np.mean(np.array([e['loss_from_d'] for e in epoch_gen_loss])),
@@ -966,22 +929,6 @@ class BalancingGAN:
         rd_idx = np.arange(data_x.shape[0])
         np.random.shuffle(rd_idx)
         return data_x[rd_idx], data_y[rd_idx]
-
-    def cal_multivariate(self, bg_train):
-        print("GAN: computing multivariate")
-        # 3 skip-connection and 1 forward connection
-        self.covariances = []
-        self.means = []
-
-        for c in range(self.nclasses):
-            imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
-            feature = self.encoder.predict(imgs)
-            feature = feature.reshape(4*4*128, imgs.shape[0])
-            self.covariances.append(np.cov(np.transpose()))
-            self.means.append(np.mean(feature[i], axis=0))
-
-        self.covariances = np.array(self.covariances)
-        self.means = np.array(self.means)
 
     def _get_lst_bck_name(self, element):
         # Find last bck name
@@ -1204,6 +1151,9 @@ class BalancingGAN:
 
 
     def generate_samples(self, c, samples, bg = None):
+        """
+        Refactor later
+        """
         return self.generate(np.full(samples, c), bg)
     
     def interval_process(self, epoch, interval = 20):
