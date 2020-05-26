@@ -23,7 +23,7 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D,
     RepeatVector,
 )
-from keras_contrib.losses import DSSIMObjective
+from keras_contrib.losses import DSSIMObjective, wa
 
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 
@@ -51,6 +51,8 @@ DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
+def wasserstein_loss(y_true, y_pred):
+    return K.mean(y_true * y_pred)
 
 def save_image_array(img_array, fname=None, show=None):
         # convert 1 channel to 3 channels
@@ -526,7 +528,7 @@ class BalancingGAN:
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
             # loss = keras.losses.Hinge()
-            loss = keras.losses.BinaryCrossentropy()
+            loss = wasserstein_loss
         )
 
         # Define combined for training generator.
@@ -580,7 +582,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             # loss= keras.losses.Hinge(),
-            loss = keras.losses.BinaryCrossentropy(),
+            loss = wasserstein_loss,
             # loss_weights = [1.0],
         )
 
@@ -826,7 +828,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            1, activation='sigmoid', name='auxiliary' # use hinge loss
+            1, activation='linear', name='auxiliary' # use hinge loss
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
