@@ -2,8 +2,7 @@ motivation:
 - Borrow information from k conditional image k = {0...5} to genenerate new data.
 - combine feature from latent space and k conditional image.
 - new image will be compare with other image from the same category
-
-- how to determine how much information should borrow from each conditional image and the latent space?
+- How to ensure that the generated image is related to k image?
 
 G = Genrator()
 D = Discrimninator()
