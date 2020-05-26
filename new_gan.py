@@ -23,7 +23,7 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D,
     RepeatVector,
 )
-from keras_contrib.losses import DSSIMObjective, wa
+from keras_contrib.losses import DSSIMObjective
 
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 
