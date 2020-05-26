@@ -525,7 +525,8 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss = keras.losses.Hinge()
+            # loss = keras.losses.Hinge()
+            loss = keras.losses.BinaryCrossentropy()
         )
 
         # Define combined for training generator.
@@ -578,8 +579,9 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= keras.losses.Hinge(),
-            loss_weights = [1.0],
+            # loss= keras.losses.Hinge(),
+            loss = keras.losses.BinaryCrossentropy(),
+            # loss_weights = [1.0],
         )
 
     def build_res_unet(self):
@@ -824,7 +826,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            1, activation='tanh', name='auxiliary' # use hinge loss
+            2, activation='sigmoid', name='auxiliary' # use hinge loss
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
@@ -920,7 +922,7 @@ class BalancingGAN:
             ), axis = 0)
 
             aux_y = np.concatenate((
-                np.full(label_batch.shape[0] , -1),
+                np.full(label_batch.shape[0] , 0),
                 np.full(fake_distr.shape[0] , 1)
             ), axis=0)
 
@@ -934,7 +936,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, real_img_for_fake, f],
-                [np.full(label_batch.shape[0], 1)]
+                [np.full(label_batch.shape[0], 0)]
             )
 
             epoch_gen_loss.append(loss)
@@ -1102,7 +1104,7 @@ class BalancingGAN:
                 X = np.concatenate([real_distr, fake_distr])
                 # X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
-                    np.full(bg_test.dataset_y.shape[0], -1),
+                    np.full(bg_test.dataset_y.shape[0], 0),
                     np.full(generated_images.shape[0], 1)
                 ])
 
@@ -1114,7 +1116,7 @@ class BalancingGAN:
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
-                    [np.full(bg_test.dataset_y.shape[0], 1)],
+                    [np.full(bg_test.dataset_y.shape[0], 0)],
                     verbose = 0
                 )
 
@@ -1127,7 +1129,7 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [np.full(bg_test.dataset_y.shape[0], 1)]
+                        [np.full(bg_test.dataset_y.shape[0], 0)]
                     )
 
                     crt_c = 0
