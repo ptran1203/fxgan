@@ -1070,7 +1070,7 @@ class BalancingGAN:
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
                     # [np.full(bg_test.dataset_y.shape[0], 1)],
-                    [bg_test.dataset_y]
+                    [bg_test.dataset_y],
                     verbose = 0
                 )
 
