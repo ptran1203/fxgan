@@ -666,7 +666,7 @@ class BalancingGAN:
 
         # botteneck
         de_1 = self._res_block(en_4)
-        de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
+        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
         de_1 = FeatureNorm()([de_1, scale, bias])
@@ -674,7 +674,7 @@ class BalancingGAN:
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
-        de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
+        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         # de_2 = self._norm()(de_2)
         de_2 = LeakyReLU()(de_2)
         de_2 = FeatureNorm()([de_2, scale, bias])
@@ -682,7 +682,7 @@ class BalancingGAN:
         de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
-        de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_3)
+        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         # de_3 = self._norm()(de_3)
         de_3 = LeakyReLU()(de_3)
         de_3 = FeatureNorm()([de_3, scale, bias])
