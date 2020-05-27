@@ -576,8 +576,7 @@ class BalancingGAN:
         )
 
         self.combined.add_loss(K.mean(K.abs(
-            self.features_from_d_model(fake),
-            self.features_from_d_model(other_batch),
+            self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
         )))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
