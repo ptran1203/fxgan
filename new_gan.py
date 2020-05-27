@@ -419,17 +419,22 @@ class RandomPick(keras.layers.Layer):
 
 
 class FeatureNorm(keras.layers.Layer):
-    def __init__(self, epsilon = 1e-3):
+    def __init__(self, epsilon = 1e-6):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
 
     def call(self, inputs):
         x, scale, bias = inputs
+
+        # x = [batch, height, width, channels]
         mean = K.mean(x, axis = [1, 2], keepdims = True)
         std = K.std(x, axis = [1, 2], keepdims = True)
         norm = (x - mean) * (1 / (std + self.epsilon))
 
-        return norm * scale + bias
+        broadcast_scale = K.reshape(scale, (-1, 1, 1, 1))
+        broadcast_bias = K.reshape(bias, (-1, 1, 1, 1))
+
+        return norm * broadcast_scale + broadcast_bias
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
@@ -493,7 +498,7 @@ class BalancingGAN:
         x = AveragePooling2D()(x)
 
         latent = Flatten()(x)
-        latent = Dense(self.latent_size, activation = 'sigmoid')(latent)
+        latent = Dense(512, activation = 'relu')(latent)
 
         self.latent_encoder = Model(
             inputs = image,
@@ -641,8 +646,8 @@ class BalancingGAN:
         feature = self.encoder(image)
         feature2 = self.latent_encoder(image2)
 
-        scale = Dense(1, activation='relu', name = 'norm_scale')(feature2)
-        bias = Dense(1, activation='relu', name = 'norm_bias')(feature2)
+        scale = Dense(1, name = 'norm_scale')(feature2)
+        bias = Dense(1, name = 'norm_bias')(feature2)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -697,6 +702,7 @@ class BalancingGAN:
             outputs = outputs,
             name='unet'
         )
+
 
     def build_perceptual_model(self):
         """
