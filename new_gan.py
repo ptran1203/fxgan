@@ -547,8 +547,8 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            # loss = keras.losses.Hinge()
-            loss = keras.losses.BinaryCrossentropy()
+            loss = keras.losses.Hinge()
+            # loss = keras.losses.BinaryCrossentropy()
         )
 
         # Define combined for training generator.
@@ -561,7 +561,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         # self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = True
+        # self.latent_encoder.trainable = False
 
         aux_fake = self.discriminator(fake)
 
@@ -582,8 +582,8 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        latent_code_fake = self.latent_encoder(fake)
-        latent_code_attr = self.latent_encoder(other_batch)
+        latent_code_fake = Flatten()(self.encoder(fake)[-1])
+        latent_code_attr = Flatten()(self.encoder(other_batch)[-1])
 
         self.combined.add_loss(K.mean(K.square(latent_code_attr - latent_code_fake)))
  
@@ -598,8 +598,8 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            # loss= keras.losses.Hinge(),
-            loss = keras.losses.BinaryCrossentropy(),
+            loss= keras.losses.Hinge(),
+            # loss = keras.losses.BinaryCrossentropy(),
             # loss_weights = [1.0],
         )
 
@@ -644,10 +644,11 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        feature2 = self.latent_encoder(image2)
+        feature2 = self.encoder(image2)
 
-        scale = Dense(1, name = 'norm_scale')(feature2)
-        bias = Dense(1, name = 'norm_bias')(feature2)
+        attr_feature = Flatten()(feature2[-1])
+        scale = Dense(1, name = 'norm_scale')(attr_feature)
+        bias = Dense(1, name = 'norm_bias')(attr_feature)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -668,7 +669,7 @@ class BalancingGAN:
 
         en_4 = Concatenate()([en_4, latent_noise1])
         en_3 = Concatenate()([en_3, latent_noise2])
-        en_2 = Concatenate()([en_2, latent_noise3])
+        # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
         de_1 = self._res_block(en_4)
@@ -835,7 +836,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            1, activation='sigmoid', name='auxiliary' # use hinge loss
+            2, activation='tanh', name='auxiliary' # use hinge loss
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
