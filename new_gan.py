@@ -418,6 +418,22 @@ class RandomPick(keras.layers.Layer):
         return input_shape[0]
 
 
+class FeatureNorm(keras.layer.Layer):
+    def __init__(self, epsilon = 1e-3):
+        super(FeatureNorm, self).__init__()
+        self.epsilon = epsilon
+
+    def call(self, inputs):
+        x, scale, bias = inputs
+        mean = K.mean(x, axis = [1, 2], keepdims = True)
+        std = K.std(x, axis = [1, 2], keepdims = True)
+        norm = (x - mean) * (1 / (std + self.epsilon))
+
+        return norm * scale + bias
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
+
 
 class BalancingGAN:
     def _res_block(self,  x, activation = 'leaky_relu'):
@@ -542,9 +558,7 @@ class BalancingGAN:
         # self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
-        aux_fake = self.discriminator(
-            Concatenate()([real_images, other_batch, fake])
-        )
+        aux_fake = self.discriminator(fake)
 
         # fake info
         # fake_features = self.features_from_d_model(fake)
@@ -556,12 +570,6 @@ class BalancingGAN:
             Concatenate()([real_images, real_images, real_images])
         )
 
-        # real info
-        # r_feature1 =  self.features_from_d_model(real_images)
-        # rp_feature1 =  self.perceptual_model(Concatenate()([real_images, real_images, real_images]))
-
-        # r_feature2 =  self.features_from_d_model(other_batch)
-        # rp_feature2 =  self.perceptual_model(Concatenate()([other_batch, other_batch, other_batch]))
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -626,7 +634,10 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        feature2 = self.encoder(image2)
+        feature2 = self.latent_encoder(image2)
+
+        scale = Dense(1, activation='relu', name = 'norm_scale')(feature2)
+        bias = Dense(1, activation='relu', name = 'norm_bias')(feature2)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -640,27 +651,10 @@ class BalancingGAN:
         latent_noise3 = Dense(hw*hw*64,)(latent_code)
         latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
 
-        en_1 = RandomPick()([
-            feature[0],
-            feature2[0],
-            latent_code,
-        ])
-        en_2 = RandomPick()([
-            feature[1],
-            feature2[1],
-            latent_code
-        ])
-        en_3 = RandomPick()([
-            feature[2],
-            feature2[2],
-            latent_code
-        ])
-        en_4 = RandomPick()([
-            feature[3],
-            feature2[3],
-            latent_code
-        ])
-
+        # en_1 = feature[0]
+        en_2 = feature[1]
+        en_3 = feature[2]
+        en_4 = feature[3]
 
         en_4 = Concatenate()([en_4, latent_noise1])
         en_3 = Concatenate()([en_3, latent_noise2])
@@ -669,22 +663,25 @@ class BalancingGAN:
         # botteneck
         de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
-        de_1 = self._norm()(de_1)
+        # de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
+        de_1 = FeatureNorm()([de_1, scale, bias])
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
-        de_2 = self._norm()(de_2)
+        # de_2 = self._norm()(de_2)
         de_2 = LeakyReLU()(de_2)
+        de_2 = FeatureNorm()([de_2, scale, bias])
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
         de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_3)
-        de_3 = self._norm()(de_3)
+        # de_3 = self._norm()(de_3)
         de_3 = LeakyReLU()(de_3)
+        de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = Dropout(0.3)(de_3)
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
@@ -822,7 +819,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        image = Input(shape=(resolution, resolution, channels * 3))
+        image = Input(shape=(resolution, resolution, channels))
         features = self._build_common_encoder(image, min_latent_res)
 
         features = Dropout(0.4)(features)
@@ -889,10 +886,10 @@ class BalancingGAN:
             ], axis = -1)
 
             X = np.concatenate((
-                real_distr,
-                fake_distr,
-                # image_batch,
-                # generated_images,
+                # real_distr,
+                # fake_distr,
+                image_batch,
+                generated_images,
             ), axis = 0)
 
             aux_y = np.concatenate((
@@ -1060,8 +1057,8 @@ class BalancingGAN:
                     generated_images,
                 ],axis=-1)
 
-                X = np.concatenate([real_distr, fake_distr])
-                # X = np.concatenate([bg_test.dataset_x, generated_images])
+                # X = np.concatenate([real_distr, fake_distr])
+                X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
                     np.full(bg_test.dataset_y.shape[0], 1),
                     np.full(generated_images.shape[0], 0)
@@ -1069,9 +1066,6 @@ class BalancingGAN:
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
-
-                real_features, perceptual_features = self.get_pair_features(bg_test.dataset_x)
-
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [bg_test.dataset_x, bg_test.dataset_x, f],
