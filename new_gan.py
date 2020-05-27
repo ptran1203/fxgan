@@ -534,6 +534,7 @@ class BalancingGAN:
         self.trained = False
 
         # Build generator
+        self.build_discriminator(min_latent_res=min_latent_res)
         self.build_features_from_d_model()
         self.build_latent_encoder()
         self.build_res_unet()
@@ -544,7 +545,6 @@ class BalancingGAN:
         latent_code = Input(shape=(self.latent_size,))
 
         # Build discriminator
-        self.build_discriminator(min_latent_res=min_latent_res)
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
