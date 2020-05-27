@@ -576,6 +576,11 @@ class BalancingGAN:
             outputs=[aux_fake],
             name = 'Combined'
         )
+
+        latent_code_fake = self.latent_encoder(fake)
+        latent_code_attr = self.latent_encoder(other_batch)
+
+        self.combined.add_loss(K.mean(K.square(latent_code_attr - latent_code_fake)))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         # self.combined.add_loss(K.mean(K.abs(
