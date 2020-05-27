@@ -418,7 +418,7 @@ class RandomPick(keras.layers.Layer):
         return input_shape[0]
 
 
-class FeatureNorm(keras.layer.Layer):
+class FeatureNorm(keras.layers.Layer):
     def __init__(self, epsilon = 1e-3):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
