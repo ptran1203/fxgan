@@ -882,14 +882,6 @@ class BalancingGAN:
                 verbose=0
             )
 
-            real_distr = np.concatenate([
-                image_batch, real_img_for_fake, other_imgs,
-            ], axis = -1)
-
-            fake_distr = np.concatenate([
-                image_batch[:fake_size], real_img_for_fake[:fake_size], generated_images,
-            ], axis = -1)
-
             X = np.concatenate((
                 # real_distr,
                 # fake_distr,
@@ -898,8 +890,9 @@ class BalancingGAN:
             ), axis = 0)
 
             aux_y = np.concatenate((
-                np.full(label_batch.shape[0] , 1),
-                np.full(fake_distr.shape[0] , 0)
+                # np.full(label_batch.shape[0] , 1),
+                label_batch,
+                np.full(generated_images.shape[0] , self.nclasses)
             ), axis=0)
 
             X, aux_y = self.shuffle_data(X, aux_y)
@@ -912,7 +905,8 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, real_img_for_fake, f],
-                [np.full(label_batch.shape[0], 1)]
+                # [np.full(label_batch.shape[0], 1)],
+                [label_batch]
             )
 
             epoch_gen_loss.append(loss)
@@ -1065,8 +1059,9 @@ class BalancingGAN:
                 # X = np.concatenate([real_distr, fake_distr])
                 X = np.concatenate([bg_test.dataset_x, generated_images])
                 aux_y = np.concatenate([
-                    np.full(bg_test.dataset_y.shape[0], 1),
-                    np.full(generated_images.shape[0], 0)
+                    # np.full(bg_test.dataset_y.shape[0], 1),
+                    bg_test.dataset_y,
+                    np.full(generated_images.shape[0], self.nclasses)
                 ])
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
