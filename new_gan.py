@@ -637,9 +637,9 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        feature2 = self.features_from_d_model(image2)
+        attr_feature = self.features_from_d_model(image2)
 
-        attr_feature = Flatten()(feature2)
+        # attr_feature = Flatten()(feature2)
         scale = Dense(1, name = 'norm_scale')(attr_feature)
         bias = Dense(1, name = 'norm_bias')(attr_feature)
 
@@ -806,11 +806,6 @@ class BalancingGAN:
         cnn.add(Dropout(0.3))
 
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
-
-        cnn.add(Conv2D(1024, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
