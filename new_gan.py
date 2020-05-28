@@ -458,7 +458,7 @@ class BalancingGAN:
         skip = norm_layer(skip)
         out = actv(skip)
 
-        skip = Conv2D(32, 1, strides = 1, padding = 'same')(skip)
+        skip = Conv2D(64, 1, strides = 1, padding = 'same')(skip)
 
         out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
         out = norm_layer(out)
