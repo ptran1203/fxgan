@@ -870,7 +870,7 @@ class BalancingGAN:
             generated_images = self.generator.predict(
                 [
                     image_batch[:fake_size],
-                    real_img_for_fake[:fake_size],
+                    image_batch2[:fake_size],
                     f,
                 ],
                 verbose=0
@@ -879,13 +879,13 @@ class BalancingGAN:
             X = np.concatenate((
                 # real_distr,
                 # fake_distr,
-                image_batch,
+                image_batch2,
                 generated_images,
             ), axis = 0)
 
             aux_y = np.concatenate((
                 # np.full(label_batch.shape[0] , 1),
-                label_batch,
+                label_batch2,
                 np.full(generated_images.shape[0] , self.nclasses)
             ), axis=0)
 
@@ -898,9 +898,9 @@ class BalancingGAN:
             f = self.generate_latent(range(crt_batch_size))
 
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, real_img_for_fake, f],
+                [image_batch, image_batch2, f],
                 # [np.full(label_batch.shape[0], 1)],
-                [label_batch]
+                [label_batch2]
             )
 
             epoch_gen_loss.append(loss)
