@@ -557,9 +557,9 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss = keras.losses.Hinge(),
+            # loss = keras.losses.Hinge(),
             # loss = 'sparse_categorical_crossentropy'
-            # loss = keras.losses.BinaryCrossentropy()
+            loss = keras.losses.BinaryCrossentropy()
         )
 
         # Define combined for training generator.
@@ -607,7 +607,7 @@ class BalancingGAN:
             metrics=['accuracy'],
             loss = keras.losses.Hinge(),
             # loss= 'sparse_categorical_crossentropy',
-            # loss = keras.losses.BinaryCrossentropy(),
+            loss = keras.losses.BinaryCrossentropy(),
             # loss_weights = [1.0],
         )
 
@@ -841,7 +841,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            1, activation='tanh', name='auxiliary'
+            1, activation='sigmoid', name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
