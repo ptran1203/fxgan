@@ -672,8 +672,8 @@ class BalancingGAN:
         en_4 = feature[3]
 
         en_4 = Concatenate()([en_4, latent_noise1])
-        en_3 = Concatenate()([en_3, latent_noise2])
-        en_2 = Concatenate()([en_2, latent_noise3])
+        # en_3 = Concatenate()([en_3, latent_noise2])
+        # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
         de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
@@ -1047,23 +1047,16 @@ class BalancingGAN:
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
 
                 generated_images = self.generator.predict(
-                    [bg_test.dataset_x, bg_test.dataset_x, f],
+                    [
+                        bg_test.dataset_x,
+                        self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                        f
+                    ],
                     verbose=False
                 )
-                real_distr = np.concatenate([
-                    bg_test.dataset_x,
-                    bg_test.dataset_x,
-                    bg_test.dataset_x,
-                ], axis=-1)
 
-                fake_distr = np.concatenate([
-                    bg_test.dataset_x,
-                    bg_test.dataset_x,
-                    generated_images,
-                ],axis=-1)
-
-                # X = np.concatenate([real_distr, fake_distr])
                 X = np.concatenate([bg_test.dataset_x, generated_images])
+    
                 aux_y = np.concatenate([
                     # np.full(bg_test.dataset_y.shape[0], 1),
                     bg_test.dataset_y,
@@ -1074,7 +1067,11 @@ class BalancingGAN:
                     X, aux_y, verbose=False)
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
-                    [bg_test.dataset_x, bg_test.dataset_x, f],
+                    [
+                        bg_test.dataset_x,
+                        self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                        f
+                    ],
                     # [np.full(bg_test.dataset_y.shape[0], 1)],
                     [bg_test.dataset_y],
                     verbose = 0
@@ -1085,7 +1082,7 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
-                            bg_test.dataset_x,
+                            self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
                             f,
                             
                         ],
