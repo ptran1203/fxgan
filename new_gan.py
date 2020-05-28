@@ -557,8 +557,8 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            # loss = keras.losses.Hinge(),
-            loss = 'sparse_categorical_crossentropy'
+            loss = keras.losses.Hinge(),
+            # loss = 'sparse_categorical_crossentropy'
             # loss = keras.losses.BinaryCrossentropy()
         )
 
@@ -584,11 +584,14 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(K.mean(K.abs(
+        self.combined.add_loss(0.1 * K.mean(K.abs(
             self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
         )))
-        self.combined.add_loss(3 * K.mean(K.abs(
+        self.combined.add_loss(0.1 * K.mean(K.abs(
             fake - other_batch
+        )))
+        self.combined.add_loss(0.1 * K.mean(K.square(
+            self.encoder(fake)[-1] - self.encoder(other_batch)[-1]
         )))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
@@ -602,7 +605,8 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= 'sparse_categorical_crossentropy',
+            loss = keras.losses.Hinge(),
+            # loss= 'sparse_categorical_crossentropy',
             # loss = keras.losses.BinaryCrossentropy(),
             # loss_weights = [1.0],
         )
@@ -648,11 +652,13 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attr_feature = self.features_from_d_model(image2)
+        feature2 = self.encoder(image2)[-1]
 
-        # attr_feature = Flatten()(feature2)
-        scale = Dense(1, name = 'norm_scale')(attr_feature)
-        bias = Dense(1, name = 'norm_bias')(attr_feature)
+        attr_feature = Flatten()(feature2)
+        scale = Dense(256, activation='relu')(attr_feature)
+        scale = Dense(1, name = 'norm_scale')(scale)
+        bias = Dense(256, activation='relu')(attr_feature)
+        bias = Dense(1, name = 'norm_bias')(bias)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -671,7 +677,7 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_4 = Concatenate()([en_4, latent_noise1])
+        en_4 = Concatenate()([en_4, feature2, latent_code])
         # en_3 = Concatenate()([en_3, latent_noise2])
         # en_2 = Concatenate()([en_2, latent_noise3])
 
@@ -692,11 +698,11 @@ class BalancingGAN:
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        de_3 = self._res_block(de_2, norm = 'feature', scale=scale, bias=bias)
+        de_3 = self._res_block(de_2)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
-        # de_3 = self._norm()(de_3)
+        de_3 = self._norm()(de_3)
         de_3 = LeakyReLU()(de_3)
-        de_3 = FeatureNorm()([de_3, scale, bias])
+        # de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = Dropout(0.3)(de_3)
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
@@ -835,7 +841,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            3, activation='softmax', name='auxiliary'
+            1, activation='tanh', name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
@@ -896,9 +902,9 @@ class BalancingGAN:
             ), axis = 0)
 
             aux_y = np.concatenate((
-                # np.full(label_batch.shape[0] , 1),
-                label_batch2,
-                np.full(generated_images.shape[0] , self.nclasses)
+                np.full(label_batch.shape[0] , 1),
+                # label_batch2,
+                np.full(generated_images.shape[0] , 0)
             ), axis=0)
 
             X, aux_y = self.shuffle_data(X, aux_y)
@@ -911,8 +917,8 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, image_batch2, f],
-                # [np.full(label_batch.shape[0], 1)],
-                [label_batch2]
+                [np.full(label_batch.shape[0], 1)],
+                # [label_batch2]
             )
 
             epoch_gen_loss.append(loss)
@@ -1058,9 +1064,9 @@ class BalancingGAN:
                 X = np.concatenate([bg_test.dataset_x, generated_images])
     
                 aux_y = np.concatenate([
-                    # np.full(bg_test.dataset_y.shape[0], 1),
-                    bg_test.dataset_y,
-                    np.full(generated_images.shape[0], self.nclasses)
+                    np.full(bg_test.dataset_y.shape[0], 1),
+                    # bg_test.dataset_y,
+                    np.full(generated_images.shape[0], 0)
                 ])
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
@@ -1072,8 +1078,8 @@ class BalancingGAN:
                         self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
                         f
                     ],
-                    # [np.full(bg_test.dataset_y.shape[0], 1)],
-                    [bg_test.dataset_y],
+                    [np.full(bg_test.dataset_y.shape[0], 1)],
+                    # [bg_test.dataset_y],
                     verbose = 0
                 )
 
@@ -1086,8 +1092,8 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        # [np.full(bg_test.dataset_y.shape[0], 1)],
-                        [bg_test.dataset_y]
+                        [np.full(bg_test.dataset_y.shape[0], 1)],
+                        # [bg_test.dataset_y]
                     )
 
                     crt_c = 0
