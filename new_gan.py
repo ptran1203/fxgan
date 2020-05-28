@@ -51,6 +51,11 @@ DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
+# ===========================================
+# I have no idea how it works, happy coding #
+#               ¯\_(ツ)_/¯                  #
+#===========================================#
+
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
 
@@ -587,12 +592,9 @@ class BalancingGAN:
         self.combined.add_loss(0.1 * K.mean(K.abs(
             self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
         )))
-        self.combined.add_loss(0.1 * K.mean(K.abs(
-            fake - other_batch
-        )))
-        self.combined.add_loss(0.1 * K.mean(K.square(
-            self.encoder(fake)[-1] - self.encoder(other_batch)[-1]
-        )))
+        # self.combined.add_loss(0.1 * K.mean(K.abs(
+        #     fake - other_batch
+        # )))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         # self.combined.add_loss(K.mean(K.abs(
