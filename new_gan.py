@@ -543,6 +543,7 @@ class BalancingGAN:
         self.trained = False
 
         self.classifier = load_classifier(self.resolution)
+        self.classifier.trainable = False
         self.build_discriminator(min_latent_res=min_latent_res)
         self.build_features_from_classifier_model()
         self.build_features_from_d_model()
@@ -586,7 +587,7 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(3 * K.mean(K.abs(
+        self.combined.add_loss(K.mean(K.abs(
             self.features_from_classifier(fake) - self.features_from_classifier(other_batch)
         )))
         # self.combined.add_loss(K.mean(K.abs(
