@@ -542,8 +542,9 @@ class BalancingGAN:
         self.test_history = defaultdict(list)
         self.trained = False
 
-        # Build generator
+        self.classifier = load_classifier(self.resolution)
         self.build_discriminator(min_latent_res=min_latent_res)
+        self.build_features_from_classifier_model()
         self.build_features_from_d_model()
         self.build_latent_encoder()
         self.build_res_unet()
@@ -557,9 +558,9 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            loss = keras.losses.Hinge(),
+            # loss = keras.losses.Hinge(),
             # loss = 'sparse_categorical_crossentropy'
-            # loss = keras.losses.BinaryCrossentropy()
+            loss = keras.losses.BinaryCrossentropy()
             # loss = wasserstein_loss,
         )
 
@@ -586,11 +587,11 @@ class BalancingGAN:
         )
 
         self.combined.add_loss(3 * K.mean(K.abs(
-            self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
+            self.features_from_classifier(fake) - self.features_from_classifier(other_batch)
         )))
-        self.combined.add_loss(K.mean(K.abs(
-            fake - other_batch
-        )))
+        # self.combined.add_loss(K.mean(K.abs(
+        #     fake - other_batch
+        # )))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         # self.combined.add_loss(K.mean(K.abs(
@@ -604,9 +605,9 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             # loss= 'sparse_categorical_crossentropy',
-            # loss = keras.losses.BinaryCrossentropy(),
+            loss = keras.losses.BinaryCrossentropy(),
             # loss = wasserstein_loss,
-            loss = keras.losses.Hinge(),
+            # loss = keras.losses.Hinge(),
             # loss_weights = [1.0],
         )
 
@@ -651,7 +652,7 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attr_feature = self.features_from_d_model(image2)
+        attr_feature = self.features_from_classifier(image2)
 
         # attr_feature = Flatten()(feature2)
         scale = Dense(1, name = 'norm_scale')(attr_feature)
@@ -838,7 +839,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            1, activation='tanh', name='auxiliary'
+            1, activation='sigmoid', name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
@@ -856,6 +857,15 @@ class BalancingGAN:
             inputs = image,
             output = model_output,
             name = 'Feature_matching'
+        )
+
+    def build_features_from_classifier_model(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.classifier.layers[-3](image)
+        self.features_from_classifier = Model(
+            inputs = image,
+            output = model_output,
+            name = 'Feature_matching_classifier'
         )
 
     def _norm(self):
