@@ -558,8 +558,9 @@ class BalancingGAN:
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
             # loss = keras.losses.Hinge(),
-            loss = 'sparse_categorical_crossentropy'
+            # loss = 'sparse_categorical_crossentropy'
             # loss = keras.losses.BinaryCrossentropy()
+            loss = wasserstein_loss,
         )
 
         # Define combined for training generator.
@@ -602,8 +603,9 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss= 'sparse_categorical_crossentropy',
+            # loss= 'sparse_categorical_crossentropy',
             # loss = keras.losses.BinaryCrossentropy(),
+            loss = wasserstein_loss,
             # loss_weights = [1.0],
         )
 
@@ -835,7 +837,7 @@ class BalancingGAN:
 
         features = Dropout(0.4)(features)
         aux = Dense(
-            3, activation='softmax', name='auxiliary'
+            1, activation='linear', name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
@@ -896,9 +898,9 @@ class BalancingGAN:
             ), axis = 0)
 
             aux_y = np.concatenate((
-                # np.full(label_batch.shape[0] , 1),
-                label_batch2,
-                np.full(generated_images.shape[0] , self.nclasses)
+                np.full(label_batch.shape[0] , 1),
+                # label_batch2,
+                np.full(generated_images.shape[0] , 0)
             ), axis=0)
 
             X, aux_y = self.shuffle_data(X, aux_y)
@@ -911,8 +913,8 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, image_batch2, f],
-                # [np.full(label_batch.shape[0], 1)],
-                [label_batch2]
+                [np.full(label_batch.shape[0], 1)],
+                # [label_batch2]
             )
 
             epoch_gen_loss.append(loss)
@@ -1058,9 +1060,9 @@ class BalancingGAN:
                 X = np.concatenate([bg_test.dataset_x, generated_images])
     
                 aux_y = np.concatenate([
-                    # np.full(bg_test.dataset_y.shape[0], 1),
-                    bg_test.dataset_y,
-                    np.full(generated_images.shape[0], self.nclasses)
+                    np.full(bg_test.dataset_y.shape[0], 1),
+                    # bg_test.dataset_y,
+                    np.full(generated_images.shape[0], 0),
                 ])
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
@@ -1072,8 +1074,8 @@ class BalancingGAN:
                         self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
                         f
                     ],
-                    # [np.full(bg_test.dataset_y.shape[0], 1)],
-                    [bg_test.dataset_y],
+                    [np.full(bg_test.dataset_y.shape[0], 1)],
+                    # [bg_test.dataset_y],
                     verbose = 0
                 )
 
@@ -1086,8 +1088,8 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        # [np.full(bg_test.dataset_y.shape[0], 1)],
-                        [bg_test.dataset_y]
+                        [np.full(bg_test.dataset_y.shape[0], 1)],
+                        # [bg_test.dataset_y]
                     )
 
                     crt_c = 0
