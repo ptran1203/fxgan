@@ -653,7 +653,7 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attr_feature = self.features_from_classifier(image2)
+        attr_feature = self.features_from_d_model(image2)
 
         # attr_feature = Flatten()(feature2)
         scale = Dense(1, name = 'norm_scale')(attr_feature)
@@ -677,8 +677,8 @@ class BalancingGAN:
         en_4 = feature[3]
 
         en_4 = Concatenate()([en_4, latent_noise1])
-        # en_3 = Concatenate()([en_3, latent_noise2])
-        # en_2 = Concatenate()([en_2, latent_noise3])
+        en_3 = Concatenate()([en_3, latent_noise2])
+        en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
         de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
@@ -687,7 +687,7 @@ class BalancingGAN:
         de_1 = LeakyReLU()(de_1)
         de_1 = FeatureNorm()([de_1, scale, bias])
         de_1 = Dropout(0.3)(de_1)
-        # de_1 = Add()([de_1, en_3])
+        de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
@@ -695,7 +695,7 @@ class BalancingGAN:
         de_2 = LeakyReLU()(de_2)
         de_2 = FeatureNorm()([de_2, scale, bias])
         de_2 = Dropout(0.3)(de_2)
-        # de_2 = Add()([de_2, en_2])
+        de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2, norm = 'feature', scale=scale, bias=bias)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
@@ -912,7 +912,7 @@ class BalancingGAN:
             aux_y = np.concatenate((
                 # np.full(label_batch.shape[0] , 1),
                 label_batch2,
-                np.full(generated_images.shape[0] , 2)
+                np.full(generated_images.shape[0] , self.nclasses)
             ), axis=0)
 
             X, aux_y = self.shuffle_data(X, aux_y)
@@ -1074,7 +1074,7 @@ class BalancingGAN:
                 aux_y = np.concatenate([
                     # np.full(bg_test.dataset_y.shape[0], 1),
                     bg_test.dataset_y,
-                    np.full(generated_images.shape[0], 2),
+                    np.full(generated_images.shape[0], self.nclasses),
                 ])
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
