@@ -677,7 +677,7 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_4 = Concatenate()([en_4, feature2, latent_code])
+        en_4 = Concatenate()([en_4, feature2, latent_noise1])
         # en_3 = Concatenate()([en_3, latent_noise2])
         # en_2 = Concatenate()([en_2, latent_noise3])
 
