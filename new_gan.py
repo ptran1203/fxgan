@@ -441,22 +441,31 @@ class FeatureNorm(keras.layers.Layer):
 
 
 class BalancingGAN:
-    def _res_block(self,  x, activation = 'leaky_relu'):
+    def _res_block(self,  x, activation = 'leaky_relu', norm = 'batch', scale=None, bias=None):
         if activation == 'leaky_relu':
             actv = LeakyReLU()
         else:
             actv = Activation(activation)
 
+        def norm_layer(x):
+            if norm == 'batch':
+                x = BatchNormalization()(x)
+            else:
+                x = FeatureNorm()([x, scale, bias])
+            return x
+
         skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
-        out = self._norm()(skip)
+        skip = norm_layer(skip)
+        out = actv(skip)
+
+        skip = Conv2D(32, 1, strides = 1, padding = 'sane')(skip)
+
+        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = norm_layer(out)
         out = actv(out)
 
         out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-        out = self._norm()(out)
-        out = actv(out)
-
-        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
-        out = self._norm()(out)
+        out = norm_layer(out)
         out = actv(out)
         out = Add()([out, skip])
         return out
@@ -667,7 +676,7 @@ class BalancingGAN:
         en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
-        de_1 = self._res_block(en_4)
+        de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
         de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
@@ -675,7 +684,7 @@ class BalancingGAN:
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        de_2 = self._res_block(de_1)
+        de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
         de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
         # de_2 = self._norm()(de_2)
         de_2 = LeakyReLU()(de_2)
@@ -683,7 +692,7 @@ class BalancingGAN:
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        de_3 = self._res_block(de_2)
+        de_3 = self._res_block(de_2, norm = 'feature', scale=scale, bias=bias)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         # de_3 = self._norm()(de_3)
         de_3 = LeakyReLU()(de_3)
@@ -1086,7 +1095,7 @@ class BalancingGAN:
 
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    random_imgs = bg_train.get_samples_for_class(crt_c, 10)
+                    random_imgs = bg_train.get_samples_for_class(1, 10)
 
                     f = self.generate_latent(range(10))
                     img_samples = np.array([
@@ -1103,7 +1112,7 @@ class BalancingGAN:
                     ])
                     for crt_c in range(1, self.nclasses):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        random_imgs = bg_train.get_samples_for_class(crt_c, 10)
+                        random_imgs = bg_train.get_samples_for_class(0, 10)
                         f = self.generate_latent(range(10))
                         new_samples = np.array([
                             [
