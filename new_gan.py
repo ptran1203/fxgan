@@ -542,10 +542,8 @@ class BalancingGAN:
         self.test_history = defaultdict(list)
         self.trained = False
 
-        self.classifier = load_classifier(self.resolution)
-        self.classifier.trainable = False
+        # Build generator
         self.build_discriminator(min_latent_res=min_latent_res)
-        self.build_features_from_classifier_model()
         self.build_features_from_d_model()
         self.build_latent_encoder()
         self.build_res_unet()
@@ -562,7 +560,6 @@ class BalancingGAN:
             # loss = keras.losses.Hinge(),
             loss = 'sparse_categorical_crossentropy'
             # loss = keras.losses.BinaryCrossentropy()
-            # loss = wasserstein_loss,
         )
 
         # Define combined for training generator.
@@ -590,9 +587,9 @@ class BalancingGAN:
         self.combined.add_loss(K.mean(K.abs(
             self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
         )))
-        # self.combined.add_loss(K.mean(K.abs(
-        #     fake - other_batch
-        # )))
+        self.combined.add_loss(3 * K.mean(K.abs(
+            fake - other_batch
+        )))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         # self.combined.add_loss(K.mean(K.abs(
@@ -607,8 +604,6 @@ class BalancingGAN:
             metrics=['accuracy'],
             loss= 'sparse_categorical_crossentropy',
             # loss = keras.losses.BinaryCrossentropy(),
-            # loss = wasserstein_loss,
-            # loss = keras.losses.Hinge(),
             # loss_weights = [1.0],
         )
 
@@ -860,15 +855,6 @@ class BalancingGAN:
             name = 'Feature_matching'
         )
 
-    def build_features_from_classifier_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.classifier.layers[-3](image)
-        self.features_from_classifier = Model(
-            inputs = image,
-            output = model_output,
-            name = 'Feature_matching_classifier'
-        )
-
     def _norm(self):
         return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
 
@@ -1074,7 +1060,7 @@ class BalancingGAN:
                 aux_y = np.concatenate([
                     # np.full(bg_test.dataset_y.shape[0], 1),
                     bg_test.dataset_y,
-                    np.full(generated_images.shape[0], self.nclasses),
+                    np.full(generated_images.shape[0], self.nclasses)
                 ])
 
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
