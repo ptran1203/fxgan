@@ -562,9 +562,9 @@ class BalancingGAN:
         self.discriminator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics=['accuracy'],
-            # loss = keras.losses.Hinge(),
+            loss = keras.losses.Hinge(),
             # loss = 'sparse_categorical_crossentropy'
-            loss = keras.losses.BinaryCrossentropy()
+            # loss = keras.losses.BinaryCrossentropy()
         )
 
         # Define combined for training generator.
@@ -597,7 +597,7 @@ class BalancingGAN:
                 other_batch,other_batch,other_batch
         ]))
 
-        self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
+        self.combined.add_loss(2 * K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
         # self.combined.add_loss(0.1 * K.mean(K.abs(
         #     fake - other_batch
         # )))
@@ -613,9 +613,9 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            # loss = keras.losses.Hinge(),
+            loss = keras.losses.Hinge(),
             # loss= 'sparse_categorical_crossentropy',
-            loss = keras.losses.BinaryCrossentropy(),
+            # loss = keras.losses.BinaryCrossentropy(),
             # loss_weights = [1.0],
         )
 
