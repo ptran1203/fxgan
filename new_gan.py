@@ -709,29 +709,30 @@ class BalancingGAN:
         # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
-        # de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
-        de_1 = self._res_block(en_4)
+        decoder_activation = Activation('relu')
+        de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
+        # de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
-        de_1 = LeakyReLU()(de_1)
+        de_1 = decoder_activation(de_1)
         de_1 = FeatureNorm()([de_1, scale, bias])
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        # de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
-        de_2 = self._res_block(de_1)
+        de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
+        # de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         # de_2 = self._norm()(de_2)
-        de_2 = LeakyReLU()(de_2)
+        de_2 = decoder_activation(de_2)
         de_2 = FeatureNorm()([de_2, scale, bias])
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
-        # de_3 = self._norm()(de_3)
-        de_3 = LeakyReLU()(de_3)
-        de_3 = FeatureNorm()([de_3, scale, bias])
+        de_3 = self._norm()(de_3)
+        de_3 = decoder_activation(de_3)
+        # de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = Dropout(0.3)(de_3)
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
@@ -912,32 +913,29 @@ class BalancingGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(fake_size))
-            real_img_for_fake = bg_train.get_samples_by_labels(label_batch)
-            other_imgs = bg_train.get_samples_by_labels(label_batch)
-            generated_images = self.generator.predict(
-                [
-                    image_batch[:fake_size],
-                    image_batch2[:fake_size],
-                    f,
-                ],
-                verbose=0
-            )
+            for i in range(2):
+                generated_images = self.generator.predict(
+                    [
+                        image_batch[:fake_size],
+                        image_batch2[:fake_size],
+                        f,
+                    ],
+                    verbose=0
+                )
 
-            X = np.concatenate((
-                # real_distr,
-                # fake_distr,
-                image_batch2,
-                generated_images,
-            ), axis = 0)
+                X = np.concatenate((
+                    image_batch2,
+                    generated_images,
+                ), axis = 0)
 
-            aux_y = np.concatenate((
-                np.full(label_batch.shape[0] , 0),
-                # label_batch2,
-                np.full(generated_images.shape[0] , 1)
-            ), axis=0)
+                aux_y = np.concatenate((
+                    np.full(label_batch.shape[0] , 0),
+                    # label_batch2,
+                    np.full(generated_images.shape[0] , 1)
+                ), axis=0)
 
-            # X, aux_y = self.shuffle_data(X, aux_y)
-            loss, acc = self.discriminator.train_on_batch(X, aux_y)
+                # X, aux_y = self.shuffle_data(X, aux_y)
+                loss, acc = self.discriminator.train_on_batch(X, aux_y)
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
