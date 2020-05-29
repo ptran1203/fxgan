@@ -664,6 +664,8 @@ class BalancingGAN:
             image2,image2,image2
         ]))
 
+        attr_feature = Flatten()(attr_feature)
+
         scale = Dense(256, activation='relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
         bias = Dense(256, activation='relu')(attr_feature)
