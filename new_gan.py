@@ -668,7 +668,7 @@ class BalancingGAN:
         feature = self.encoder(image)
         attr_feature = self.features_from_d_model(image2)
 
-        attr_feature = Flatten()(attr_feature)
+        # attr_feature = Flatten()(attr_feature)
 
         scale = Dense(256, activation='relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
