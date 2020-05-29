@@ -224,6 +224,18 @@ def load_test_data(resolution = 52):
     save_ds(res, resolution, 'test')
     return res
 
+
+def pred2bin(pred):
+    """
+    Convert probability prediction of sigmoid into binary
+    """
+    for x in pred:
+        if x[0] >= 0.5:
+            x[0] = 1
+        else:
+            x[0] = 0
+    return pred
+
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
@@ -602,9 +614,9 @@ class BalancingGAN:
 
         # performce triplet loss
         # self.features_from_d_model.trainable = True
-        margin = 1.
-        d_pos = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
-        d_neg = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
+        margin = 0.01
+        d_pos = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
+        d_neg = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
@@ -1005,15 +1017,22 @@ class BalancingGAN:
 
     def evaluate_d(self, test_x, test_y):
         y_pre = self.discriminator.predict(test_x)
-        y_pre = np.argmax(y_pre, axis=1)
+        if y_pred[0].shape[0] > 1:
+            y_pre = np.argmax(y_pre, axis=1)
+        else:
+            y_pred = pred2bin(pred)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
     def evaluate_g(self, test_x, test_y):
-        y_pre, *_ = self.combined.predict(test_x)
-        y_pre = np.argmax(y_pre, axis=1)
+        y_pre = self.combined.predict(test_x)
+        if y_pred[0].shape[0] > 1:
+            y_pre = np.argmax(y_pre, axis=1)
+        else:
+            y_pred = pred2bin(pred)
+
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
