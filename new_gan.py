@@ -589,8 +589,8 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(0.1 * K.mean(K.abs(
-            self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
+        self.combined.add_loss(K.mean(K.abs(
+            self.encoder(fake)[-1] - self.encoder(other_batch)[-1]
         )))
         # self.combined.add_loss(0.1 * K.mean(K.abs(
         #     fake - other_batch
@@ -679,12 +679,12 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_4 = Concatenate()([en_4, feature2, latent_noise1])
+        en_4 = Concatenate()([en_4, latent_noise1])
         # en_3 = Concatenate()([en_3, latent_noise2])
         # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
-        de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
+        de_1 = self._res_block(latent_noise1, norm = 'feature', scale=scale, bias=bias)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
