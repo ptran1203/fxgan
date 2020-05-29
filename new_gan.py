@@ -826,17 +826,17 @@ class BalancingGAN:
         cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
 
         cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
+        cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
         cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
+        cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
+        cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
