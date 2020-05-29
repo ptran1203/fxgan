@@ -615,8 +615,8 @@ class BalancingGAN:
         # performce triplet loss
         # self.features_from_d_model.trainable = True
         margin = 1.0
-        d_pos = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
-        d_neg = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
+        d_pos = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
+        d_neg = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
