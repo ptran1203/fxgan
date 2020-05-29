@@ -598,10 +598,10 @@ class BalancingGAN:
                 other_batch,other_batch,other_batch
         ]))
 
-        self.combined.add_loss(2 * K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
-        # self.combined.add_loss(0.1 * K.mean(K.abs(
-        #     fake - other_batch
-        # )))
+        self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
+        self.combined.add_loss(K.mean(K.abs(
+            self.features_from_d_model(fake) - self.features_from_d_model(other_batch)
+        )))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
         # self.combined.add_loss(K.mean(K.abs(
@@ -823,7 +823,7 @@ class BalancingGAN:
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
+        # cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
 
         cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(self._norm())
@@ -835,10 +835,10 @@ class BalancingGAN:
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
+        # cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
+        # # cnn.add(self._norm())
+        # cnn.add(LeakyReLU(alpha=0.2))
+        # cnn.add(Dropout(0.3))
 
         cnn.add(Flatten())
 
