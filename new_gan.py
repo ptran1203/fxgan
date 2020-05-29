@@ -601,7 +601,7 @@ class BalancingGAN:
         self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
 
         # performce triplet loss
-        self.features_from_d_model.trainable = True
+        # self.features_from_d_model.trainable = True
         margin = 1.
         d_pos = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
         d_neg = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
