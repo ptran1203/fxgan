@@ -690,12 +690,13 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_4 = Concatenate()([en_4, latent_noise1])
+        # en_4 = Concatenate()([en_4, latent_noise1])
         # en_3 = Concatenate()([en_3, latent_noise2])
         # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
-        de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
+        # de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
+        de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
@@ -703,7 +704,8 @@ class BalancingGAN:
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
+        # de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
+        de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         # de_2 = self._norm()(de_2)
         de_2 = LeakyReLU()(de_2)
@@ -713,9 +715,9 @@ class BalancingGAN:
 
         de_3 = self._res_block(de_2)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
-        de_3 = self._norm()(de_3)
+        # de_3 = self._norm()(de_3)
         de_3 = LeakyReLU()(de_3)
-        # de_3 = FeatureNorm()([de_3, scale, bias])
+        de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = Dropout(0.3)(de_3)
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
@@ -835,10 +837,10 @@ class BalancingGAN:
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        # cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
-        # # cnn.add(self._norm())
-        # cnn.add(LeakyReLU(alpha=0.2))
-        # cnn.add(Dropout(0.3))
+        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
+        # cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
 
         cnn.add(Flatten())
 
