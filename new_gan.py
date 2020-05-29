@@ -1017,10 +1017,10 @@ class BalancingGAN:
 
     def evaluate_d(self, test_x, test_y):
         y_pre = self.discriminator.predict(test_x)
-        if y_pred[0].shape[0] > 1:
+        if y_pre[0].shape[0] > 1:
             y_pre = np.argmax(y_pre, axis=1)
         else:
-            y_pred = pred2bin(pred)
+            y_pre = pred2bin(pred)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
@@ -1028,10 +1028,10 @@ class BalancingGAN:
 
     def evaluate_g(self, test_x, test_y):
         y_pre = self.combined.predict(test_x)
-        if y_pred[0].shape[0] > 1:
+        if y_pre[0].shape[0] > 1:
             y_pre = np.argmax(y_pre, axis=1)
         else:
-            y_pred = pred2bin(pred)
+            y_pre = pred2bin(pred)
 
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
