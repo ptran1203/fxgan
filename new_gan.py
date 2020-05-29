@@ -589,11 +589,11 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        fake_perceptual_features = self.perceptual_model(Concatenate([
+        fake_perceptual_features = self.perceptual_model(Concatenate()([
                 fake,fake,fake
         ]))
 
-        real_perceptual_features = self.perceptual_model(Concatenate([
+        real_perceptual_features = self.perceptual_model(Concatenate()([
                 other_batch,other_batch,other_batch
         ]))
 
@@ -660,7 +660,7 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attr_feature = self.perceptual_model(Concatenate([
+        attr_feature = self.perceptual_model(Concatenate()([
             image2,image2,image2
         ]))
 
