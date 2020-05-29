@@ -548,11 +548,11 @@ class BalancingGAN:
         self.trained = False
 
         # Build generator
+        self.build_perceptual_model()
         self.build_discriminator(min_latent_res=min_latent_res)
         self.build_features_from_d_model()
         self.build_latent_encoder()
         self.build_res_unet()
-        self.build_perceptual_model()
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -589,9 +589,15 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        self.combined.add_loss(K.mean(K.abs(
-            self.encoder(fake)[-1] - self.encoder(other_batch)[-1]
-        )))
+        fake_perceptual_features = self.perceptual_model(Concatenate([
+                fake,fake,fake
+        ]))
+
+        real_perceptual_features = self.perceptual_model(Concatenate([
+                other_batch,other_batch,other_batch
+        ]))
+
+        self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
         # self.combined.add_loss(0.1 * K.mean(K.abs(
         #     fake - other_batch
         # )))
@@ -654,9 +660,10 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        feature2 = self.encoder(image2)[-1]
+        attr_feature = self.perceptual_model(Concatenate([
+            image2,image2,image2
+        ]))
 
-        attr_feature = Flatten()(feature2)
         scale = Dense(256, activation='relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
         bias = Dense(256, activation='relu')(attr_feature)
@@ -684,7 +691,7 @@ class BalancingGAN:
         # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
-        de_1 = self._res_block(latent_noise1, norm = 'feature', scale=scale, bias=bias)
+        de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
         de_1 = LeakyReLU()(de_1)
