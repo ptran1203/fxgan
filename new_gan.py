@@ -951,7 +951,7 @@ class BalancingGAN:
                 fake_label = np.ones((generated_images.shape[0], 1))
                 real_label = -np.ones((label_batch.shape[0], 1))
 
-                loss, acc = self.discriminator_model.train_on_batch(
+                loss, acc, *rest = self.discriminator_model.train_on_batch(
                     [image_batch2, generated_images],
                     [fake_label, real_label]
                 )
@@ -1126,7 +1126,7 @@ class BalancingGAN:
                 X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
 
-                test_disc_loss, test_disc_acc = self.discriminator_model.evaluate(X, Y, verbose=False)
+                test_disc_loss, test_disc_acc, *rest = self.discriminator_model.evaluate(X, Y, verbose=False)
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
