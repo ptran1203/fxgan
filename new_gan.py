@@ -475,16 +475,21 @@ class RandomPick(keras.layers.Layer):
 
 
 class FeatureNorm(keras.layers.Layer):
-    def __init__(self, epsilon = 1e-6):
+    def __init__(self, epsilon = 1e-6, norm = 'batch'):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
+        self.norm = norm
 
     def call(self, inputs):
         x, scale, bias = inputs
 
         # x = [batch, height, width, channels]
-        mean = K.mean(x, axis = [1, 2], keepdims = True)
-        std = K.std(x, axis = [1, 2], keepdims = True)
+        axis = [-1] # instance norm
+        if self.norm == 'batch':
+            axis = [0]
+
+        mean = K.mean(x, axis = axis, keepdims = True)
+        std = K.std(x, axis = axis, keepdims = True)
         norm = (x - mean) * (1 / (std + self.epsilon))
 
         broadcast_scale = K.reshape(scale, (-1, 1, 1, 1))
@@ -600,7 +605,8 @@ class BalancingGAN:
 
         # Build generator
         self.build_perceptual_model()
-        self.build_discriminator(min_latent_res=min_latent_res)
+        self.build_attribute_net()
+        self.build_discriminator()
         self.build_features_from_d_model()
         self.build_latent_encoder()
         self.build_res_unet()
@@ -620,8 +626,10 @@ class BalancingGAN:
         )
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        real_output_for_d = self.discriminator(real_images)
-        fake_output_for_d = self.discriminator(fake_images)
+        scale, bias = self.attribute_net(real_images)
+
+        real_output_for_d = self.discriminator([real_images, scale, bias])
+        fake_output_for_d = self.discriminator([fake_images, scale, bias])
         self.discriminator_model = Model(
             inputs = [real_images, fake_images],
             outputs = [fake_output_for_d, real_output_for_d],
@@ -643,7 +651,7 @@ class BalancingGAN:
         # self.latent_encoder.trainable = False
 
         # Model to train d
-        aux_fake = self.discriminator(fake)
+        aux_fake = self.discriminator([fake, scale, bias])
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -680,6 +688,19 @@ class BalancingGAN:
         return self.perceptual_model(Concatenate()([
             image, image, image
         ]))
+
+    def build_attribute_net(self):
+        image = Input((self.resolution, self.resolution, self.channels))
+        feature = self.vgg16_features(image)
+        attr_feature = Flatten()(feature)
+
+        scale = Dense(256,)(attr_feature)
+        scale = Dense(1, name = 'norm_scale')(scale)
+        bias = Dense(256,)(attr_feature)
+        bias = Dense(1, name = 'norm_bias')(bias)
+
+        self.attribute_net = Model(inputs = image, outputs = [scale, bias],
+                                   name = 'attribute_net')
 
     def build_res_unet(self):
         def _encoder(activation = 'relu'):
@@ -731,10 +752,6 @@ class BalancingGAN:
 
         attr_feature = Flatten()(attr_feature)
 
-        scale = Dense(256, activation='relu')(attr_feature)
-        scale = Dense(1, name = 'norm_scale')(scale)
-        bias = Dense(256, activation='relu')(attr_feature)
-        bias = Dense(1, name = 'norm_bias')(bias)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -879,7 +896,7 @@ class BalancingGAN:
         plot_d(train_d, test_d)
 
 
-    def _build_common_encoder(self, image, min_latent_res):
+    def _build_common_encoder(self, image):
         resolution = self.resolution
         channels = self.channels
 
@@ -890,7 +907,7 @@ class BalancingGAN:
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        # cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
+        cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
 
         cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(self._norm())
@@ -905,26 +922,33 @@ class BalancingGAN:
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
+        # cnn.add(Dropout(0.3))
 
-        cnn.add(Flatten())
+        # cnn.add(Flatten())
 
         features = cnn(image)
         return features
 
-    def build_discriminator(self, min_latent_res=8):
+    def build_discriminator(self):
         resolution = self.resolution
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
-        features = self._build_common_encoder(image, min_latent_res)
+        # scale bias for feature norm
+        scale = Input((1,))
+        bias = Input((1,))
 
-        features = Dropout(0.4)(features)
+        features = self._build_common_encoder(image)
+        features = FeatureNorm()([features, scale, bias])
+        features = Flatten()(features)
+        features = Dropout(0.3)(features)
         aux = Dense(
-            1, activation = 'sigmoid', name='auxiliary'
+            1, name='auxiliary'
         )(features)
 
-        self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
+        self.discriminator = Model(inputs=[image, scale, bias],
+                                   outputs=aux,
+                                   name='discriminator')
 
 
     def generate_latent(self, c, size = 1):
