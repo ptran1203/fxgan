@@ -936,12 +936,12 @@ class BalancingGAN:
 
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
-            f = self.generate_latent(range(fake_size))
+            f = self.generate_latent(range(image_batch.shape[0]))
             for i in range(2):
                 generated_images = self.generator.predict(
                     [
-                        image_batch[:fake_size],
-                        image_batch2[:fake_size],
+                        image_batch,
+                        image_batch2,
                         f,
                     ],
                     verbose=0
