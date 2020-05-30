@@ -476,6 +476,7 @@ class BalancingGAN:
         out = actv(skip)
 
         skip = Conv2D(64, 1, strides = 1, padding = 'same')(skip)
+        skip = actv(skip)
 
         out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
         out = norm_layer(out)
@@ -638,34 +639,39 @@ class BalancingGAN:
         )
 
     def build_res_unet(self):
-        def _encoder():
+        def _encoder(activation = 'relu'):
+            if activation == 'leaky_relu':
+                actv = LeakyReLU()
+            else:
+                actv = Activation(activation)
+
             image = Input(shape=(self.resolution, self.resolution, self.channels))
 
-            en_1 = self._res_block(image)
+            en_1 = self._res_block(image, activation)
             en_1 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_1)
             en_1 = self._norm()(en_1)
-            en_1 = LeakyReLU(alpha=0.2)(en_1)
+            en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
             # out_shape: 32*32*64
 
-            en_2 = self._res_block(en_1)
+            en_2 = self._res_block(en_1, activation)
             en_2 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_2)
             en_2 = self._norm()(en_2)
-            en_2 = LeakyReLU(alpha=0.2)(en_2)
+            en_2 = actv(en_2)
             en_2 = Dropout(0.3)(en_2)
             # out_shape:  16*16*64
 
-            en_3 = self._res_block(en_2)
+            en_3 = self._res_block(en_2, activation)
             en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
             en_3 = self._norm()(en_3)
-            en_3 = LeakyReLU(alpha=0.2)(en_3)
+            en_3 = actv(en_3)
             en_3 = Dropout(0.3)(en_3)
             # out_shape: 8*8*128
 
-            en_4 = self._res_block(en_3)
+            en_4 = self._res_block(en_3, activation)
             en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
             en_4 = self._norm()(en_4)
-            en_4 = LeakyReLU(alpha=0.2)(en_4)
+            en_4 = actv(en_4)
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
             # out_shape: 4 4 128
 
@@ -704,13 +710,13 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        # en_4 = Concatenate()([en_4, latent_noise1])
+        en_4 = Concatenate()([en_4, latent_noise1])
         # en_3 = Concatenate()([en_3, latent_noise2])
         # en_2 = Concatenate()([en_2, latent_noise3])
 
         # botteneck
         decoder_activation = Activation('relu')
-        de_1 = self._res_block(en_4, norm = 'feature', scale=scale, bias=bias)
+        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
         # de_1 = self._res_block(en_4)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         # de_1 = self._norm()(de_1)
@@ -719,7 +725,7 @@ class BalancingGAN:
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        de_2 = self._res_block(de_1, norm = 'feature', scale=scale, bias=bias)
+        de_2 = self._res_block(de_1, activation='relu, norm = 'feature', scale=scale, bias=bias)
         # de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         # de_2 = self._norm()(de_2)
@@ -728,7 +734,7 @@ class BalancingGAN:
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        de_3 = self._res_block(de_2)
+        de_3 = self._res_block(de_2,  activation='relu)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         de_3 = self._norm()(de_3)
         de_3 = decoder_activation(de_3)
