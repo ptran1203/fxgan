@@ -725,7 +725,7 @@ class BalancingGAN:
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        de_2 = self._res_block(de_1, activation='relu, norm = 'feature', scale=scale, bias=bias)
+        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
         # de_2 = self._res_block(de_1)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         # de_2 = self._norm()(de_2)
@@ -881,6 +881,7 @@ class BalancingGAN:
         )(features)
 
         self.discriminator = Model(inputs=image, outputs=aux, name='discriminator')
+
 
     def generate_latent(self, c, size = 1):
         return np.array([
