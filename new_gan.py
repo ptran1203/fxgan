@@ -59,6 +59,17 @@ CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
 
+
+def hinge_G_loss(y_true, y_pred):
+    return -K.mean(y_pred)
+
+def hinge_D_real_loss(y_true, y_pred):
+    return K.mean(K.relu(1-y_pred))
+
+def hinge_D_fake_loss(y_true, y_pred):
+    return K.mean(K.relu(1+y_pred))
+
+
 def save_image_array(img_array, fname=None, show=None):
         # convert 1 channel to 3 channels
         channels = img_array.shape[-1]
@@ -235,6 +246,8 @@ def pred2bin(pred):
         else:
             x[0] = 0
     return pred
+
+
 
 class BatchGenerator:
     TRAIN = 1
@@ -580,6 +593,19 @@ class BalancingGAN:
             # loss = wasserstein_loss,
         )
 
+        fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        real_output_for_d = self.discriminator(real_images)
+        fake_output_for_d = self.discriminator(fake_images)
+        self.discriminator_model = Model(
+            inputs = [real_images, fake_images],
+            outputs = [fake_output_for_d, real_output_for_d],
+        )
+        self.discriminator_model.compile(
+            optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics = ['accuracy'],
+            loss = [hinge_D_fake_loss, hinge_D_real_loss]
+        )
+
         # Define combined for training generator.
         fake = self.generator([
             real_images, other_batch, latent_code
@@ -590,11 +616,8 @@ class BalancingGAN:
         self.features_from_d_model.trainable = False
         # self.latent_encoder.trainable = False
 
+        # Model to train d
         aux_fake = self.discriminator(fake)
-
-        # fake info
-
-
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -602,27 +625,17 @@ class BalancingGAN:
             name = 'Combined'
         )
 
-        fake_perceptual_features = self.perceptual_model(Concatenate()([
-                fake,fake,fake
-        ]))
-
-        real_perceptual_features = self.perceptual_model(Concatenate()([
-                other_batch,other_batch,other_batch
-        ]))
+        fake_perceptual_features = self.vgg16_features(fake)
+        real_perceptual_features = self.vgg16_features(other_batch)
 
         self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
 
         # performce triplet loss
-        # self.features_from_d_model.trainable = True
         margin = 1.0
         d_pos = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
         d_neg = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
- 
-        # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
-        # self.combined.add_loss(K.mean(K.abs(
-        #     fake_perceptual_features - real_perceptual_features1
-        # )))
+
 
         self.combined.compile(
             optimizer=Adam(
@@ -632,8 +645,8 @@ class BalancingGAN:
             metrics=['accuracy'],
             # loss = keras.losses.Hinge(),
             # loss= 'sparse_categorical_crossentropy',
-            loss = keras.losses.BinaryCrossentropy(),
-            # loss = wasserstein_loss,
+            # loss = keras.losses.BinaryCrossentropy(),
+            loss = hinge_G_loss,
             # loss_weights = [1.0],
         )
 
@@ -934,19 +947,14 @@ class BalancingGAN:
                     verbose=0
                 )
 
-                X = np.concatenate((
-                    image_batch2,
-                    generated_images,
-                ), axis = 0)
-
-                aux_y = np.concatenate((
-                    np.full(label_batch.shape[0] , 0),
-                    # label_batch2,
-                    np.full(generated_images.shape[0] , 1)
-                ), axis=0)
-
                 # X, aux_y = self.shuffle_data(X, aux_y)
-                loss, acc = self.discriminator.train_on_batch(X, aux_y)
+                fake_label = np.ones((generated_images.shape[0]))
+                real_label = -np.ones((label_batch.shape[0]))
+
+                loss, acc = self.discriminator_model.train_on_batch(
+                    [image_batch2, generated_images],
+                    [fake_size, real_label]
+                )
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
@@ -955,8 +963,7 @@ class BalancingGAN:
 
             [loss, acc, *rest] = self.combined.train_on_batch(
                 [image_batch, image_batch2, f],
-                [np.full(label_batch.shape[0], 0)],
-                # [label_batch2]
+                [real_label],
             )
 
             epoch_gen_loss.append(loss)
@@ -1110,12 +1117,16 @@ class BalancingGAN:
     
                 aux_y = np.concatenate([
                     np.full(bg_test.dataset_y.shape[0], 0),
-                    # bg_test.dataset_y,
                     np.full(generated_images.shape[0], 1)
                 ])
 
-                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                    X, aux_y, verbose=False)
+                fake_label = np.ones((bg_test.dataset_y.shape[0], 1))
+                real_label = -np.ones((generated_images.shape[0], 1))
+
+                X = [bg_test.dataset_x, generated_images]
+                Y = [fake_label, real_label]
+
+                test_disc_loss, test_disc_acc = self.discriminator_model.evaluate(X, Y, verbose=False)
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
@@ -1123,13 +1134,12 @@ class BalancingGAN:
                         self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
                         f
                     ],
-                    [np.full(bg_test.dataset_y.shape[0], 0)],
-                    # [bg_test.dataset_y],
+                    [real_label],
                     verbose = 0
                 )
 
                 if e % 25 == 0:
-                    self.evaluate_d(X, aux_y)
+                    self.evaluate_d(X, Y)
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
@@ -1137,7 +1147,7 @@ class BalancingGAN:
                             f,
                             
                         ],
-                        [np.full(bg_test.dataset_y.shape[0], 0)],
+                        [real_label],
                         # [bg_test.dataset_y]
                     )
 
