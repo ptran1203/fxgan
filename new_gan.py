@@ -734,7 +734,7 @@ class BalancingGAN:
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        de_3 = self._res_block(de_2,  activation='relu)
+        de_3 = self._res_block(de_2,  activation='relu')
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         de_3 = self._norm()(de_3)
         de_3 = decoder_activation(de_3)
