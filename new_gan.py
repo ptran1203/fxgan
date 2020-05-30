@@ -476,7 +476,6 @@ class BalancingGAN:
         out = actv(skip)
 
         skip = Conv2D(64, 1, strides = 1, padding = 'same')(skip)
-        skip = actv(skip)
 
         out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
         out = norm_layer(out)
@@ -616,8 +615,8 @@ class BalancingGAN:
         # performce triplet loss
         # self.features_from_d_model.trainable = True
         margin = 1.0
-        d_pos = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
-        d_neg = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
+        d_pos = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
+        d_neg = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
  
         # self.combined.add_loss(K.mean(K.abs(real_features - fake_features)))
@@ -637,6 +636,11 @@ class BalancingGAN:
             # loss = wasserstein_loss,
             # loss_weights = [1.0],
         )
+
+    def vgg16_features(self, image):
+        return self.perceptual_model(Concatenate()([
+            image, image, image
+        ]))
 
     def build_res_unet(self):
         def _encoder(activation = 'relu'):
@@ -684,9 +688,9 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attr_feature = self.features_from_d_model(image2)
+        attr_feature = self.vgg16_features(image2)
 
-        # attr_feature = Flatten()(attr_feature)
+        attr_feature = Flatten()(attr_feature)
 
         scale = Dense(256, activation='relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
