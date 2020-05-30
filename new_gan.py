@@ -352,8 +352,11 @@ class BatchGenerator:
         # per class ids
         self.per_class_ids = dict()
         ids = np.array(range(len(self.dataset_x)))
-        for c in classes:
-            self.per_class_ids[c] = ids[self.labels == c]
+        try:
+            for c in classes:
+                self.per_class_ids[c] = ids[self.labels == c]
+        except:
+            pass
 
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
