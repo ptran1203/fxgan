@@ -948,12 +948,12 @@ class BalancingGAN:
                 )
 
                 # X, aux_y = self.shuffle_data(X, aux_y)
-                fake_label = np.ones((generated_images.shape[0]))
-                real_label = -np.ones((label_batch.shape[0]))
+                fake_label = np.ones((generated_images.shape[0], 1))
+                real_label = -np.ones((label_batch.shape[0], 1))
 
                 loss, acc = self.discriminator_model.train_on_batch(
                     [image_batch2, generated_images],
-                    [fake_size, real_label]
+                    [fake_label, real_label]
                 )
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
