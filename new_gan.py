@@ -48,6 +48,7 @@ from google.colab.patches import cv2_imshow
 from PIL import Image
 
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
+DS_DIR_2 = '/content/drive/My Drive/bagan/dataset/multi_chest'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
@@ -162,7 +163,8 @@ def save_ds(imgs, rst, opt):
     pickle_save(imgs, path)
 
 def load_ds(rst, opt):
-    path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
+    # path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
+    path = '{}/imgs_{}.pickle'.format(DS_DIR_2, rst)
     return pickle_load(path)
 
 def get_img(path, rst):
@@ -279,7 +281,8 @@ class BatchGenerator:
 
             # Include 1 single color channel
             self.dataset_x = np.expand_dims(self.dataset_x, axis=-1)
-        else:
+
+        elif dataset == 'chest':
             if self.data_src == self.TEST:
                 x, y = load_test_data(rst)
                 self.dataset_x = x
@@ -289,6 +292,15 @@ class BatchGenerator:
                 x, y = load_train_data(rst)
                 self.dataset_x = x
                 self.dataset_y = y
+
+        else: # multi chest
+            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
+            
+            self.dataset_x = x
+            # TODO: HARD CODE HERE
+            self.dataset_y = np.ones((x.shape[0], 1))
+
+
 
         # Arrange x: channel first
         if self.data_src == self.TEST and rst == 32:
