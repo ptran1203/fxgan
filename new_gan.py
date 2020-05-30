@@ -296,9 +296,14 @@ class BatchGenerator:
         else: # multi chest
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
             
-            self.dataset_x = x
-            # TODO: HARD CODE HERE
-            self.dataset_y = np.ones((x.shape[0], 1))
+            if self.data_src == self.TEST
+                self.dataset_x = x[:400]
+                # TODO: HARD CODE HERE
+                self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
+            else:
+                self.dataset_x = x[400:800]
+                # TODO: HARD CODE HERE
+                self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
 
 
 
