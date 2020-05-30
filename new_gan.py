@@ -298,11 +298,11 @@ class BatchGenerator:
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
             
             if self.data_src == self.TEST:
-                self.dataset_x = x[:D_SIZE]
+                self.dataset_x = x[:self.D_SIZE]
                 # TODO: HARD CODE HERE
                 self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
             else:
-                self.dataset_x = x[D_SIZE:D_SIZE * 2]
+                self.dataset_x = x[self.D_SIZE:self.D_SIZE * 2]
                 # TODO: HARD CODE HERE
                 self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
 
