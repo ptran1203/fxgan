@@ -827,9 +827,9 @@ class BalancingGAN:
         latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
 
         en_1 = SelfAttention(64)(feature[0])
-        en_2 = SelfAttention(64)(feature[0])
-        en_3 = SelfAttention(128)(feature[0])
-        en_4 = SelfAttention(128)(feature[0])
+        en_2 = SelfAttention(64)(feature[1])
+        en_3 = SelfAttention(128)(feature[2])
+        en_4 = SelfAttention(128)(feature[3])
 
         # en_4 = Concatenate()([en_4, latent_noise1])
         # en_3 = Concatenate()([en_3, latent_noise2])
