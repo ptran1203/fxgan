@@ -254,6 +254,7 @@ def pred2bin(pred):
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
+    D_SIZE = 400
 
     def __init__(
         self,
@@ -297,11 +298,11 @@ class BatchGenerator:
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
             
             if self.data_src == self.TEST:
-                self.dataset_x = x[:400]
+                self.dataset_x = x[:D_SIZE]
                 # TODO: HARD CODE HERE
                 self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
             else:
-                self.dataset_x = x[400:800]
+                self.dataset_x = x[D_SIZE:D_SIZE * 2]
                 # TODO: HARD CODE HERE
                 self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
 
@@ -361,10 +362,15 @@ class BatchGenerator:
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
             samples = self.batch_size
-
-        np.random.shuffle(self.per_class_ids[c])
-        to_return = self.per_class_ids[c][0:samples]
-        return self.dataset_x[to_return]
+        try:
+            np.random.shuffle(self.per_class_ids[c])
+            to_return = self.per_class_ids[c][0:samples]
+            return self.dataset_x[to_return]
+        except:
+            random = np.arange(self.dataset_x.shape[0])
+            np.random.shuffle(random)
+            to_return = random[:samples]
+            return self.dataset_x[to_return]
 
     def get_samples_by_labels(self, labels, samples = None):
         if samples is None:
