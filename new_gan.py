@@ -809,9 +809,8 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attr_feature = self.vgg16_features(image2)
-
-        attr_feature = Flatten()(attr_feature)
+        
+        scale, bias = self.attribute_net(image2)
 
 
         hw = int(0.0625 * self.resolution)
