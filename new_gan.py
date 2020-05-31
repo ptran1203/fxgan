@@ -730,7 +730,6 @@ class BalancingGAN:
         self.features_from_d_model.trainable = False
         # self.latent_encoder.trainable = False
 
-        # Model to train d
         aux_fake = self.discriminator(fake)
 
         self.combined = Model(
@@ -749,7 +748,6 @@ class BalancingGAN:
         d_pos = K.mean(K.square(self.features_from_classifier(fake) - self.features_from_classifier(other_batch)))
         d_neg = K.mean(K.square(self.features_from_classifier(fake) - self.features_from_classifier(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
-
 
         self.combined.compile(
             optimizer=Adam(
@@ -1041,6 +1039,7 @@ class BalancingGAN:
             for i in c
         ])
 
+
     def build_features_from_d_model(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         model_output = self.discriminator.layers[-3](image)
@@ -1089,8 +1088,8 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = label_batch
-                    fake_label = fake_label * -self.nclasses
+                    real_label = label_batch2
+                    fake_label = np.full(label_batch.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
                     [image_batch2, generated_images],
@@ -1268,7 +1267,7 @@ class BalancingGAN:
                     real_label *= 0
                 if self.loss_type == 'categorical':
                     real_label = bg_test.dataset_y
-                    fake_label = fake_label * -self.nclasses
+                    fake_label = np.full(generated_images.shape[0], self.nclasses)
 
                 X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
