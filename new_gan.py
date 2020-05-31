@@ -688,10 +688,10 @@ class BalancingGAN:
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        scale, bias = self.attribute_net(real_images)
+        # scale, bias = self.attribute_net(real_images)
 
-        real_output_for_d = self.discriminator([real_images, scale, bias])
-        fake_output_for_d = self.discriminator([fake_images, scale, bias])
+        real_output_for_d = self.discriminator(real_images)
+        fake_output_for_d = self.discriminator(fake_images)
 
         self.discriminator_model = Model(
             inputs = [real_images, fake_images],
@@ -1010,7 +1010,7 @@ class BalancingGAN:
             1, name='auxiliary'
         )(features)
 
-        self.discriminator = Model(inputs=[image, scale, bias],
+        self.discriminator = Model(inputs=image,
                                    outputs=aux,
                                    name='discriminator')
 
