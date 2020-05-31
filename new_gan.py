@@ -651,14 +651,17 @@ class BalancingGAN:
 
         self.norm = norm
         if loss_type == 'binary':
+            print('LOSS TYPE: BinaryCrossentropy')
             self.g_loss = keras.losses.BinaryCrossentropy()
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
         elif loss_type == 'hinge':
+            print('LOSS TYPE: Hinge')
             self.g_loss = hinge_G_loss
-            self.d_fake_loss = hinge_D_real_loss
-            self.d_real_loss = hinge_D_fake_loss
+            self.d_fake_loss = hinge_D_fake_loss
+            self.d_real_loss = hinge_D_real_loss
         else:
+            print('LOSS TYPE: wasserstein')
             self.g_loss = wasserstein_loss
             self.d_fake_loss = wasserstein_loss
             self.d_real_loss = wasserstein_loss
@@ -726,8 +729,8 @@ class BalancingGAN:
 
         # performce triplet loss
         margin = 1.0
-        d_pos = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
-        d_neg = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
+        d_pos = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
+        d_neg = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
@@ -804,8 +807,9 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
+        feature2 = self.encoder(image2)
         
-        scale, bias = self.attribute_net(image2)
+        # scale, bias = self.attribute_net(image2)
 
 
         hw = int(0.0625 * self.resolution)
@@ -825,16 +829,18 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        # en_4 = Concatenate()([en_4, latent_noise1])
-        # en_3 = Concatenate()([en_3, latent_noise2])
-        # en_2 = Concatenate()([en_2, latent_noise3])
+        en_4 = Concatenate()([en_4, feature2[3]])
+        en_3 = Concatenate()([en_3, feature2[2]])
+        en_2 = Concatenate()([en_2, feature2[1]])
+        en_1 = Concatenate()([en_1, feature2[0]])
 
         # botteneck
         decoder_activation = Activation('relu')
         de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         de_1 = decoder_activation(de_1)
-        de_1 = FeatureNorm()([de_1, scale, bias])
+        # de_1 = FeatureNorm()([de_1, scale, bias])
+        de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
@@ -843,14 +849,16 @@ class BalancingGAN:
         de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         de_2 = decoder_activation(de_2)
-        de_2 = FeatureNorm()([de_2, scale, bias])
+        # de_2 = FeatureNorm()([de_2, scale, bias])
+        de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
         de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         de_3 = decoder_activation(de_3)
-        de_3 = FeatureNorm()([de_3, scale, bias])
+        # de_3 = FeatureNorm()([de_3, scale, bias])
+        de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
         de_3 = Add()([de_3, en_1])
 
@@ -992,7 +1000,7 @@ class BalancingGAN:
         bias = Input((1,))
 
         features = self._build_common_encoder(image)
-        features = FeatureNorm()([features, scale, bias])
+        # features = FeatureNorm()([features, scale, bias])
         features = Flatten()(features)
         features = Dropout(0.3)(features)
         aux = Dense(
