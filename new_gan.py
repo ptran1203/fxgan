@@ -825,10 +825,10 @@ class BalancingGAN:
         latent_noise3 = Dense(hw*hw*64,)(latent_code)
         latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
 
-        en_1 = FeatureNorm()(feature[0], scale, bias)
-        en_2 = FeatureNorm()(feature[1], scale, bias)
-        en_3 = FeatureNorm()(feature[2], scale, bias)
-        en_4 = FeatureNorm()(feature[3], scale, bias)
+        en_1 = FeatureNorm()([feature[0], scale, bias])
+        en_2 = FeatureNorm()([feature[1], scale, bias])
+        en_3 = FeatureNorm()([feature[2], scale, bias])
+        en_4 = FeatureNorm()([feature[3], scale, bias])
 
         # en_4 = Concatenate()([en_4, latent_noise1])
         # en_3 = Concatenate()([en_3, latent_noise2])
