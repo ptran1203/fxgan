@@ -832,8 +832,8 @@ class BalancingGAN:
 
         en_4 = Concatenate()([en_4, feature2[3]])
         en_3 = Concatenate()([en_3, feature2[2]])
-        en_2 = Concatenate()([en_2, feature2[1]])
-        en_1 = Concatenate()([en_1, feature2[0]])
+        # en_2 = Concatenate()([en_2, feature2[1]])
+        # en_1 = Concatenate()([en_1, feature2[0]])
 
         # botteneck
         decoder_activation = Activation('relu')
@@ -864,7 +864,7 @@ class BalancingGAN:
         # de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
-        de_3 = Add()([de_3, en_1])
+        # de_3 = Add()([de_3, en_1])
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
         outputs = Activation('tanh')(final)
