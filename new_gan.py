@@ -650,11 +650,11 @@ class BalancingGAN:
         self.g_lr = g_lr
 
         self.norm = norm
-        if loss_type = 'binary':
+        if loss_type == 'binary':
             self.g_loss = keras.losses.BinaryCrossentropy()
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
-        elif loss_type = 'hinge':
+        elif loss_type == 'hinge':
             self.g_loss = hinge_G_loss
             self.d_fake_loss = hinge_D_real_loss
             self.d_real_loss = hinge_D_fake_loss
