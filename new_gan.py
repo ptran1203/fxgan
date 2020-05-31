@@ -714,7 +714,7 @@ class BalancingGAN:
         # self.latent_encoder.trainable = False
 
         # Model to train d
-        aux_fake = self.discriminator([fake, scale, bias])
+        aux_fake = self.discriminator(fake)
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
