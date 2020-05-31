@@ -845,7 +845,7 @@ class BalancingGAN:
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        de_1 = SelfAttention(128)(de_1)
+        # de_1 = SelfAttention(128)(de_1)
 
         # de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
         de_2 = self._res_block(de_1, 'relu')
