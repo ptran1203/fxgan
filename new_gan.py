@@ -737,7 +737,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            self.g_loss,
+            loss = self.g_loss,
         )
 
     def vgg16_features(self, image):
