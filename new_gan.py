@@ -725,12 +725,12 @@ class BalancingGAN:
         fake_perceptual_features = self.vgg16_features(fake)
         real_perceptual_features = self.vgg16_features(other_batch)
 
-        self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
+        # self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
 
         # performce triplet loss
         margin = 1.0
-        d_pos = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
-        d_neg = K.sum(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
+        d_pos = K.sum(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
+        d_neg = K.sum(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
