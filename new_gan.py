@@ -163,8 +163,7 @@ def save_ds(imgs, rst, opt):
     pickle_save(imgs, path)
 
 def load_ds(rst, opt):
-    # path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    path = '{}/imgs_{}.pickle'.format(DS_DIR_2, rst)
+    path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
     return pickle_load(path)
 
 def get_img(path, rst):
