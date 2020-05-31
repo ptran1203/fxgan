@@ -664,6 +664,11 @@ class BalancingGAN:
             self.g_loss = keras.losses.BinaryCrossentropy()
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
+        elif loss_type == 'categorical':
+            print('LOSS TYPE: sparse_categorical_crossentropy')
+            self.g_loss = 'sparse_categorical_crossentropy'
+            self.d_fake_loss = 'sparse_categorical_crossentropy'
+            self.d_real_loss = 'sparse_categorical_crossentropy'
         elif loss_type == 'hinge':
             print('LOSS TYPE: Hinge')
             self.g_loss = hinge_G_loss
@@ -763,7 +768,7 @@ class BalancingGAN:
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
         feature = self.features_from_classifier(image)
-        attr_feature = Flatten()(feature)
+        # attr_feature = Flatten()(feature)
 
         scale = Dense(256,)(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
@@ -821,7 +826,7 @@ class BalancingGAN:
         feature = self.encoder(image)
         feature2 = self.encoder(image2)
         
-        scale, bias = self.attribute_net(image2)
+        # scale, bias = self.attribute_net(image2)
 
 
         hw = int(0.0625 * self.resolution)
@@ -841,39 +846,39 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        # en_4 = Concatenate()([en_4, feature2[3]])
+        en_4 = Concatenate()([en_4, feature2[3]])
         # en_3 = Concatenate()([en_3, feature2[2]])
         # en_2 = Concatenate()([en_2, feature2[1]])
         # en_1 = Concatenate()([en_1, feature2[0]])
 
         # botteneck
         decoder_activation = Activation('relu')
-        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_1 = self._res_block(en_4, 'relu')
+        # de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        de_1 = self._res_block(en_4, 'relu')
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         de_1 = decoder_activation(de_1)
-        de_1 = FeatureNorm()([de_1, scale, bias])
-        # de_1 = self._norm()(de_1)
+        # de_1 = FeatureNorm()([de_1, scale, bias])
+        de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_2 = self._res_block(de_1, 'relu')
+        # de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        de_2 = self._res_block(de_1, 'relu')
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         de_2 = decoder_activation(de_2)
-        de_2 = FeatureNorm()([de_2, scale, bias])
-        # de_2 = self._norm()(de_2)
+        # de_2 = FeatureNorm()([de_2, scale, bias])
+        de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_3 = self._res_block(de_2, 'relu')
+        # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        de_3 = self._res_block(de_2, 'relu')
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         de_3 = decoder_activation(de_3)
-        de_3 = FeatureNorm()([de_3, scale, bias])
-        # de_3 = self._norm()(de_3)
+        # de_3 = FeatureNorm()([de_3, scale, bias])
+        de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
-        # de_3 = Add()([de_3, en_1])
+        de_3 = Add()([de_3, en_1])
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
         outputs = Activation('tanh')(final)
@@ -1018,9 +1023,12 @@ class BalancingGAN:
         features = Dropout(0.3)(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
-        aux = Dense(
-            1, activation = activation,name='auxiliary'
-        )(features)
+        if self.loss_type == 'categorical':
+            aux = Dense(self.nclasses, activation = 'softmax', name='auxiliary')(features)
+        else:
+            aux = Dense(
+                1, activation = activation,name='auxiliary'
+            )(features)
 
         self.discriminator = Model(inputs=image,
                                    outputs=aux,
@@ -1080,6 +1088,9 @@ class BalancingGAN:
 
                 if self.loss_type == 'binary':
                     real_label *= 0
+                if self.loss_type == 'categorical':
+                    real_label = label_batch
+                    fake_label = fake_label * -self.nclasses
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
                     [image_batch2, generated_images],
@@ -1122,7 +1133,7 @@ class BalancingGAN:
         # Find last bck name
         files = [
             f for f in os.listdir(self.res_dir)
-            if re.match(r'bck_' + "_" + element, f)
+            if re.match(r'bck_' + element, f)
         ]
         if len(files) > 0:
             fname = files[0]
@@ -1255,6 +1266,9 @@ class BalancingGAN:
 
                 if self.loss_type == 'binary':
                     real_label *= 0
+                if self.loss_type == 'categorical':
+                    real_label = bg_test.dataset_y
+                    fake_label = fake_label * -self.nclasses
 
                 X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
