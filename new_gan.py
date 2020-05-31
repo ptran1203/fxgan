@@ -637,15 +637,11 @@ class BalancingGAN:
             outputs = latent    
         )
 
-    def __init__(self, classes, target_class_id,
-                dratio_mode="uniform", gratio_mode="uniform",
+    def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
-                res_dir = "./res-tmp", image_shape=[32, 32, 1], min_latent_res=8,
+                res_dir = "./res-tmp", image_shape=[32, 32, 1],
                 g_lr = 0.000005, norm = 'batch'):
-        self.gratio_mode = gratio_mode
-        self.dratio_mode = dratio_mode
         self.classes = classes
-        self.target_class_id = target_class_id  # target_class_id is used only during saving, not to overwrite other class results.
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
@@ -654,8 +650,19 @@ class BalancingGAN:
         self.g_lr = g_lr
 
         self.norm = norm
+        if loss_type = 'binary':
+            self.g_loss = keras.losses.BinaryCrossentropy()
+            self.d_fake_loss = keras.losses.BinaryCrossentropy()
+            self.d_real_loss = keras.losses.BinaryCrossentropy()
+        elif loss_type = 'hinge':
+            self.g_loss = hinge_G_loss
+            self.d_fake_loss = hinge_D_real_loss
+            self.d_real_loss = hinge_D_fake_loss
+        else:
+            self.g_loss = wasserstein_loss
+            self.d_fake_loss = wasserstein_loss
+            self.d_real_loss = wasserstein_loss
 
-        self.min_latent_res = min_latent_res
         # Initialize learning variables
         self.adam_lr = adam_lr 
         self.adam_beta_1 = 0.5
@@ -677,21 +684,12 @@ class BalancingGAN:
         other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(self.latent_size,))
 
-        # Build discriminator
-        self.discriminator.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics=['accuracy'],
-            # loss = keras.losses.Hinge(),
-            # loss = 'sparse_categorical_crossentropy'
-            loss = keras.losses.BinaryCrossentropy()
-            # loss = wasserstein_loss,
-        )
-
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
         scale, bias = self.attribute_net(real_images)
 
         real_output_for_d = self.discriminator([real_images, scale, bias])
         fake_output_for_d = self.discriminator([fake_images, scale, bias])
+
         self.discriminator_model = Model(
             inputs = [real_images, fake_images],
             outputs = [fake_output_for_d, real_output_for_d],
@@ -699,7 +697,7 @@ class BalancingGAN:
         self.discriminator_model.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics = ['accuracy'],
-            loss = [hinge_D_fake_loss, hinge_D_real_loss]
+            loss = [self.d_fake_loss, self.d_real_loss]
         )
 
         # Define combined for training generator.
@@ -739,11 +737,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            # loss = keras.losses.Hinge(),
-            # loss= 'sparse_categorical_crossentropy',
-            # loss = keras.losses.BinaryCrossentropy(),
-            loss = hinge_G_loss,
-            # loss_weights = [1.0],
+            self.g_loss,
         )
 
     def vgg16_features(self, image):
@@ -1102,7 +1096,7 @@ class BalancingGAN:
         # Find last bck name
         files = [
             f for f in os.listdir(self.res_dir)
-            if re.match(r'bck_c_{}'.format(self.target_class_id) + "_" + element, f)
+            if re.match(r'bck_' + "_" + element, f)
         ]
         if len(files) > 0:
             fname = files[0]
@@ -1134,8 +1128,8 @@ class BalancingGAN:
     def backup_point(self, epoch):
         # Bck
         print('Save weights at epochs : ', epoch)
-        generator_fname = "{}/bck_c_{}_generator.h5".format(self.res_dir, self.target_class_id)
-        discriminator_fname = "{}/bck_c_{}_discriminator.h5".format(self.res_dir, self.target_class_id)
+        generator_fname = "{}/bck_generator.h5".format(self.res_dir)
+        discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
