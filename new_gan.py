@@ -650,6 +650,7 @@ class BalancingGAN:
         self.g_lr = g_lr
 
         self.norm = norm
+        self.loss_type = loss_type
         if loss_type == 'binary':
             print('LOSS TYPE: BinaryCrossentropy')
             self.g_loss = keras.losses.BinaryCrossentropy()
@@ -1066,6 +1067,9 @@ class BalancingGAN:
                 fake_label = np.ones((generated_images.shape[0], 1))
                 real_label = -np.ones((label_batch.shape[0], 1))
 
+                if self.loss_type == 'binary':
+                    real_label *= 0
+
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
                     [image_batch2, generated_images],
                     [fake_label, real_label]
@@ -1237,6 +1241,9 @@ class BalancingGAN:
 
                 fake_label = np.ones((bg_test.dataset_y.shape[0], 1))
                 real_label = -np.ones((generated_images.shape[0], 1))
+
+                if self.loss_type == 'binary':
+                    real_label *= 0
 
                 X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
