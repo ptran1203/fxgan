@@ -729,8 +729,8 @@ class BalancingGAN:
 
         # performce triplet loss
         margin = 1.0
-        d_pos = K.sum(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
-        d_neg = K.sum(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
+        d_pos = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
+        d_neg = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
@@ -1006,8 +1006,10 @@ class BalancingGAN:
         # features = FeatureNorm()([features, scale, bias])
         features = Flatten()(features)
         features = Dropout(0.3)(features)
+
+        activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         aux = Dense(
-            1, name='auxiliary'
+            1, activation = activation,name='auxiliary'
         )(features)
 
         self.discriminator = Model(inputs=image,
