@@ -636,6 +636,15 @@ class BalancingGAN:
             outputs = latent    
         )
 
+    def build_features_from_classifier_model(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.classifier.layers[-2](image)
+        self.features_from_classifier = Model(
+            inputs = image,
+            output = model_output,
+            name = 'Feature_matching_classifier'
+        )
+
     def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
@@ -677,6 +686,9 @@ class BalancingGAN:
 
         # Build generator
         self.build_perceptual_model()
+        self.classifier = load_classifier(self.resolution)
+        self.classifier.trainable = False
+        self.build_features_from_classifier_model()
         self.build_attribute_net()
         self.build_discriminator()
         self.build_features_from_d_model()
@@ -725,12 +737,12 @@ class BalancingGAN:
         fake_perceptual_features = self.vgg16_features(fake)
         real_perceptual_features = self.vgg16_features(other_batch)
 
-        # self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
+        self.combined.add_loss(K.mean(K.abs(fake_perceptual_features - real_perceptual_features)))
 
         # performce triplet loss
         margin = 1.0
-        d_pos = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(other_batch)))
-        d_neg = K.mean(K.square(self.vgg16_features(fake) - self.vgg16_features(real_images)))
+        d_pos = K.mean(K.square(self.features_from_classifier(fake) - self.features_from_classifier(other_batch)))
+        d_neg = K.mean(K.square(self.features_from_classifier(fake) - self.features_from_classifier(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
@@ -750,7 +762,7 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
-        feature = self.vgg16_features(image)
+        feature = self.features_from_classifier(image)
         attr_feature = Flatten()(feature)
 
         scale = Dense(256,)(attr_feature)
@@ -809,7 +821,7 @@ class BalancingGAN:
         feature = self.encoder(image)
         feature2 = self.encoder(image2)
         
-        # scale, bias = self.attribute_net(image2)
+        scale, bias = self.attribute_net(image2)
 
 
         hw = int(0.0625 * self.resolution)
@@ -829,39 +841,37 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_4 = Concatenate()([en_4, feature2[3]])
-        en_3 = Concatenate()([en_3, feature2[2]])
+        # en_4 = Concatenate()([en_4, feature2[3]])
+        # en_3 = Concatenate()([en_3, feature2[2]])
         # en_2 = Concatenate()([en_2, feature2[1]])
         # en_1 = Concatenate()([en_1, feature2[0]])
 
         # botteneck
         decoder_activation = Activation('relu')
-        # de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_1 = self._res_block(en_4, 'relu')
+        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_1 = self._res_block(en_4, 'relu')
         de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
         de_1 = decoder_activation(de_1)
-        # de_1 = FeatureNorm()([de_1, scale, bias])
-        de_1 = self._norm()(de_1)
+        de_1 = FeatureNorm()([de_1, scale, bias])
+        # de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        # de_1 = SelfAttention(128)(de_1)
-
-        # de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_2 = self._res_block(de_1, 'relu')
+        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_2 = self._res_block(de_1, 'relu')
         de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
         de_2 = decoder_activation(de_2)
-        # de_2 = FeatureNorm()([de_2, scale, bias])
-        de_2 = self._norm()(de_2)
+        de_2 = FeatureNorm()([de_2, scale, bias])
+        # de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_3 = self._res_block(de_2, 'relu')
+        de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_3 = self._res_block(de_2, 'relu')
         de_3 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_3)
         de_3 = decoder_activation(de_3)
-        # de_3 = FeatureNorm()([de_3, scale, bias])
-        de_3 = self._norm()(de_3)
+        de_3 = FeatureNorm()([de_3, scale, bias])
+        # de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
         # de_3 = Add()([de_3, en_1])
 
