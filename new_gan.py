@@ -638,7 +638,7 @@ class BalancingGAN:
 
     def build_features_from_classifier_model(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.classifier.layers[-2](image)
+        model_output = self.classifier.layers[-3](image)
         self.features_from_classifier = Model(
             inputs = image,
             output = model_output,
