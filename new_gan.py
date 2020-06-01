@@ -613,27 +613,18 @@ class BalancingGAN:
         # 16 * 16 * 64
 
         # x = self._res_block(x, 'relu')
-        x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
-        x = self._norm()(x)
-        x = Activation('relu')(x)
-        x = Dropout(0.3)(x)
-        # 8*8*64
-
-        # x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
-        # 4*4*32
+        # 8*8*128
 
-        x = AveragePooling2D()(x)
-
-        latent = Flatten()(x)
-        latent = Dense(512, activation = 'relu')(latent)
+        code = AveragePooling2D()(x)
+        # 4*4*128
 
         self.latent_encoder = Model(
             inputs = image,
-            outputs = latent    
+            outputs = code
         )
 
     def build_features_from_classifier_model(self):
@@ -691,13 +682,13 @@ class BalancingGAN:
 
         # Build generator
         self.build_perceptual_model()
+        self.build_latent_encoder()
         self.classifier = load_classifier(self.resolution)
         self.classifier.trainable = False
         self.build_features_from_classifier_model()
         self.build_attribute_net()
         self.build_discriminator()
         self.build_features_from_d_model()
-        self.build_latent_encoder()
         self.build_res_unet()
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -745,8 +736,8 @@ class BalancingGAN:
 
         # performce triplet loss
         margin = 1.0
-        d_pos = K.mean(K.square(self.features_from_classifier(fake) - self.features_from_classifier(other_batch)))
-        d_neg = K.mean(K.square(self.features_from_classifier(fake) - self.features_from_classifier(real_images)))
+        d_pos = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(other_batch)))
+        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
         self.combined.compile(
@@ -822,7 +813,7 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        feature2 = self.encoder(image2)
+        attribute_code = self.latent_encoder(image2)
         
         # scale, bias = self.attribute_net(image2)
 
@@ -844,10 +835,11 @@ class BalancingGAN:
         en_3 = feature[2]
         en_4 = feature[3]
 
-        en_4 = Concatenate()([en_4, feature2[3]])
+        # en_4 = Concatenate()([en_4, feature2[3]])
         # en_3 = Concatenate()([en_3, feature2[2]])
         # en_2 = Concatenate()([en_2, feature2[1]])
         # en_1 = Concatenate()([en_1, feature2[0]])
+        en_4 = attribute_code
 
         # botteneck
         decoder_activation = Activation('relu')
