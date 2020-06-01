@@ -188,7 +188,7 @@ def load_train_data(resolution=52):
         if i % 150 == 0:
             print(len(labels), end=',')
         try:
-            imgs = np.concatenate((imgs, get_img(path, resolution)))
+            imgs.append(get_img(path, resolution))
             labels.append(0)
         except:
             pass
@@ -199,7 +199,7 @@ def load_train_data(resolution=52):
         if i % 150 == 0:
             print(len(labels), end=',')
         try:
-            imgs = np.concatenate((imgs, get_img(path, resolution)))
+            imgs.append(get_img(path, resolution))
             labels.append(1)
         except:
             pass
