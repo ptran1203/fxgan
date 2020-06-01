@@ -5,3 +5,5 @@ by normalize feature of image input X to have similiar distribution wiht image Y
 - Where should the feature drawn from?
 + It should be drawn from a discrimiate model
 
+b' = G(a)
+a' = G(b)

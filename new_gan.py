@@ -278,6 +278,7 @@ class BatchGenerator:
             # Normalize between -1 and 1
             self.dataset_x = self.dataset_x.reshape((self.dataset_x.shape[0], 28, 28, 1))
             self.dataset_x = (self.dataset_x * 255.0 - 127.5) / 127.5
+            # revert x = x * 127.5+127.5 / 255.0
 
             # Include 1 single color channel
             self.dataset_x = np.expand_dims(self.dataset_x, axis=-1)
@@ -290,7 +291,7 @@ class BatchGenerator:
 
             else:
                 x, y = load_train_data(rst)
-                self.dataset_x = x
+                self.dataset_x = x  
                 self.dataset_y = y
 
         else: # multi chest
@@ -686,9 +687,9 @@ class BalancingGAN:
         self.classifier = load_classifier(self.resolution)
         self.classifier.trainable = False
         self.build_features_from_classifier_model()
-        self.build_attribute_net()
         self.build_discriminator()
         self.build_features_from_d_model()
+        self.build_attribute_net()
         self.build_res_unet()
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -696,10 +697,10 @@ class BalancingGAN:
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        # scale, bias = self.attribute_net(real_images)
+        scale, bias = self.attribute_net(real_images)
 
-        real_output_for_d = self.discriminator(real_images)
-        fake_output_for_d = self.discriminator(fake_images)
+        real_output_for_d = self.discriminator([real_images, scale, bias])
+        fake_output_for_d = self.discriminator([fake_images, scale, bias])
 
         self.discriminator_model = Model(
             inputs = [real_images, fake_images],
@@ -721,7 +722,8 @@ class BalancingGAN:
         self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
 
-        aux_fake = self.discriminator(fake)
+        # aux_fake = self.discriminator(fake)
+        aux_fake = self.discriminator([fake, scale, bias])
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -736,8 +738,8 @@ class BalancingGAN:
 
         # performce triplet loss
         margin = 1.0
-        d_pos = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(other_batch)))
-        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
+        d_pos = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
+        d_neg = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
         self.combined.compile(
@@ -756,8 +758,8 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
-        feature = self.features_from_classifier(image)
-        # attr_feature = Flatten()(feature)
+        feature = self.features_from_d_model(image)
+        attr_feature = Flatten()(feature)
 
         scale = Dense(256,)(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
@@ -816,10 +818,9 @@ class BalancingGAN:
 
         self.encoder = _encoder()
         feature = self.encoder(image)
-        attribute_code = self.latent_encoder(image2)
+        # attribute_code = self.latent_encoder(image2)
         
-        # scale, bias = self.attribute_net(image2)
-
+        scale, bias = self.attribute_net(image2)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -836,40 +837,39 @@ class BalancingGAN:
         en_1 = feature[0]
         en_2 = feature[1]
         en_3 = feature[2]
-        # en_4 = feature[3]
+        en_4 = feature[3]
 
         # en_4 = Concatenate()([en_4, feature2[3]])
         # en_3 = Concatenate()([en_3, feature2[2]])
         # en_2 = Concatenate()([en_2, feature2[1]])
         # en_1 = Concatenate()([en_1, feature2[0]])
-        en_4 = attribute_code
 
         # botteneck
         decoder_activation = Activation('relu')
-        # de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_1 = self._res_block(en_4, 'relu')
+        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_1 = self._res_block(en_4, 'relu')
         de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
         de_1 = decoder_activation(de_1)
-        # de_1 = FeatureNorm()([de_1, scale, bias])
-        de_1 = self._norm()(de_1)
+        de_1 = FeatureNorm()([de_1, scale, bias])
+        # de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        # de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_2 = self._res_block(de_1, 'relu')
+        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_2 = self._res_block(de_1, 'relu')
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         de_2 = decoder_activation(de_2)
-        # de_2 = FeatureNorm()([de_2, scale, bias])
-        de_2 = self._norm()(de_2)
+        de_2 = FeatureNorm()([de_2, scale, bias])
+        # de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
-        # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_3 = self._res_block(de_2, 'relu')
+        de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_3 = self._res_block(de_2, 'relu')
         de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
         de_3 = decoder_activation(de_3)
-        # de_3 = FeatureNorm()([de_3, scale, bias])
-        de_3 = self._norm()(de_3)
+        de_3 = FeatureNorm()([de_3, scale, bias])
+        # de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
         de_3 = Add()([de_3, en_1])
 
@@ -1016,12 +1016,9 @@ class BalancingGAN:
         bias = Input((1,))
 
         features = self._build_common_encoder(image)
-
+        features = FeatureNorm()([features, scale, bias])
         features = Flatten()(features)
-        attribute_code = Flatten()(self.latent_encoder(image))
-
-        # features = Dropout(0.3)(features)
-        features = Concatenate()([features, attribute_code])
+        features = Dropout(0.3)(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
@@ -1031,7 +1028,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=image,
+        self.discriminator = Model(inputs=[image, scale, bias],
                                    outputs=aux,
                                    name='discriminator')
 
