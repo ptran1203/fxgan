@@ -176,14 +176,13 @@ def get_img(path, rst):
 
 def load_train_data(resolution=52):
     labels = []
+    imgs = []
     i = 0
     res = load_ds(resolution, 'train')
     if res:
         return res
 
-    files =  os.listdir(DS_DIR + '/train/NORMAL')
-    imgs = np.array(get_img(DS_DIR + '/train/NORMAL/' + files[0], resolution))
-    for file in files[1:]:
+    for file in os.listdir(DS_DIR + '/train/NORMAL'):
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
@@ -194,9 +193,7 @@ def load_train_data(resolution=52):
         except:
             pass
 
-    files =  os.listdir(DS_DIR + '/train/PNEUMONIA')
-    imgs = np.concatenate((imgs,get_img(DS_DIR + '/train/PNEUMONIA/' + files[0], resolution)))
-    for file in files[1:]:
+    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
@@ -207,7 +204,10 @@ def load_train_data(resolution=52):
         except:
             pass
 
-    res = (np.array(imgs), np.array(labels))
+    # channel last
+    imgs = np.array(imgs)
+    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
+    res = (imgs, np.array(labels))
     save_ds(res, resolution, 'train')
     return res
 
@@ -232,7 +232,10 @@ def load_test_data(resolution = 52):
             labels.append(1)
         except:
             pass
-    res = (np.array(imgs), np.array(labels))
+    # channel last
+    imgs = np.array(imgs)
+    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
+    res = (imgs, np.array(labels))
     save_ds(res, resolution, 'test')
     return res
 
@@ -306,15 +309,8 @@ class BatchGenerator:
                 # TODO: HARD CODE HERE
                 self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
 
-
-
-        # Arrange x: channel first
-        if self.data_src == self.TEST and rst == 32:
-            self.dataset_x = np.transpose(self.dataset_x, axes=(0, 2, 3, 1))
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
-        if self.data_src == self.TRAIN or rst == 64:
-            self.dataset_x = np.expand_dims(self.dataset_x, axis = -1)
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 

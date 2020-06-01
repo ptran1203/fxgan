@@ -158,7 +158,7 @@ def load_train_data(resolution=52):
         if i % 150 == 0:
             print(len(labels), end=',')
         try:
-            imgs = np.concatenate((imgs, get_img(path, resolution)))
+            imgs.append(get_img(path, resolution))
             labels.append(0)
         except:
             pass
@@ -171,12 +171,15 @@ def load_train_data(resolution=52):
         if i % 150 == 0:
             print(len(labels), end=',')
         try:
-            imgs = np.concatenate((imgs, get_img(path, resolution)))
+            imgs.append(get_img(path, resolution))
             labels.append(1)
         except:
             pass
 
-    res = (np.array(imgs), np.array(labels))
+    # channel last
+    imgs = np.array(imgs)
+    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
+    res = (imgs, np.array(labels))
     save_ds(res, resolution, 'train')
     return res
 
@@ -201,7 +204,10 @@ def load_test_data(resolution = 52):
             labels.append(1)
         except:
             pass
-    res = (np.array(imgs), np.array(labels))
+
+    imgs = np.array(imgs)
+    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
+    res = (imgs, np.array(labels))
     save_ds(res, resolution, 'test')
     return res
 
