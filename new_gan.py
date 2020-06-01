@@ -796,7 +796,7 @@ class BalancingGAN:
             # out_shape: 8*8*128
             
             # TODO HARD CODE
-            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_3])
+            # return Model(inputs = image, outputs = [en_1, en_2, en_3, en_3])
 
             en_4 = self._res_block(en_3, activation)
             en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
