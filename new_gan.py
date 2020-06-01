@@ -796,6 +796,9 @@ class BalancingGAN:
             en_3 = actv(en_3)
             en_3 = Dropout(0.3)(en_3)
             # out_shape: 8*8*128
+            
+            # TODO HARD CODE
+            return Model(inputs = image, outputs = [en_1, en_2, en_3, 'en_4'])
 
             en_4 = self._res_block(en_3, activation)
             en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
@@ -833,7 +836,7 @@ class BalancingGAN:
         en_1 = feature[0]
         en_2 = feature[1]
         en_3 = feature[2]
-        en_4 = feature[3]
+        # en_4 = feature[3]
 
         # en_4 = Concatenate()([en_4, feature2[3]])
         # en_3 = Concatenate()([en_3, feature2[2]])
@@ -974,6 +977,7 @@ class BalancingGAN:
         cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
+        # 32 * 32 * 64
 
         cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
 
@@ -981,17 +985,20 @@ class BalancingGAN:
         # cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
+        # 16 * 16 * 128
 
         cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(SelfAttention(256))
         # cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
+        # 8 * 8 * 256
 
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         # cnn.add(Dropout(0.3))
+        # 4 * 4 * 512
 
         # cnn.add(Flatten())
 
@@ -1003,14 +1010,18 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
+
         # scale bias for feature norm
         scale = Input((1,))
         bias = Input((1,))
 
         features = self._build_common_encoder(image)
-        # features = FeatureNorm()([features, scale, bias])
+
         features = Flatten()(features)
-        features = Dropout(0.3)(features)
+        attribute_code = Flatten()(self.latent_encoder(image))
+
+        # features = Dropout(0.3)(features)
+        features = Concatenate()([features, attribute_code])
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
