@@ -719,7 +719,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        # self.latent_encoder.trainable = False
+        self.latent_encoder.trainable = False
 
         aux_fake = self.discriminator(fake)
 
