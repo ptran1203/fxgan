@@ -978,20 +978,20 @@ class BalancingGAN:
         cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
 
         cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
         # 16 * 16 * 128
 
         cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
         # cnn.add(SelfAttention(256))
-        # cnn.add(self._norm())
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
         # 8 * 8 * 256
 
         cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
-        # cnn.add(self._norm())
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         # cnn.add(Dropout(0.3))
         # 4 * 4 * 512
