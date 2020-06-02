@@ -736,7 +736,7 @@ class BalancingGAN:
         margin = 1.0
         d_pos = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(other_batch)))
         d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
-        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
+        # self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
         self.combined.compile(
@@ -852,12 +852,12 @@ class BalancingGAN:
         de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, en_3])
 
-        # de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_2 = self._res_block(de_1, 'relu')
+        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_2 = self._res_block(de_1, 'relu')
         de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
         de_2 = decoder_activation(de_2)
-        # de_2 = FeatureNorm()([de_2, scale, bias])
-        de_2 = self._norm()(de_2)
+        de_2 = FeatureNorm()([de_2, scale, bias])
+        # de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, en_2])
 
@@ -868,7 +868,7 @@ class BalancingGAN:
         # de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
-        de_3 = Add()([de_3, en_1])
+        # de_3 = Add()([de_3, en_1])
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
         outputs = Activation('tanh')(final)
