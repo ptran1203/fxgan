@@ -716,7 +716,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = False
+        self.latent_encoder.trainable = True
 
         # aux_fake = self.discriminator(fake)
         aux_fake = self.discriminator([fake])
@@ -754,7 +754,7 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
-        feature = self.features_from_d_model(image)
+        feature = self.latent_encoder(image)
         attr_feature = Flatten()(feature)
 
         scale = Dense(256,)(attr_feature)
