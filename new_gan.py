@@ -560,6 +560,7 @@ class FeatureNorm(keras.layers.Layer):
 
 
 class BalancingGAN:
+    D_RATE = 1
     def _res_block(self,  x, activation = 'leaky_relu', norm = 'batch', scale=None, bias=None):
         if activation == 'leaky_relu':
             actv = LeakyReLU()
@@ -1068,7 +1069,7 @@ class BalancingGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(image_batch.shape[0]))
-            for i in range(2):
+            for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
                     [
                         image_batch,
