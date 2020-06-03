@@ -695,6 +695,7 @@ class BalancingGAN:
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
+        positive_images = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -727,7 +728,7 @@ class BalancingGAN:
         aux_fake = self.discriminator([fake])
 
         self.combined = Model(
-            inputs=[real_images, other_batch, latent_code],
+            inputs=[real_images, other_batch, positive_images,latent_code],
             outputs=[aux_fake],
             name = 'Combined'
         )
@@ -738,8 +739,8 @@ class BalancingGAN:
         # self.combined.add_loss(K.mean(K.abs(fake - other_batch)))
         # performce triplet loss
         margin = 1.0
-        d_pos = K.mean(K.square(self._feature(fake) - self._feature(other_batch)))
-        d_neg = K.mean(K.square(self._feature(fake) - self._feature(real_images)))
+        d_pos = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(positive_images)))
+        d_neg = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
@@ -824,7 +825,7 @@ class BalancingGAN:
         feature = self.encoder(image)
         # attribute_code = self.latent_encoder(image2)
         
-        scale, bias = self.attribute_net(image2, output_channel)
+        scale, bias = self.attribute_net(image2)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -1095,10 +1096,10 @@ class BalancingGAN:
                     real_label *= 0
                 if self.loss_type == 'categorical':
                     real_label = other_batch
-                    fake_label = np.full(flipped_labels.shape[0], self.nclasses)
+                    fake_label = np.full(label_batch.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
-                    [image_batch2, other_batch],
+                    [image_batch, generated_images],
                     [fake_label, real_label]
                 )
             epoch_disc_loss.append(loss)
@@ -1106,9 +1107,9 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
-
+            positive_images = bg_train.get_samples_by_labels(flipped_labels)
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, image_batch2, f],
+                [image_batch, other_batch, positive_images, f],
                 [real_label],
             )
 
