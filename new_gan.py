@@ -1285,6 +1285,7 @@ class BalancingGAN:
                     [
                         bg_test.dataset_x,
                         self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                        self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
                         f
                     ],
                     [real_label],
@@ -1297,11 +1298,11 @@ class BalancingGAN:
                         [
                             bg_test.dataset_x,
                             self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                            self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
                             f,
                             
                         ],
                         [real_label],
-                        # [bg_test.dataset_y]
                     )
 
                     crt_c = 0
