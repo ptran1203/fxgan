@@ -386,7 +386,11 @@ class BatchGenerator:
 
         return self.dataset_x[np.array(new_arr)]
 
-        
+    @staticmethod
+    def flip_labels(labels):
+        for i in range(labels.shape[0]):
+            labels[i] = 0 if labels[i] == 1 else 1
+        return labels
 
     def pair_samples(self, train_x):
         # merge 2 nearest image
@@ -761,9 +765,9 @@ class BalancingGAN:
         feature = self.latent_encoder(image)
         attr_feature = Flatten()(feature)
 
-        scale = Dense(256,)(attr_feature)
+        scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
-        bias = Dense(256,)(attr_feature)
+        bias = Dense(256, activation = 'relu')(attr_feature)
         bias = Dense(1, name = 'norm_bias')(bias)
 
         self.attribute_net = Model(inputs = image, outputs = [scale, bias],
@@ -820,7 +824,7 @@ class BalancingGAN:
         feature = self.encoder(image)
         # attribute_code = self.latent_encoder(image2)
         
-        scale, bias = self.attribute_net(image2)
+        scale, bias = self.attribute_net(image2, output_channel)
 
         hw = int(0.0625 * self.resolution)
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
@@ -1071,11 +1075,13 @@ class BalancingGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(image_batch.shape[0]))
+            flipped_labels = bg_train.flip_labels(label_batch)
+            other_batch = bg_train.get_samples_by_labels(flipped_labels)
             for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
                     [
                         image_batch,
-                        image_batch2,
+                        other_batch,
                         f,
                     ],
                     verbose=0
@@ -1088,11 +1094,11 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = label_batch2
-                    fake_label = np.full(label_batch.shape[0], self.nclasses)
+                    real_label = other_batch
+                    fake_label = np.full(flipped_labels.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
-                    [image_batch2, generated_images],
+                    [image_batch2, other_batch],
                     [fake_label, real_label]
                 )
             epoch_disc_loss.append(loss)
