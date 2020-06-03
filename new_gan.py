@@ -730,12 +730,11 @@ class BalancingGAN:
         # fake_perceptual_features = self.vgg16_features(fake)
         # real_perceptual_features = self.vgg16_features(other_batch)
 
-        self.combined.add_loss(K.mean(K.abs(fake - other_batch)))
-
+        # self.combined.add_loss(K.mean(K.abs(fake - other_batch)))
         # performce triplet loss
         margin = 1.0
-        d_pos = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(other_batch)))
-        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
+        d_pos = K.mean(K.square(self._feature(fake) - self._feature(other_batch)))
+        d_neg = K.mean(K.square(self._feature(fake) - self._feature(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
 
 
@@ -747,6 +746,9 @@ class BalancingGAN:
             metrics=['accuracy'],
             loss = self.g_loss,
         )
+
+    def _feature(self, x):
+        return self.encoder(x)[-1]
 
     def vgg16_features(self, image):
         return self.perceptual_model(Concatenate()([
