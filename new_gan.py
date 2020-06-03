@@ -1095,7 +1095,7 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = other_batch
+                    real_label = flipped_labels
                     fake_label = np.full(label_batch.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
