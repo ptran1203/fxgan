@@ -1255,11 +1255,12 @@ class BalancingGAN:
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
             
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
+                rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0]
 
                 generated_images = self.generator.predict(
                     [
                         bg_test.dataset_x,
-                        self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                        rand_x,
                         f
                     ],
                     verbose=False
@@ -1278,7 +1279,7 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = bg_test.dataset_y
+                    real_label = rand_y
                     fake_label = np.full(generated_images.shape[0], self.nclasses)
 
                 X = [bg_test.dataset_x, generated_images]
@@ -1289,8 +1290,8 @@ class BalancingGAN:
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
-                        self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
-                        self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                        rand_x,
+                        rand_x,
                         f
                     ],
                     [real_label],
@@ -1302,8 +1303,8 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
-                            self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
-                            self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0],
+                            rand_x,
+                            rand_x,
                             f,
                             
                         ],
