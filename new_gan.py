@@ -388,9 +388,11 @@ class BatchGenerator:
 
     @staticmethod
     def flip_labels(labels):
+        clone = np.arange(labels.shape[0])
+        clone[:] = labels
         for i in range(labels.shape[0]):
-            labels[i] = 0 if labels[i] == 1 else 1
-        return labels
+            clone[i] = (int(not labels[i]))
+        return clone
 
     def pair_samples(self, train_x):
         # merge 2 nearest image
@@ -1091,16 +1093,19 @@ class BalancingGAN:
                 # X, aux_y = self.shuffle_data(X, aux_y)
                 fake_label = np.ones((generated_images.shape[0], 1))
                 real_label = -np.ones((label_batch.shape[0], 1))
+                real_label_for_d = -np.ones((label_batch.shape[0], 1))
 
                 if self.loss_type == 'binary':
                     real_label *= 0
+                    real_label_for_d *= 0
                 if self.loss_type == 'categorical':
                     real_label = flipped_labels
+                    real_label_for_d = label_batch
                     fake_label = np.full(label_batch.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
                     [image_batch, generated_images],
-                    [fake_label, real_label]
+                    [fake_label, real_label_for_d]
                 )
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
