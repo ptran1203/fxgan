@@ -1255,7 +1255,7 @@ class BalancingGAN:
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
             
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
-                rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)[0]
+                rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)
 
                 generated_images = self.generator.predict(
                     [
