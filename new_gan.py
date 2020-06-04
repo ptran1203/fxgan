@@ -703,8 +703,8 @@ class BalancingGAN:
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
         scale, bias = self.attribute_net(other_batch)
 
-        real_output_for_d = self.discriminator([real_images, scale, bias])
-        fake_output_for_d = self.discriminator([fake_images, scale, bias])
+        real_output_for_d = self.discriminator([real_images])
+        fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_model = Model(
             inputs = [real_images, other_batch, fake_images],
@@ -728,7 +728,7 @@ class BalancingGAN:
 
         # aux_fake = self.discriminator(fake)
         scale, bias = self.attribute_net(other_batch)
-        aux_fake = self.discriminator([fake, scale, bias])
+        aux_fake = self.discriminator([fake])
 
         self.combined = Model(
             inputs=[real_images, other_batch, positive_images,latent_code],
@@ -865,7 +865,7 @@ class BalancingGAN:
         de_1 = FeatureNorm()([de_1, scale, bias])
         # de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
-        de_1 = Add()([de_1, en_3])
+        # de_1 = Add()([de_1, en_3])
 
         de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
         # de_2 = self._res_block(de_1, 'relu')
@@ -874,7 +874,7 @@ class BalancingGAN:
         de_2 = FeatureNorm()([de_2, scale, bias])
         # de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
-        de_2 = Add()([de_2, en_2])
+        # de_2 = Add()([de_2, en_2])
 
         # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
         de_3 = self._res_block(de_2, 'relu')
@@ -1028,7 +1028,7 @@ class BalancingGAN:
         bias = Input((1,))
 
         features = self._build_common_encoder(image)
-        features = FeatureNorm()([features, scale, bias])
+        # features = FeatureNorm()([features, scale, bias])
         features = Flatten()(features)
         features = Dropout(0.3)(features)
 
@@ -1040,7 +1040,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=[image, scale, bias],
+        self.discriminator = Model(inputs=[image],
                                    outputs=aux,
                                    name='discriminator')
 
