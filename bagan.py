@@ -1,8 +1,10 @@
 
 import csv
-from collections import defaultdict
+from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
+import keras
+from tensorflow.examples.tutorials.mnist import input_data
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import (
@@ -11,14 +13,22 @@ from keras.layers.convolutional import (
 )
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
+from keras.losses import mean_squared_error, cosine_similarity, KLDivergence
 from keras.layers import (
     Input, Dense, Reshape,
     Flatten, Embedding, Dropout,
     BatchNormalization, Activation,
     Lambda,Layer, Add, Concatenate,
-    Average,
-    MaxPooling2D, AveragePooling2D
+    Average,GaussianNoise,
+    MaxPooling2D, AveragePooling2D,
+    RepeatVector,
 )
+from keras_contrib.losses import DSSIMObjective
+
+from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+
+
+from keras.applications.vgg16 import VGG16
 
 from keras.utils import np_utils
 import sklearn.metrics as metrics
@@ -38,13 +48,31 @@ from google.colab.patches import cv2_imshow
 from PIL import Image
 
 DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
+DS_DIR_2 = '/content/drive/My Drive/bagan/dataset/multi_chest'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
+
+# ===========================================
+# I have no idea how it works, happy coding #
+#               ¯\_(ツ)_/¯                  #
+#===========================================#
+
+def wasserstein_loss(y_true, y_pred):
+    return K.mean(y_true * y_pred)
+
+
+def hinge_G_loss(y_true, y_pred):
+    return -K.mean(y_pred)
+
+def hinge_D_real_loss(y_true, y_pred):
+    return K.mean(K.relu(1-y_pred))
+
+def hinge_D_fake_loss(y_true, y_pred):
+    return K.mean(K.relu(1+y_pred))
 
 
 def save_image_array(img_array, fname=None, show=None):
         # convert 1 channel to 3 channels
-        print(img_array.shape)
         channels = img_array.shape[-1]
         resolution = img_array.shape[2]
         img_rows = img_array.shape[0]
@@ -74,12 +102,17 @@ def save_image_array(img_array, fname=None, show=None):
             except Exception as e:
                 print('Save image failed', str(e))
 
+
 def show_samples(img_array):
     shape = img_array.shape
     img_samples = img_array.reshape(
         (-1, shape[-4], shape[-3], shape[-2], shape[-1])
     )
     save_image_array(img_samples, None, True)
+
+def triple_channels(image):
+    # axis = 2 for single image, 3 for many images
+    return np.repeat(image, 3, axis = -1)
 
 
 def load_classifier(rst=256):
@@ -111,6 +144,9 @@ def pickle_load(path):
         return None
 
 def add_padding(img):
+    """
+    Add black padding
+    """
     w, h, _ = img.shape
     size = abs(w - h) // 2
     value= [0, 0, 0]
@@ -138,21 +174,15 @@ def get_img(path, rst):
     return np.expand_dims(img, axis=0)
     return img.tolist()
 
-def bound(list, s):
-    if s == 0:
-        return list
-    return list[:s]
-
 def load_train_data(resolution=52):
     labels = []
+    imgs = []
     i = 0
     res = load_ds(resolution, 'train')
     if res:
         return res
 
-    files =  os.listdir(DS_DIR + '/train/NORMAL')
-    imgs = np.array(get_img(DS_DIR + '/train/NORMAL/' + files[0], resolution))
-    for file in files[1:]:
+    for file in os.listdir(DS_DIR + '/train/NORMAL'):
         path = DS_DIR + '/train/NORMAL/' + file
         i += 1
         if i % 150 == 0:
@@ -163,9 +193,7 @@ def load_train_data(resolution=52):
         except:
             pass
 
-    files =  os.listdir(DS_DIR + '/train/PNEUMONIA')
-    imgs = np.concatenate((imgs,get_img(DS_DIR + '/train/PNEUMONIA/' + files[0], resolution)))
-    for file in files[1:]:
+    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
         path = DS_DIR + '/train/PNEUMONIA/' + file
         i += 1
         if i % 150 == 0:
@@ -204,16 +232,31 @@ def load_test_data(resolution = 52):
             labels.append(1)
         except:
             pass
-
+    # channel last
     imgs = np.array(imgs)
     imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
     res = (imgs, np.array(labels))
     save_ds(res, resolution, 'test')
     return res
 
+
+def pred2bin(pred):
+    """
+    Convert probability prediction of sigmoid into binary
+    """
+    for x in pred:
+        if x[0] >= 0.5:
+            x[0] = 1
+        else:
+            x[0] = 0
+    return pred
+
+
+
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
+    D_SIZE = 400
 
     def __init__(
         self,
@@ -222,28 +265,52 @@ class BatchGenerator:
         dataset='MNIST',
         rst=64,
         prune_classes=None,
-        query_size = 95,
-        c_way = 2,
-        k_shot = 5,
     ):
         self.batch_size = batch_size
         self.data_src = data_src
-        self.c_way = c_way
-        self.k_shot = k_shot
-        if self.data_src == self.TEST:
-            x, y = load_test_data(rst)
-            self.dataset_x = x
-            self.dataset_y = y
-        else:
-            x, y = load_train_data(rst)
-            self.dataset_x = x
-            self.dataset_y = y
+        if dataset == 'MNIST':
+            mnist = input_data.read_data_sets("dataset/mnist", one_hot=False)
 
-        # Arrange x: channel first
-        self.dataset_x = np.transpose(self.dataset_x, axes=(0, 1, 2))
+            if self.data_src == self.TEST:
+                self.dataset_x = mnist.test.images
+                self.dataset_y = mnist.test.labels
+            else:
+                self.dataset_x = mnist.train.images
+                self.dataset_y = mnist.train.labels
+
+            # Normalize between -1 and 1
+            self.dataset_x = self.dataset_x.reshape((self.dataset_x.shape[0], 28, 28, 1))
+            self.dataset_x = (self.dataset_x * 255.0 - 127.5) / 127.5
+            # revert x = x * 127.5+127.5 / 255.0
+
+            # Include 1 single color channel
+            self.dataset_x = np.expand_dims(self.dataset_x, axis=-1)
+
+        elif dataset == 'chest':
+            if self.data_src == self.TEST:
+                x, y = load_test_data(rst)
+                self.dataset_x = x
+                self.dataset_y = y
+
+            else:
+                x, y = load_train_data(rst)
+                self.dataset_x = x  
+                self.dataset_y = y
+
+        else: # multi chest
+            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
+            
+            if self.data_src == self.TEST:
+                self.dataset_x = x[:self.D_SIZE]
+                # TODO: HARD CODE HERE
+                self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
+            else:
+                self.dataset_x = x[self.D_SIZE:self.D_SIZE * 2]
+                # TODO: HARD CODE HERE
+                self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
+
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
-        self.dataset_x = np.expand_dims(self.dataset_x, axis = -1)
 
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
@@ -282,23 +349,66 @@ class BatchGenerator:
         # per class ids
         self.per_class_ids = dict()
         ids = np.array(range(len(self.dataset_x)))
-        for c in classes:
-            self.per_class_ids[c] = ids[self.labels == c]
-
-        if self.data_src == self.TRAIN:
-            self.build_dataset(query_size)
+        try:
+            for c in classes:
+                self.per_class_ids[c] = ids[self.labels == c]
+        except:
+            pass
 
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
             samples = self.batch_size
+        try:
+            np.random.shuffle(self.per_class_ids[c])
+            to_return = self.per_class_ids[c][0:samples]
+            return self.dataset_x[to_return]
+        except:
+            random = np.arange(self.dataset_x.shape[0])
+            np.random.shuffle(random)
+            to_return = random[:samples]
+            return self.dataset_x[to_return]
 
-        np.random.shuffle(self.per_class_ids[c])
-        to_return = self.per_class_ids[c][0:samples]
-        return self.dataset_x[to_return]
+    def get_samples_by_labels(self, labels, samples = None):
+        if samples is None:
+            samples = self.batch_size
+
+        count = Counter(labels)
+        class_1 = np.random.choice(self.per_class_ids[0], count[0])
+        class_2 = np.random.choice(self.per_class_ids[1], count[1])
+        new_arr = []
+
+        for label in labels:
+            if label == 0:
+                idx, class_1 = class_1[-1], class_1[:-1]
+            else:
+                idx, class_2 = class_2[-1], class_2[:-1]
+            new_arr.append(idx)
+
+        return self.dataset_x[np.array(new_arr)]
+
+    @staticmethod
+    def flip_labels(labels):
+        clone = np.arange(labels.shape[0])
+        clone[:] = labels
+        for i in range(labels.shape[0]):
+            clone[i] = (int(not labels[i]))
+        return clone
+
+    def pair_samples(self, train_x):
+        # merge 2 nearest image
+        img1 = np.expand_dims(train_x[0], 0)
+        img2 = np.expand_dims(train_x[1], 0)
+        pair_x = np.array([np.concatenate((img1, img2))])
+        for i in range(2, len(train_x) - 1, 2):
+            img1 = np.expand_dims(train_x[i], 0)
+            img2 = np.expand_dims(train_x[i + 1], 0)
+            pair_x = np.concatenate((pair_x, np.expand_dims(
+                                    np.concatenate((img1, img2)), 0)))
+
+        return pair_x
 
     def get_label_table(self):
         return self.label_table
-
 
     def get_num_classes(self):
         return len( self.label_table )
@@ -318,6 +428,25 @@ class BatchGenerator:
         labels = self.labels
 
         indices = np.arange(dataset_x.shape[0])
+        indices2 = np.arange(dataset_x.shape[0])
+
+        np.random.shuffle(indices)
+        np.random.shuffle(indices2)
+
+        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
+            access_pattern = indices[start_idx:start_idx + self.batch_size]
+            access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
+
+            yield (
+                dataset_x[access_pattern, :, :, :], labels[access_pattern],
+                dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
+            )
+
+    def next_pair_batch(self):
+        dataset_x = self.pair_x
+        labels = self.pair_y
+
+        indices = np.arange(dataset_x.shape[0])
 
         np.random.shuffle(indices)
 
@@ -327,326 +456,224 @@ class BatchGenerator:
 
             yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
-    def next_query_batch(self):
-        """
-        Next support and query batch
-        call:
-            for query_x, query_y in BatchGen.next_query_batch():
-                # do business
-        """
-        indices = np.arange(self.query_x.shape[0])
-        np.random.shuffle(indices)
-        
-        for start_idx in range(0, self.query_x.shape[0] - self.batch_size + 1, self.batch_size):
-            access_pattern = indices[start_idx:start_idx + self.batch_size]
 
-            yield  self.query_x[access_pattern],  self.query_y[access_pattern]
+class RandomPick(keras.layers.Layer):
+    def __init__(self):
+        super(RandomPick, self).__init__()
 
-    def build_dataset(self, query_size):
-        idxs = []
-        qidxs = []
-        train_x, train_y = self.dataset_x, self.dataset_y
-        for i in range(self.c_way):
-            idx = np.where(train_y == i)[0]
-            np.random.shuffle(idx)
-            qidx = idx[self.k_shot: query_size + self.k_shot]
+    def call(self, inputs):
+        ip1, ip2, vector = inputs
+        out = []
 
-            idxs.append(idx[:self.k_shot])
-            
-            qidxs.append(qidx)
+        for i in range(ip1.shape[-1]):
+            r = tf.cond(vector[0,i] >= -5, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
+            # merged = vector[0, i] * ip1[]
+            out.append(r)
 
-        s_idx = np.concatenate(idxs)
-        q_idx = np.concatenate(qidxs)
+        return tf.transpose(tf.stack(out), [1, 2, 3, 0])
 
-        np.random.shuffle(q_idx)
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
 
-        self.query_x = train_x[q_idx]
-        self.query_y = train_y[q_idx]
 
-        self.support_x = train_x[s_idx]
-        self.support_y = train_y[s_idx]
-        print('Query size: ', self.query_x.shape[0])
-        print('Support size: ', self.support_x.shape[0])
+class SelfAttention(Layer):
+    def __init__(self, ch, **kwargs):
+        super(SelfAttention, self).__init__(**kwargs)
+        self.channels = ch
+        self.filters_f_g = self.channels // 8
+        self.filters_h = self.channels
 
-    def merge_support_images(self, support_fakes ,repeats = None):
-        if repeats is None:
-            repeats = self.batch_size
+    def build(self, input_shape):
+        kernel_shape_f_g = (1, 1) + (self.channels, self.filters_f_g)
+        kernel_shape_h = (1, 1) + (self.channels, self.filters_h)
 
-        imgs = np.concatenate((self.support_x, support_fakes))
-        imgs = np.expand_dims(imgs, axis = 0)
-        return np.repeat(
-                    imgs, repeats, axis= 0
-                )
+        # Create a trainable weight variable for this layer:
+        self.gamma = self.add_weight(name='gamma', shape=[1], initializer='zeros', trainable=True)
+        self.kernel_f = self.add_weight(shape=kernel_shape_f_g,
+                                        initializer='glorot_uniform',
+                                        name='kernel_f',
+                                        trainable=True)
+        self.kernel_g = self.add_weight(shape=kernel_shape_f_g,
+                                        initializer='glorot_uniform',
+                                        name='kernel_g',
+                                        trainable=True)
+        self.kernel_h = self.add_weight(shape=kernel_shape_h,
+                                        initializer='glorot_uniform',
+                                        name='kernel_h',
+                                        trainable=True)
+
+        super(SelfAttention, self).build(input_shape)
+        # Set input spec.
+        self.input_spec = keras.layers.InputSpec(ndim=4,
+                                    axes={3: input_shape[-1]})
+        self.built = True
+
+    def call(self, x):
+        def hw_flatten(x):
+            return K.reshape(x, shape=[K.shape(x)[0], K.shape(x)[1]*K.shape(x)[2], K.shape(x)[3]])
+
+        f = K.conv2d(x,
+                     kernel=self.kernel_f,
+                     strides=(1, 1), padding='same')  # [bs, h, w, c']
+        g = K.conv2d(x,
+                     kernel=self.kernel_g,
+                     strides=(1, 1), padding='same')  # [bs, h, w, c']
+        h = K.conv2d(x,
+                     kernel=self.kernel_h,
+                     strides=(1, 1), padding='same')  # [bs, h, w, c]
+
+        s = K.batch_dot(hw_flatten(g), K.permute_dimensions(hw_flatten(f), (0, 2, 1)))  # # [bs, N, N]
+
+        beta = K.softmax(s, axis=-1)  # attention map
+
+        o = K.batch_dot(beta, hw_flatten(h))  # [bs, N, C]
+
+        o = K.reshape(o, shape=K.shape(x))  # [bs, h, w, C]
+        x = self.gamma * o + x
+
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class FeatureNorm(keras.layers.Layer):
+    def __init__(self, epsilon = 1e-6, norm = 'batch'):
+        super(FeatureNorm, self).__init__()
+        self.epsilon = epsilon
+        self.norm = norm
+
+    def call(self, inputs):
+        x, scale, bias = inputs
+
+        # x = [batch, height, width, channels]
+        axis = [-1] # instance norm
+        if self.norm == 'batch':
+            axis = [0]
+        axis = [1, 2]
+
+        mean = K.mean(x, axis = axis, keepdims = True)
+        std = K.std(x, axis = axis, keepdims = True)
+        norm = (x - mean) * (1 / (std + self.epsilon))
+
+        broadcast_scale = K.reshape(scale, (-1, 1, 1, 1))
+        broadcast_bias = K.reshape(bias, (-1, 1, 1, 1))
+
+        return norm * broadcast_scale + broadcast_bias
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
+
 
 class BalancingGAN:
-    def plot_loss_his(self):
-        train_d = self.train_history['disc_loss']
-        train_g = self.train_history['gen_loss']
-        test_d = self.test_history['disc_loss']
-        test_g = self.test_history['gen_loss']
-        plt.plot(train_d, label='train_d_loss')
-        plt.plot(train_g, label='train_g_loss')
-        plt.plot(test_d, label='test_d_loss')
-        plt.plot(test_g, label='test_g_loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend()
-        plt.show()
+    D_RATE = 1
+    def _res_block(self,  x, activation = 'leaky_relu', norm = 'batch', scale=None, bias=None):
+        if activation == 'leaky_relu':
+            actv = LeakyReLU()
+        else:
+            actv = Activation(activation)
 
-    def plot_acc_his(self):
-        train_d = self.train_history['disc_acc']
-        train_g = self.train_history['gen_acc']
-        test_d = self.test_history['disc_acc']
-        test_g = self.test_history['gen_acc']
-        plt.plot(train_d, label='train_d_acc')
-        plt.plot(train_g, label='train_g_acc')
-        plt.plot(test_d, label='test_d_acc')
-        plt.plot(test_g, label='test_g_acc')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend()
-        plt.show()
-    
-    def plot_classifier_acc(self):
-        plt.plot(self.classifier_acc, label='classifier_acc')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch(x5)')
-        plt.legend()
-        plt.show()
+        def norm_layer(x):
+            if norm == 'batch':
+                x = BatchNormalization()(x)
+            else:
+                x = FeatureNorm()([x, scale, bias])
+            return x
 
-    def build_generator(self, latent_size, init_resolution=8):
-        resolution = self.resolution
-        channels = self.channels
-        init_channels  = 128
-        cnn = Sequential()
+        skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
+        skip = norm_layer(skip)
+        out = actv(skip)
 
-        cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
-        cnn.add(BatchNormalization())
-        cnn.add(LeakyReLU())
-        cnn.add(Reshape((init_resolution, init_resolution, init_channels)))
-       
-        crt_res = init_resolution
-        # upsample
-        i = 0
-        while crt_res < resolution/2:
-            i += 1
-            cnn.add(Conv2DTranspose(
-                init_channels, kernel_size = 5, strides = 2, padding='same'))
-            # cnn.add(BatchNormalization())
-            cnn.add(LeakyReLU(alpha=0.02))
-            init_channels //= 2
-            crt_res = crt_res * 2
-            assert crt_res <= resolution,\
-                "Error: final resolution [{}] must equal i*2^n. Initial resolution i is [{}]. n must be a natural number.".format(resolution, init_resolution)
-        cnn.add(Conv2DTranspose(
-                    1, kernel_size = 5,
-                    strides = 2, padding='same',
-                    activation='tanh'))
+        skip = Conv2D(64, 1, strides = 1, padding = 'same')(skip)
 
-        latent = Input(shape=(latent_size, ))
+        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = norm_layer(out)
+        out = actv(out)
 
-        fake_image_from_latent = cnn(latent)
-        self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
+        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = norm_layer(out)
+        out = actv(out)
+        out = Add()([out, skip])
+        return out
 
-    def _embedding_module(self):
-        model = Sequential()
+    def build_latent_encoder(self):
+        """
+        Mapping image to latent code
+        """
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        model.add(Conv2D(filters=64, kernel_size=(3, 3), strides=(1, 1)))
-        model.add(Activation('relu'))
-        model.add(BatchNormalization())
-        # model.add(MaxPooling2D())
-        model.add(Dropout(0.3))
-    
-        model.add(Conv2D(filters=32, kernel_size=(3, 3), strides=(1, 1)))
-        model.add(Activation('relu'))
-        model.add(BatchNormalization())
-        # model.add(MaxPooling2D())
-        model.add(Dropout(0.3))
+        x = self._res_block(image, 'relu')
+        x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+        # 32 * 32 * 128
 
+        # x = self._res_block(x, 'relu')
+        x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+        # 16 * 16 * 64
 
-        model.name = 'embedding_module'
-        return model
-    
-    def _relation_module(self):
-        model = Sequential()
+        # x = self._res_block(x, 'relu')
+        x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+        # 8*8*128
 
-        model.add(Conv2D(filters=64,
-                        kernel_size=(3, 3),
-                        strides=(1, 1),
-                        padding='same',
-                        activation='relu'))
-        model.add(BatchNormalization())
-        model.add(MaxPooling2D())
+        code = AveragePooling2D()(x)
+        # 4*4*128
 
-        model.add(Conv2D(filters=32,
-                        kernel_size=(3, 3),
-                        strides=(1, 1),
-                        padding='same',
-                        activation='relu'))
-        model.add(BatchNormalization())
-        # model.add(MaxPooling2D())
-
-        model.add(Flatten())
-        model.add(Dropout(0.2))
-
-        model.add(Dense(8, activation='relu' ))
-        model.add(Dense(1, activation='sigmoid'))
-        model.name = 'relation_module'
-        return model
-
-    def build_reconstructor(self, latent_size):
-        resolution = self.resolution
-        channels = self.channels
-        image = Input(shape=(resolution, resolution, channels))
-        features = self._embedding_module()(image)
-        f_features = Flatten()(features)
-        # Reconstructor specific
-        latent = Dense(latent_size, activation='linear')(f_features)
-        self.reconstructor = Model(inputs=image, outputs=latent, name = 'reconstructor')
-
-    def build_discriminator(self):
-        resolution = self.resolution
-        channels = self.channels
-        support_images = Input(shape = (
-            self.c_way * self.k_shot,
-            self.resolution,
-            self.resolution,
-            self.channels,
-        ))
-
-        images = Input(shape = (resolution, resolution, channels))
-
-        embedding_module = self._embedding_module()
-        relation_module = self._relation_module()
-
-        features = embedding_module(images)
-        support_features = [[] for i in range(self.c_way)]
-        
-        support_features[0].append(
-                    embedding_module(Lambda(lambda x: x[:,0,:,:,:])(support_images))
-                )
-        support_features[0].append(
-                    embedding_module(Lambda(lambda x: x[:,1,:,:,:])(support_images))
-                )
-        support_features[0].append(
-                    embedding_module(Lambda(lambda x: x[:,2,:,:,:])(support_images))
-                )
-        support_features[0].append(
-                    embedding_module(Lambda(lambda x: x[:,3,:,:,:])(support_images))
-                )
-        support_features[0].append(
-                    embedding_module(Lambda(lambda x: x[:,4,:,:,:])(support_images))
-                )
-        
-        support_features[1].append(
-                    embedding_module(Lambda(lambda x: x[:,5,:,:,:])(support_images))
-                )
-        support_features[1].append(
-                    embedding_module(Lambda(lambda x: x[:,6,:,:,:])(support_images))
-                )
-        support_features[1].append(
-                    embedding_module(Lambda(lambda x: x[:,7,:,:,:])(support_images))
-                )
-        support_features[1].append(
-                    embedding_module(Lambda(lambda x: x[:,8,:,:,:])(support_images))
-                )
-        support_features[1].append(
-                    embedding_module(Lambda(lambda x: x[:,9,:,:,:])(support_images))
-                )
-        support_features[2].append(
-                    embedding_module(Lambda(lambda x: x[:,10,:,:,:])(support_images))
-                )
-        support_features[2].append(
-                    embedding_module(Lambda(lambda x: x[:,11,:,:,:])(support_images))
-                )
-        support_features[2].append(
-                    embedding_module(Lambda(lambda x: x[:,12,:,:,:])(support_images))
-                )
-        support_features[2].append(
-                    embedding_module(Lambda(lambda x: x[:,13,:,:,:])(support_images))
-                )
-        support_features[2].append(
-                    embedding_module(Lambda(lambda x: x[:,14,:,:,:])(support_images))
-                )
-        # idx = 0
-        # for classid in range(self.c_way):
-        #     for _ in range(self.k_shot):
-        #         support_features[classid].append(
-        #             embedding_module(Lambda(lambda x: x[:,idx,:,:,:])(support_images))
-        #         )
-        #         idx += 1
-
-        # relation_scores = []
-
-        # for classid in range(self.c_way):
-        #     sfeatures = Average()(support_features[classid])
-        #     concat_features = Concatenate()([sfeatures, features])
-        #     relation_scores.append(relation_module(concat_features))
-
-        outputs = Concatenate()([
-            relation_module(Concatenate()(
-                [Average()(support_features[0]), features]
-            )),
-            relation_module(Concatenate()(
-                [Average()(support_features[1]), features]
-            )),
-            relation_module(Concatenate()(
-                [Average()(support_features[2]), features]
-            )),
-        ])
-
-        self.discriminator = Model(
-            inputs = [support_images, images],
-            outputs = outputs,
-            name = 'Discriminator'
+        self.latent_encoder = Model(
+            inputs = image,
+            outputs = code
         )
 
-    def generate_from_latent(self, latent):
-        res = self.generator(latent)
-        return res
+    def build_features_from_classifier_model(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.classifier.layers[-3](image)
+        self.features_from_classifier = Model(
+            inputs = image,
+            output = model_output,
+            name = 'Feature_matching_classifier'
+        )
 
-    def generate(self, c, bg=None):  # c is a vector of classes
-        latent = self.generate_latent(c, bg)
-        res = self.generator.predict(latent)
-        return res
-
-    def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
-        noise = np.random.normal(0, 0.01, self.latent_size)
-        res = np.array([
-            np.random.multivariate_normal(self.means[e], self.covariances[e]) + noise
-            for e in c
-        ])
-
-        return res
-
-    def discriminate(self, support_images, images):
-        return self.discriminator([support_images, images])
-
-    def __init__(self, classes, target_class_id,
-                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
-                # No relevant difference noted
-                dratio_mode="uniform", gratio_mode="uniform",
+    def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
-                res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8,
-                c_way = 2, k_shot = 5):
-        self.gratio_mode = gratio_mode
-        self.dratio_mode = dratio_mode
-        self.c_way = c_way
-        self.k_shot = k_shot
+                res_dir = "./res-tmp", image_shape=[32, 32, 1],
+                g_lr = 0.000005, norm = 'batch'):
         self.classes = classes
-        self.target_class_id = target_class_id  # target_class_id is used only during saving, not to overwrite other class results.
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
         self.channels = image_shape[-1]
         self.resolution = image_shape[0]
-        self.min_latent_res = min_latent_res
+        self.g_lr = g_lr
 
-        self.min_latent_res = min_latent_res
-        # self.classifier = load_classifier(self.resolution)
-        # self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
-        #     metrics=['accuracy'])
-        # self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
+        self.norm = norm
+        self.loss_type = loss_type
+        if loss_type == 'binary':
+            print('LOSS TYPE: BinaryCrossentropy')
+            self.g_loss = keras.losses.BinaryCrossentropy()
+            self.d_fake_loss = keras.losses.BinaryCrossentropy()
+            self.d_real_loss = keras.losses.BinaryCrossentropy()
+        elif loss_type == 'categorical':
+            print('LOSS TYPE: sparse_categorical_crossentropy')
+            self.g_loss = 'sparse_categorical_crossentropy'
+            self.d_fake_loss = 'sparse_categorical_crossentropy'
+            self.d_real_loss = 'sparse_categorical_crossentropy'
+        elif loss_type == 'hinge':
+            print('LOSS TYPE: Hinge')
+            self.g_loss = hinge_G_loss
+            self.d_fake_loss = hinge_D_fake_loss
+            self.d_real_loss = hinge_D_real_loss
+        else:
+            print('LOSS TYPE: wasserstein')
+            self.g_loss = wasserstein_loss
+            self.d_fake_loss = wasserstein_loss
+            self.d_real_loss = wasserstein_loss
 
         # Initialize learning variables
         self.adam_lr = adam_lr 
@@ -658,98 +685,394 @@ class BalancingGAN:
         self.trained = False
 
         # Build generator
-        self.build_generator(latent_size)
-        self.generator.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss='mean_squared_error'
-        )
-
-        latent_gen = Input(shape=(latent_size, ))
-        support_images = Input(shape = (
-            self.c_way * self.k_shot,
-            self.resolution,
-            self.resolution,
-            self.channels,
-        ))
-
-        # Build discriminator
+        self.build_perceptual_model()
+        self.build_latent_encoder()
+        self.classifier = load_classifier(self.resolution)
+        self.classifier.trainable = False
+        self.build_features_from_classifier_model()
         self.build_discriminator()
-        self.discriminator.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics=['accuracy'],
-            loss='mean_squared_error'
-        )
+        self.build_features_from_d_model()
+        self.build_attribute_net()
+        self.build_res_unet()
 
-        # Build reconstructor
-        self.build_reconstructor(latent_size)
-        self.reconstructor.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss='mean_squared_error'
+        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
+        positive_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        latent_code = Input(shape=(self.latent_size,))
+
+        fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        scale, bias = self.attribute_net(other_batch)
+
+        real_output_for_d = self.discriminator([real_images])
+        fake_output_for_d = self.discriminator([fake_images])
+
+        self.discriminator_model = Model(
+            inputs = [real_images, other_batch, fake_images],
+            outputs = [fake_output_for_d, real_output_for_d],
+        )
+        self.discriminator_model.compile(
+            optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics = ['accuracy'],
+            loss = [self.d_fake_loss, self.d_real_loss]
         )
 
         # Define combined for training generator.
-        fake = self.generator(latent_gen)
+        fake = self.generator([
+            real_images, other_batch, latent_code
+        ])
 
         self.discriminator.trainable = False
-        self.reconstructor.trainable = False
         self.generator.trainable = True
-        aux = self.discriminator([support_images, fake])
+        self.features_from_d_model.trainable = False
+        self.latent_encoder.trainable = True
+
+        # aux_fake = self.discriminator(fake)
+        scale, bias = self.attribute_net(other_batch)
+        aux_fake = self.discriminator([fake])
 
         self.combined = Model(
-            inputs=[support_images, latent_gen],
-            outputs=aux,
+            inputs=[real_images, other_batch, positive_images,latent_code],
+            outputs=[aux_fake],
             name = 'Combined'
         )
 
+        # fake_perceptual_features = self.vgg16_features(fake)
+        # real_perceptual_features = self.vgg16_features(other_batch)
+
+        # performce triplet loss
+        margin = 1.0
+        d_pos = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(positive_images)))
+        d_neg = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(real_images)))
+        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
+
+        # d_pos = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
+        # d_neg = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
+        # self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
+
+        d_pos = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(other_batch)))
+        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
+        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
+
+
         self.combined.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            optimizer=Adam(
+                lr=self.g_lr,
+                beta_1=self.adam_beta_1
+            ),
             metrics=['accuracy'],
-            loss='mse'
+            loss = self.g_loss,
         )
 
-        # Define initializer for autoencoder
-        self.discriminator.trainable = False
-        self.generator.trainable = True
-        self.reconstructor.trainable = True
+    def _feature(self, x):
+        return self.encoder(x)[-1]
 
-        img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
-        img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
-        self.autoenc_0 = Model(
-            inputs=img_for_reconstructor,
-            outputs=img_reconstruct,
-            name = 'autoencoder'
-        )
-        self.autoenc_0.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            loss='mean_squared_error'
-        )
+    def vgg16_features(self, image):
+        return self.perceptual_model(Concatenate()([
+            image, image, image
+        ]))
 
-    def _biased_sample_labels(self, samples, target_distribution="uniform"):
-        all_labels = np.full(samples, 0)
-        splited = np.array_split(all_labels, self.nclasses)
-        all_labels = np.concatenate(
-            [
-                np.full(splited[classid].shape[0], classid) \
-                for classid in range(self.nclasses)
-            ]
-        )
-        np.random.shuffle(all_labels)
-        return all_labels
+    def build_attribute_net(self):
+        image = Input((self.resolution, self.resolution, self.channels))
+        feature = self.latent_encoder(image)
+        attr_feature = Flatten()(feature)
 
-        distribution = self.class_uratio
-        if target_distribution == "d":
-            distribution = self.class_dratio
-        elif target_distribution == "g":
-            distribution = self.class_gratio
+        scale = Dense(256, activation = 'relu')(attr_feature)
+        scale = Dense(1, name = 'norm_scale')(scale)
+        bias = Dense(256, activation = 'relu')(attr_feature)
+        bias = Dense(1, name = 'norm_bias')(bias)
+
+        self.attribute_net = Model(inputs = image, outputs = [scale, bias],
+                                   name = 'attribute_net')
+
+    def build_res_unet(self):
+        def _encoder(activation = 'relu'):
+            if activation == 'leaky_relu':
+                actv = LeakyReLU()
+            else:
+                actv = Activation(activation)
+
+            image = Input(shape=(self.resolution, self.resolution, self.channels))
+
+            en_1 = self._res_block(image, activation)
+            en_1 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_1)
+            en_1 = self._norm()(en_1)
+            en_1 = actv(en_1)
+            en_1 = Dropout(0.3)(en_1)
+            # out_shape: 32*32*64
+
+            en_2 = self._res_block(en_1, activation)
+            en_2 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_2)
+            en_2 = self._norm()(en_2)
+            en_2 = actv(en_2)
+            en_2 = Dropout(0.3)(en_2)
+            # out_shape:  16*16*64
+
+            en_3 = self._res_block(en_2, activation)
+            en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
+            en_3 = self._norm()(en_3)
+            en_3 = actv(en_3)
+            en_3 = Dropout(0.3)(en_3)
+            # out_shape: 8*8*128
             
-        sampled_labels = np.full(samples,0)
-        sampled_labels_p = np.random.normal(0, 1, samples)
-        for c in list(range(self.nclasses)):
-            mask = np.logical_and((sampled_labels_p > 0), (sampled_labels_p <= distribution[c]))
-            sampled_labels[mask] = self.classes[c]
-            sampled_labels_p = sampled_labels_p - distribution[c]
+            # TODO HARD CODE
+            # return Model(inputs = image, outputs = [en_1, en_2, en_3, en_3])
 
-        return sampled_labels
+            en_4 = self._res_block(en_3, activation)
+            en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
+            en_4 = self._norm()(en_4)
+            en_4 = actv(en_4)
+            en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
+            # out_shape: 4 4 128
+
+            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
+
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
+        image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
+
+        latent_code = Input(shape=(128,), name = 'latent_code')
+
+        self.encoder = _encoder()
+        feature = self.encoder(image)
+        # attribute_code = self.latent_encoder(image2)
+        
+        scale, bias = self.attribute_net(image2)
+
+        hw = int(0.0625 * self.resolution)
+        latent_noise1 = Dense(hw*hw*128,)(latent_code)
+        latent_noise1 = Reshape((hw, hw, 128))(latent_noise1)
+
+        hw *= 2
+        latent_noise2 = Dense(hw*hw*128,)(latent_code)
+        latent_noise2 = Reshape((hw, hw, 128))(latent_noise2)
+
+        hw *= 2
+        latent_noise3 = Dense(hw*hw*64,)(latent_code)
+        latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
+
+        en_1 = feature[0]
+        en_2 = feature[1]
+        en_3 = feature[2]
+        en_4 = feature[3]
+
+        # en_4 = Concatenate()([en_4, feature2[3]])
+        # en_3 = Concatenate()([en_3, feature2[2]])
+        # en_2 = Concatenate()([en_2, feature2[1]])
+        # en_1 = Concatenate()([en_1, feature2[0]])
+
+        # botteneck
+        decoder_activation = Activation('relu')
+        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_1 = self._res_block(en_4, 'relu')
+        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
+        de_1 = decoder_activation(de_1)
+        de_1 = FeatureNorm()([de_1, scale, bias])
+        # de_1 = self._norm()(de_1)
+        de_1 = Dropout(0.3)(de_1)
+        # de_1 = Add()([de_1, en_3])
+
+        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        # de_2 = self._res_block(de_1, 'relu')
+        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
+        de_2 = decoder_activation(de_2)
+        de_2 = FeatureNorm()([de_2, scale, bias])
+        # de_2 = self._norm()(de_2)
+        de_2 = Dropout(0.3)(de_2)
+        # de_2 = Add()([de_2, en_2])
+
+        # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
+        de_3 = self._res_block(de_2, 'relu')
+        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
+        de_3 = decoder_activation(de_3)
+        # de_3 = FeatureNorm()([de_3, scale, bias])
+        de_3 = self._norm()(de_3)
+        de_3 = Dropout(0.3)(de_3)
+        # de_3 = Add()([de_3, en_1])
+
+        final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
+        outputs = Activation('tanh')(final)
+
+        self.generator = Model(
+            inputs = [image, image2, latent_code],
+            outputs = outputs,
+            name='unet'
+        )
+
+
+    def build_perceptual_model(self):
+        """
+        VGG16 model with imagenet weights
+        """
+        model = VGG16(
+            include_top=False,
+            weights='imagenet',
+            input_tensor = Input(shape=(self.resolution, self.resolution, 3)),
+            input_shape = (self.resolution, self.resolution, 3)
+        )
+        model.trainable = False
+        for layer in model.layers:
+            layer.trainable = False
+        
+        self.perceptual_model = model
+
+
+    def plot_loss_his(self):
+        def toarray(lis, k):
+            return [d[k] for d in lis]
+
+        def plot_g(train_g, test_g):
+            plt.plot(toarray(train_g, 'loss'), label='train_g_loss')
+            plt.plot(toarray(train_g, 'loss_from_d'), label='train_g_loss_from_d')
+            plt.plot(toarray(train_g, 'fm_loss'), label='train_g_loss_fm')
+            plt.plot(toarray(test_g, 'loss'), label='test_g_loss')
+            plt.plot(toarray(test_g, 'loss_from_d'), label='test_g_loss_from_d')
+            plt.plot(toarray(test_g, 'fm_loss'), label='test_g_loss_fm')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+
+        def plot_d(train_d, test_d):
+            plt.plot(train_d, label='train_d_loss')
+            plt.plot(test_d, label='test_d_loss')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+
+        train_d = self.train_history['disc_loss']
+        train_g = self.train_history['gen_loss']
+        test_d = self.test_history['disc_loss']
+        test_g = self.test_history['gen_loss']
+
+        if len(train_g) == 0:
+            return 
+
+        # plot_g(train_g, test_g)
+        plot_d(train_d, test_d)
+
+
+    def plot_acc_his(self):
+        def toarray(lis, k):
+            return [d[k] for d in lis]
+
+        def plot_g(train_g, test_g):
+            plt.plot(train_g, label='train_g_acc')
+            plt.plot(test_g, label='test_g_acc')
+            plt.ylabel('acc')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+        
+        def plot_d(train_d, test_d):
+            plt.plot(train_d, label='train_d_acc')
+            plt.plot(test_d, label='test_d_acc')
+            plt.ylabel('acc')
+            plt.xlabel('epoch')
+            plt.legend()
+            plt.show()
+
+        train_d = self.train_history['disc_acc']
+        train_g = self.train_history['gen_acc']
+        test_d = self.test_history['disc_acc']
+        test_g = self.test_history['gen_acc']
+        if len(train_g) == 0:
+            return
+ 
+        plot_g(train_g, test_g)
+        plot_d(train_d, test_d)
+
+
+    def _build_common_encoder(self, image):
+        resolution = self.resolution
+        channels = self.channels
+
+        # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
+        cnn = Sequential()
+
+        cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+        # 32 * 32 * 64
+
+        cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
+
+        cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+        # 16 * 16 * 128
+
+        cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
+        # cnn.add(SelfAttention(256))
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+        # 8 * 8 * 256
+
+        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
+        # cnn.add(Dropout(0.3))
+        # 4 * 4 * 512
+
+        # cnn.add(Flatten())
+
+        features = cnn(image)
+        return features
+
+    def build_discriminator(self):
+        resolution = self.resolution
+        channels = self.channels
+
+        image = Input(shape=(resolution, resolution, channels))
+
+        # scale bias for feature norm
+        scale = Input((1,))
+        bias = Input((1,))
+
+        features = self._build_common_encoder(image)
+        # features = FeatureNorm()([features, scale, bias])
+        features = Flatten()(features)
+        features = Dropout(0.3)(features)
+
+        activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
+        if self.loss_type == 'categorical':
+            aux = Dense(self.nclasses + 1, activation = 'softmax', name='auxiliary')(features)
+        else:
+            aux = Dense(
+                1, activation = activation,name='auxiliary'
+            )(features)
+
+        self.discriminator = Model(inputs=[image],
+                                   outputs=aux,
+                                   name='discriminator')
+
+
+    def generate_latent(self, c, size = 1):
+        return np.array([
+            np.random.normal(0, 1, self.latent_size)
+            for i in c
+        ])
+
+
+    def build_features_from_d_model(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        model_output = self.discriminator.layers[-3](image)
+        self.features_from_d_model = Model(
+            inputs = image,
+            output = model_output,
+            name = 'Feature_matching'
+        )
+
+    def _norm(self):
+        return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
+
+
+    def get_pair_features(self, image_batch):
+        features = self.features_from_d_model.predict(image_batch)
+        p_features = self.perceptual_model.predict(triple_channels(image_batch))
+
+        return features, p_features
 
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
@@ -757,44 +1080,62 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        for image_batch, label_batch in bg_train.next_query_batch():
+        for image_batch, label_batch, image_batch2, label_batch2 in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
 
             ################## Train Discriminator ##################
+            fake_size = crt_batch_size // self.nclasses
+            f = self.generate_latent(range(image_batch.shape[0]))
+            flipped_labels = bg_train.flip_labels(label_batch)
+            other_batch = bg_train.get_samples_by_labels(flipped_labels)
+            for i in range(self.D_RATE):
+                generated_images = self.generator.predict(
+                    [
+                        image_batch,
+                        other_batch,
+                        f,
+                    ],
+                    verbose=0
+                )
 
-            fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses)) + self.k_shot
-    
-            # sample some labels from p_c, then latent and images
-            sampled_labels = self._biased_sample_labels(fake_size, "d")
-            latent_gen = self.generate_latent(sampled_labels, bg_train)
+                # X, aux_y = self.shuffle_data(X, aux_y)
+                fake_label = np.ones((generated_images.shape[0], 1))
+                real_label = -np.ones((label_batch.shape[0], 1))
+                real_label_for_d = -np.ones((label_batch.shape[0], 1))
 
-            generated_images = self.generator.predict(latent_gen, verbose=0)
-            fake_images = generated_images[self.k_shot:]
-            support_fakes = generated_images[:self.k_shot]
+                if self.loss_type == 'binary':
+                    real_label *= 0
+                    real_label_for_d *= 0
+                if self.loss_type == 'categorical':
+                    real_label = flipped_labels
+                    real_label_for_d = label_batch
+                    fake_label = np.full(label_batch.shape[0], self.nclasses)
 
-            X = np.concatenate((image_batch, fake_images))
-            support_images = bg_train.merge_support_images(self.support_fakes, X.shape[0])
-            aux_y = np.concatenate((label_batch, np.full(len(fake_images) , self.nclasses )), axis=0)
-            aux_y = np_utils.to_categorical(aux_y, self.nclasses + 1)
-            
-            X, aux_y = self.shuffle_data(X, aux_y)
-            loss, acc = self.discriminator.train_on_batch([support_images, X], aux_y)
-    
+                loss, acc, *rest = self.discriminator_model.train_on_batch(
+                    [image_batch, other_batch, generated_images],
+                    [fake_label, real_label_for_d]
+                )
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            sampled_labels = self._biased_sample_labels(fake_size - self.k_shot + crt_batch_size, "g")
-            latent_gen = self.generate_latent(sampled_labels, bg_train)
+            f = self.generate_latent(range(crt_batch_size))
+            positive_images = bg_train.get_samples_by_labels(flipped_labels)
+            [loss, acc, *rest] = self.combined.train_on_batch(
+                [image_batch, other_batch, positive_images, f],
+                [real_label],
+            )
 
-            sampled_labels = np_utils.to_categorical(sampled_labels, self.nclasses + 1)
-
-            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
-            loss, acc = self.combined.train_on_batch([support_images, latent_gen], sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
-        # return statistics: generator loss,
+        # In case generator have multiple metrics
+        # epoch_gen_loss_cal = {
+        #     'loss': np.mean(np.array([e['loss'] for e in epoch_gen_loss])),
+        #     'loss_from_d': np.mean(np.array([e['loss_from_d'] for e in epoch_gen_loss])),
+        #     'fm_loss': np.mean(np.array([e['fm_loss'] for e in epoch_gen_loss]))
+        # }
+
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
             np.mean(np.array(epoch_gen_loss), axis=0),
@@ -807,149 +1148,21 @@ class BalancingGAN:
         np.random.shuffle(rd_idx)
         return data_x[rd_idx], data_y[rd_idx]
 
-    def _set_class_ratios(self):
-        self.class_dratio = np.full(self.nclasses, 0.0)
-        # Set uniform
-        target = 1/self.nclasses
-        self.class_uratio = np.full(self.nclasses, target)
-        
-        # Set gratio
-        self.class_gratio = np.full(self.nclasses, 0.0)
-        for c in range(self.nclasses):
-            if self.gratio_mode == "uniform":
-                self.class_gratio[c] = target
-            elif self.gratio_mode == "rebalance":
-                self.class_gratio[c] = 2 * target - self.class_aratio[c]
-            else:
-                print("Error while training bgan, unknown gmode " + self.gratio_mode)
-                exit()
-                
-        # Set dratio
-        self.class_dratio = np.full(self.nclasses, 0.0)
-        for c in range(self.nclasses):
-            if self.dratio_mode == "uniform":
-                self.class_dratio[c] = target
-            elif self.dratio_mode == "rebalance":
-                self.class_dratio[c] = 2 * target - self.class_aratio[c]
-            else:
-                print("Error while training bgan, unknown dmode " + self.dratio_mode)
-                exit()
-
-        # if very unbalanced, the gratio might be negative for some classes.
-        # In this case, we adjust..
-        if self.gratio_mode == "rebalance":
-            self.class_gratio[self.class_gratio < 0] = 0
-            self.class_gratio = self.class_gratio / sum(self.class_gratio)
-            
-        # if very unbalanced, the dratio might be negative for some classes.
-        # In this case, we adjust..
-        if self.dratio_mode == "rebalance":
-            self.class_dratio[self.class_dratio < 0] = 0
-            self.class_dratio = self.class_dratio / sum(self.class_dratio)
-
-    def init_autoenc(self, bg_train, gen_fname=None, rec_fname=None):
-        if gen_fname is None:
-            generator_fname = "{}/{}_decoder.h5".format(self.res_dir, self.target_class_id)
-        else:
-            generator_fname = gen_fname
-        if rec_fname is None:
-            reconstructor_fname = "{}/{}_encoder.h5".format(self.res_dir, self.target_class_id)
-        else:
-            reconstructor_fname = rec_fname
-
-        multivariate_prelearnt = False
-
-        # Preload the autoencoders
-        if os.path.exists(generator_fname) and os.path.exists(reconstructor_fname):
-            print("BAGAN: loading autoencoder: ", generator_fname, reconstructor_fname)
-            self.generator.load_weights(generator_fname)
-            self.reconstructor.load_weights(reconstructor_fname)
-
-            # load the learned distribution
-            if os.path.exists("{}/{}_means.npy".format(self.res_dir, self.target_class_id)) \
-                    and os.path.exists("{}/{}_covariances.npy".format(self.res_dir, self.target_class_id)):
-                multivariate_prelearnt = True
-
-                cfname = "{}/{}_covariances.npy".format(self.res_dir, self.target_class_id)
-                mfname = "{}/{}_means.npy".format(self.res_dir, self.target_class_id)
-                print("BAGAN: loading multivariate: ", cfname, mfname)
-                self.covariances = np.load(cfname)
-                self.means = np.load(mfname)
-
-        else:
-            print("BAGAN: training autoencoder")
-            autoenc_train_loss = []
-            self.autoenc_epochs = 100
-            for e in range(self.autoenc_epochs):
-                print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
-                autoenc_train_loss_crt = []
-                for image_batch, label_batch in bg_train.next_query_batch():
-
-                    autoenc_train_loss_crt.append(self.autoenc_0.train_on_batch(image_batch, image_batch))
-                autoenc_train_loss.append(np.mean(np.array(autoenc_train_loss_crt), axis=0))
-
-            autoenc_loss_fname = "{}/{}_autoencoder.csv".format(self.res_dir, self.target_class_id)
-            with open(autoenc_loss_fname, 'w') as csvfile:
-                for item in autoenc_train_loss:
-                    csvfile.write("%s\n" % item)
-
-            self.generator.save(generator_fname)
-            self.reconstructor.save(reconstructor_fname)
-
-        layers_embedding = self.reconstructor.get_layer('embedding_module').layers
-        layers_d = self.discriminator.get_layer('embedding_module').layers
-
-        for l in range(1, len(layers_embedding)-1):
-            layers_d[l].set_weights( layers_embedding[l].get_weights())
-
-        # Organize multivariate distribution
-        if not multivariate_prelearnt:
-            print("BAGAN: computing multivariate")
-            self.covariances = []
-            self.means = []
-
-            for c in range(self.nclasses):
-                imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
-                latent = self.reconstructor.predict(imgs)
-
-                self.covariances.append(np.cov(np.transpose(latent)))
-                self.means.append(np.mean(latent, axis=0))
-
-            self.covariances = np.array(self.covariances)
-            self.means = np.array(self.means)
-
-            # save the learned distribution
-            cfname = "{}/{}_covariances.npy".format(self.res_dir, self.target_class_id)
-            mfname = "{}/{}_means.npy".format(self.res_dir, self.target_class_id)
-            print("BAGAN: saving multivariate: ", cfname, mfname)
-            np.save(cfname, self.covariances)
-            np.save(mfname, self.means)
-            print("BAGAN: saved multivariate")
-
     def _get_lst_bck_name(self, element):
         # Find last bck name
         files = [
             f for f in os.listdir(self.res_dir)
-            if re.match(r'bck_c_{}'.format(self.target_class_id) + "_" + element, f)
+            if re.match(r'bck_' + element, f)
         ]
         if len(files) > 0:
             fname = files[0]
-            e_str = os.path.splitext(fname)[0].split("_")[-1]
-
-            epoch = int(e_str)
-
+            epoch = 0
             return epoch, fname
 
         else:
             return 0, None
 
     def init_gan(self):
-        self.support_fakes = self.generator.predict(
-                    self.generate_latent([0,0,0,1,1]), verbose=False)
-        print('Init support fakes ', self.support_fakes.shape[0])
-
-        show_samples(self.support_fakes)
-
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
 
@@ -969,43 +1182,34 @@ class BalancingGAN:
             return 0
 
     def backup_point(self, epoch):
-        # Remove last bck
-        _, old_bck_g = self._get_lst_bck_name("generator")
-        _, old_bck_d = self._get_lst_bck_name("discriminator")
-        try:
-            os.remove(os.path.join(self.res_dir, old_bck_g))
-            os.remove(os.path.join(self.res_dir, old_bck_d))
-        except:
-            pass
-
         # Bck
-        generator_fname = "{}/bck_c_{}_generator_e_{}.h5".format(self.res_dir, self.target_class_id, epoch)
-        discriminator_fname = "{}/bck_c_{}_discriminator_e_{}.h5".format(self.res_dir, self.target_class_id, epoch)
+        print('Save weights at epochs : ', epoch)
+        generator_fname = "{}/bck_generator.h5".format(self.res_dir)
+        discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
         # pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
-    def evaluate_d(self, support_x, test_x, test_y):
-        loss, acc  = self.discriminator.evaluate([support_x, test_x], test_y)
-        y_pre = self.discriminator.predict([support_x, test_x])
-        print(y_pre)
-        y_pre = np.argmax(y_pre, axis=1)
-        test_y = np.argmax(test_y, axis=1)
-        print('ACC: {}%'.format(acc))
+    def evaluate_d(self, test_x, test_y):
+        y_pre = self.discriminator.predict(test_x)
+        if y_pre[0].shape[0] > 1:
+            y_pre = np.argmax(y_pre, axis=1)
+        else:
+            y_pre = pred2bin(y_pre)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
 
-    def evaluate_g(self, support_x, test_x, test_y):
-        loss, acc  = self.combined.evaluate([support_x, test_x], test_y)
-        y_pre = self.combined.predict([support_x, test_x])
-        print(y_pre)
-        y_pre = np.argmax(y_pre, axis=1)
-        test_y = np.argmax(test_y, axis=1)
-        print('ACC: {}%'.format(acc))
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+    def evaluate_g(self, test_x, test_y):
+        y_pre = self.combined.predict(test_x)
+        if y_pre[0].shape[0] > 1:
+            y_pre = np.argmax(y_pre, axis=1)
+        else:
+            y_pre = pred2bin(y_pre)
+
+        cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
@@ -1014,43 +1218,38 @@ class BalancingGAN:
         if not self.trained:
             self.autoenc_epochs = 100
 
-            # Class actual ratio
-            self.class_aratio = bg_train.get_class_probability()
-
-            # Class balancing ratio
-            self._set_class_ratios()
-
             # Initialization
-            print("BAGAN init_autoenc")
-            self.init_autoenc(bg_train)
-            print("BAGAN autoenc initialized, init gan")
+            print("init gan")
             start_e = self.init_gan()
-            print("BAGAN gan initialized, start_e: ", start_e)
+            # self.init_autoenc(bg_train)
+            print("gan initialized, start_e: ", start_e)
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+            random_samples = bg_train.get_samples_for_class(crt_c, 10)
+            f = self.generate_latent(range(10))
+    
             img_samples = np.array([
                 [
                     act_img_samples,
-                    self.generator.predict(
-                        self.reconstructor.predict(
-                            act_img_samples
-                        )
-                    ),
-                    self.generate_samples(crt_c, 10, bg_train)
+                    self.generator.predict([
+                        act_img_samples,
+                        random_samples,
+                        f,
+                    ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                random_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
                         act_img_samples,
-                        self.generator.predict(
-                            self.reconstructor.predict(
-                                act_img_samples
-                            )
-                        ),
-                        self.generate_samples(crt_c, 10, bg_train)
+                        self.generator.predict([
+                            act_img_samples,
+                            random_samples,
+                            f,
+                        ]),
                     ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -1062,53 +1261,108 @@ class BalancingGAN:
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
-
-                # Test: # generate a new batch of noise
-                nb_test = bg_test.get_num_samples()
-                fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
-                sampled_labels = self._biased_sample_labels(nb_test + self.k_shot, "d")
-                latent_gen = self.generate_latent(sampled_labels, bg_test)
             
-                # sample some labels from p_c and generate images from them
+                f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
+                rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)
+
                 generated_images = self.generator.predict(
-                    latent_gen, verbose=False)
+                    [
+                        bg_test.dataset_x,
+                        rand_x,
+                        f
+                    ],
+                    verbose=False
+                )
 
-                fake_images = generated_images[self.k_shot:]
-                support_fakes = generated_images[:self.k_shot]
+                X = np.concatenate([bg_test.dataset_x, generated_images])
+    
+                aux_y = np.concatenate([
+                    np.full(bg_test.dataset_y.shape[0], 0),
+                    np.full(generated_images.shape[0], 1)
+                ])
 
-                generated_images[0] = (generated_images[0] * 127.5 + 127.5).astype(np.uint8)
-                cv2_imshow(generated_images[0])
-            
-                X = np.concatenate( (bg_test.dataset_x, fake_images) )
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(len(fake_images), self.nclasses )), axis=0)
-                aux_y = np_utils.to_categorical(aux_y, self.nclasses + 1)
-                support_images = bg_train.merge_support_images(self.support_fakes, X.shape[0])
-                # see if the discriminator can figure itself out...
-                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                    [support_images, X], aux_y, verbose=False)
+                fake_label = np.ones((bg_test.dataset_y.shape[0], 1))
+                real_label = -np.ones((generated_images.shape[0], 1))
 
-            
-                # make new latent
-                sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
-                latent_gen = self.generate_latent(sampled_labels, bg_test)
+                if self.loss_type == 'binary':
+                    real_label *= 0
+                if self.loss_type == 'categorical':
+                    real_label = rand_y
+                    fake_label = np.full(generated_images.shape[0], self.nclasses)
 
-                support_images_g = bg_train.merge_support_images(self.support_fakes,
-                                                               sampled_labels.shape[0])
+                X = [bg_test.dataset_x,rand_x, generated_images]
+                Y = [fake_label, real_label]
 
+                test_disc_loss, test_disc_acc, *rest = self.discriminator_model.evaluate(X, Y, verbose=False)
 
-                test_y = np_utils.to_categorical(
-                        sampled_labels,
-                        self.nclasses + 1
+                [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
+                    [
+                        bg_test.dataset_x,
+                        rand_x,
+                        rand_x,
+                        f
+                    ],
+                    [real_label],
+                    verbose = 0
+                )
+
+                if e % 25 == 0:
+                    self.evaluate_d(X, Y)
+                    self.evaluate_g(
+                        [
+                            bg_test.dataset_x,
+                            rand_x,
+                            rand_x,
+                            f,
+                            
+                        ],
+                        [real_label],
                     )
-                test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    [support_images_g, latent_gen],
-                    test_y, verbose=False)
 
-                if e % 5 == 0:
-                    print('Evaluate D')
-                    self.evaluate_d(support_images, X, aux_y)
-                    print('Evaluate G')
-                    self.evaluate_g(support_images_g, latent_gen, test_y)
+                    crt_c = 0
+                    act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                    random_imgs = bg_train.get_samples_for_class(1, 10)
+
+                    f = self.generate_latent(range(10))
+                    img_samples = np.array([
+                        [
+                            act_img_samples,
+                            random_imgs,
+                            self.generator.predict([
+                                act_img_samples,
+                                random_imgs,
+                                f,
+                                
+                            ]),
+                        ]
+                    ])
+                    for crt_c in range(1, self.nclasses):
+                        act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
+                        random_imgs = bg_train.get_samples_for_class(0, 10)
+                        f = self.generate_latent(range(10))
+                        new_samples = np.array([
+                            [
+                                act_img_samples,
+                                random_imgs,
+                                self.generator.predict([
+                                    act_img_samples,
+                                    random_imgs,
+                                    f,
+                                    
+                                ]),
+                            ]
+                        ])
+                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
+
+                    show_samples(img_samples)
+
+                    self.plot_loss_his()
+                    self.plot_acc_his()
+
+                if e % 100 == 0:
+                    self.backup_point(e)
+
+                self.interval_process(e)
 
 
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
@@ -1126,38 +1380,19 @@ class BalancingGAN:
                 self.test_history['gen_acc'].append(test_gen_acc)
                 # self.plot_his()
 
-                # Save sample images
-                if e % 15 == 0:
-                    img_samples = np.array([
-                        self.generate_samples(c, 10, bg_train)
-                        for c in range(0,self.nclasses)
-                    ])
-
-                    shape = img_samples.shape
-                    img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-
-                    save_image_array(
-                        img_samples,
-                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
-                        show=True
-                    )
-
-                # Generate whole evaluation plot (real img, autoencoded img, fake img)
-                if e % 10 == 5:
-                    self.plot_loss_his()
-                    self.plot_acc_his()
-                    self.backup_point(e)
-                    crt_c = 0
-                    img_samples = self.generate_samples(crt_c, 5, bg_train)
-                    for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, 5, bg_train)
-                        img_samples = np.concatenate((img_samples, new_samples), axis=0)
-                    
-                    show_samples(img_samples)
             self.trained = True
 
+
     def generate_samples(self, c, samples, bg = None):
+        """
+        Refactor later
+        """
         return self.generate(np.full(samples, c), bg)
+    
+    def interval_process(self, epoch, interval = 20):
+        if epoch % interval != 0:
+            return
+        # do bussiness thing
 
     def save_history(self, res_dir, class_id):
         if self.trained:
@@ -1191,5 +1426,3 @@ class BalancingGAN:
     def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
         self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
         self.discriminator.load_weights(fname_discriminator)
-
-
