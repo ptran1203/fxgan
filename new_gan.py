@@ -740,7 +740,7 @@ class BalancingGAN:
 
         # self.combined.add_loss(K.mean(K.abs(fake - other_batch)))
         # performce triplet loss
-        margin = 1.0
+        margin = 3.0
         d_pos = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(positive_images)))
         d_neg = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
