@@ -853,8 +853,6 @@ class BalancingGAN:
     def build_res_unet(self):
         latent_code = Input(shape=(128,), name = 'latent_code')
 
-        scale, bias = self.attribute_net(image)
-
         hw = int(0.0625 * self.resolution)
         latent_noise = Dense(hw*hw*128,)(latent_code)
         latent_noise = Reshape((hw, hw, 128))(latent_noise)
