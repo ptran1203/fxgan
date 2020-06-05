@@ -1055,6 +1055,12 @@ class BalancingGAN:
 
 
     def generate_latent(self, c, size = 1):
+        return = np.array([
+            np.random.multivariate_normal(self.means[e],
+                                          self.covariances[e])
+            for e in c
+        ])
+
         return np.array([
             np.random.normal(0, 1, self.latent_size)
             for i in c
