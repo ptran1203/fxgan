@@ -567,7 +567,7 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
-    def compute_distribution_for_imgs(imgs):
+    def compute_distribution_for_imgs(self, imgs):
         latent = self.latent_encoder.predict(imgs)
         covariance = np.cov(np.transpose(latent))
         mean = np.mean(latent, axis=0)
@@ -1095,12 +1095,11 @@ class BalancingGAN:
 
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
-            f = self.generate_latent(range(image_batch.shape[0]))
+            f = self.generate_latent(label_batch)
             flipped_labels = bg_train.flip_labels(label_batch)
             for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
                     [
-                        image_batch,
                         f,
                     ],
                     verbose=0
@@ -1127,10 +1126,10 @@ class BalancingGAN:
             epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
-            f = self.generate_latent(range(crt_batch_size))
+            f = self.generate_latent(label_batch)
             negative_images = bg_train.get_samples_by_labels(flipped_labels)
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, negative_images, f],
+                [image_batch, f],
                 [real_label],
             )
 
