@@ -567,7 +567,6 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
-    TRIPLET_EPOCHS = 100
     def _res_block(self,  x, activation = 'leaky_relu', norm = 'batch', scale=None, bias=None):
         if activation == 'leaky_relu':
             actv = LeakyReLU()
@@ -725,6 +724,7 @@ class BalancingGAN:
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
+        self.latent_encoder_trainer.trainable = False
 
         # aux_fake = self.discriminator(fake)
         aux_fake = self.discriminator([fake])
@@ -762,29 +762,30 @@ class BalancingGAN:
         d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(pos_image)))
         d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(neg_image)))
 
-        self.latent_encoder.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
         self.latent_encoder_trainer = Model(
             inputs = [anchor_image, pos_image, neg_image],
             output = anchor_code,
         )
+        self.latent_encoder_trainer.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
         self.latent_encoder_trainer.compile(
             optimizer=Adam(
-                lr=0.00001,
-                beta_1=0.5
+                lr=0.0001,
+                # beta_1=0.5
             ),
             loss = 'mse',
             loss_weights = [0.0]
         )
 
 
-    def train_latent_encoder(self, bg_train):
-        for e in range(self.TRIPLET_EPOCHS):
+    def train_latent_encoder(self, bg_train, epochs = 100):
+        for e in range(epochs):
             losses = []
             for x, y, x2, y2 in bg_train.next_batch():
                 flipped_y = bg_train.flip_labels(y)
                 pos_x = bg_train.get_samples_by_labels(y)
                 neg_x = bg_train.get_samples_by_labels(flipped_y)
-                loss = self.latent_encoder_trainer.train_on_batch([x, pos_x, neg_x], self.latent_encoder.predict(x))
+                out = self.latent_encoder.predict(x)
+                loss = self.latent_encoder_trainer.train_on_batch([x, pos_x, neg_x], out)
                 losses.append(loss)
             print('train attribute net epoch {} - loss: {}'.format(e, np.mean(np.array(losses))))
 
