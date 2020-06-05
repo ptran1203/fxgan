@@ -771,7 +771,7 @@ class BalancingGAN:
                 lr=0.00001,
                 beta_1=0.5
             ),
-            loss = 'mse'
+            loss = 'mse',
             loss_weights = [0.0]
         )
 
