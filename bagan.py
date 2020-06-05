@@ -734,6 +734,7 @@ class BalancingGAN:
         )
 
         # performce triplet loss
+        margin = 1.0
         d_pos = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
         d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(negative_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
@@ -779,6 +780,7 @@ class BalancingGAN:
         latent_noise1 = Dense(hw*hw*128,)(latent_code)
         latent_noise1 = Reshape((hw, hw, 128))(latent_noise1)
 
+        decoder_activation = Activation('relu')
         de_1 = self._res_block(latent_noise1, activation='relu', norm = 'feature', scale=scale, bias=bias)
         # de_1 = self._res_block(en_4, 'relu')
         de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
