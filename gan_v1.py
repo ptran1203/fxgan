@@ -882,12 +882,12 @@ class BalancingGAN:
             de_1 = self._norm()(de_1)
             de_1 = Dropout(0.3)(de_1)
 
-            de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
+            de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
             de_2 = decoder_activation(de_2)
             de_2 = self._norm()(de_2)
             de_2 = Dropout(0.3)(de_2)
 
-            de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
+            de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
             de_3 = decoder_activation(de_3)
             de_3 = self._norm()(de_3)
             de_3 = Dropout(0.3)(de_3)
