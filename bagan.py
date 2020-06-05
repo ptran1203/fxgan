@@ -778,6 +778,11 @@ class BalancingGAN:
 
 
     def train_latent_encoder(self, bg_train, epochs = 100):
+        save_path = '{}/latent_encoder.h5'.format(self.res_dir)
+        if os.path.exists(save_path):
+            print('Load latent_encoder')
+            return self.latent_encoder.load_weights(save_path)
+        print('Train latent_encoder')
         for e in range(epochs):
             losses = []
             for x, y, x2, y2 in bg_train.next_batch():
@@ -788,6 +793,8 @@ class BalancingGAN:
                 loss = self.latent_encoder_trainer.train_on_batch([x, pos_x, neg_x], out)
                 losses.append(loss)
             print('train attribute net epoch {} - loss: {}'.format(e, np.mean(np.array(losses))))
+
+        self.latent_encoder.save(save_path)
 
 
     def _feature(self, x):
@@ -881,7 +888,7 @@ class BalancingGAN:
             plt.plot(toarray(train_g, 'loss'), label='train_g_loss')
             plt.plot(toarray(train_g, 'loss_from_d'), label='train_g_loss_from_d')
             plt.plot(toarray(train_g, 'fm_loss'), label='train_g_loss_fm')
-            plt.plot(toarray(test_g, 'loss'), label='test_g_loss')
+            plt.plot(toarray(test_g,     'loss'), label='test_g_loss')
             plt.plot(toarray(test_g, 'loss_from_d'), label='test_g_loss_from_d')
             plt.plot(toarray(test_g, 'fm_loss'), label='test_g_loss_fm')
             plt.ylabel('loss')
