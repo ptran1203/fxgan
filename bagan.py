@@ -695,6 +695,7 @@ class BalancingGAN:
         self.build_features_from_d_model()
         self.build_attribute_net()
         self.build_res_unet()
+        self.compile_latent_encoder()
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         negative_images = Input(shape=(self.resolution, self.resolution, self.channels))
