@@ -567,6 +567,30 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
+    def compute_distribution_for_imgs(imgs):
+        latent = self.latent_encoder.predict(imgs)
+        covariance = np.cov(np.transpose(latent))
+        mean = np.mean(latent, axis=0)
+        return mean, covariance
+
+    def compute_distribution(self, bg_train):
+        """
+        compute feature dis from latent_encoder
+        """
+        self.covariances = []
+        self.means = []
+
+        for c in range(self.nclasses):
+            imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
+            mean, covariance = self.compute_distribution_for_imgs(imgs)
+
+            self.covariances.append(covariance)
+            self.means.append(mean)
+
+        self.covariances = np.array(self.covariances)
+        self.means = np.array(self.means)
+
+
     def _res_block(self,  x, activation = 'leaky_relu', norm = 'batch', scale=None, bias=None):
         if activation == 'leaky_relu':
             actv = LeakyReLU()
@@ -600,31 +624,43 @@ class BalancingGAN:
         """
         Mapping image to latent code
         """
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels),name='image_build_latent_encoder')
 
-        x = self._res_block(image, 'relu')
-        x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
+        x = Conv2D(32, 3, strides = 2, padding = 'same')(image)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 32 * 32 * 128
 
-        # x = self._res_block(x, 'relu')
         x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
-        # x = self._res_block(x, 'relu')
         x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 8*8*128
+        
+        x = Conv2D(256, 3, strides = 2, padding = 'same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+        # 4*4*256
+
+        x = Conv2D(512, 3, strides = 2, padding = 'same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+        # 2*2*256
 
         code = AveragePooling2D()(x)
-        # 4*4*128
+        # 1*1*512
+
+        code = Flatten()(code)
+        code = Dense(self.latent_size, activation = 'relu')(code)
 
         self.latent_encoder = Model(
             inputs = image,
@@ -632,7 +668,7 @@ class BalancingGAN:
         )
 
     def build_features_from_classifier_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels),name='image_build_features_from_classifier_model')
         model_output = self.classifier.layers[-3](image)
         self.features_from_classifier = Model(
             inputs = image,
@@ -643,7 +679,8 @@ class BalancingGAN:
     def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
-                g_lr = 0.000005, norm = 'batch'):
+                g_lr = 0.000005, norm = 'batch',
+                use_resblock = False):
         self.classes = classes
         self.nclasses = len(classes)
         self.latent_size = latent_size
@@ -651,6 +688,7 @@ class BalancingGAN:
         self.channels = image_shape[-1]
         self.resolution = image_shape[0]
         self.g_lr = g_lr
+        self.use_resblock = use_resblock
 
         self.norm = norm
         self.loss_type = loss_type
@@ -694,20 +732,19 @@ class BalancingGAN:
         self.build_features_from_d_model()
         self.build_attribute_net()
         self.build_res_unet()
+        self.compile_latent_encoder()
 
-        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
-        positive_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(self.latent_size,))
+        real_images = Input(shape=(self.resolution, self.resolution, self.channels), name='real_images_init')
+        negative_images = Input(shape=(self.resolution, self.resolution, self.channels), name='negative_images_init')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code_init')
 
-        fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        scale, bias = self.attribute_net(other_batch)
+        fake_images = Input(shape=(self.resolution, self.resolution, self.channels), name='fake_images_init')
 
         real_output_for_d = self.discriminator([real_images])
         fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_model = Model(
-            inputs = [real_images, other_batch, fake_images],
+            inputs = [real_images, fake_images],
             outputs = [fake_output_for_d, real_output_for_d],
         )
         self.discriminator_model.compile(
@@ -717,39 +754,26 @@ class BalancingGAN:
         )
 
         # Define combined for training generator.
-        fake = self.generator([
-            real_images, other_batch, latent_code
-        ])
+        fake = self.generator([latent_code])
 
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = True
+        self.latent_encoder.trainable = False
+        self.latent_encoder_trainer.trainable = False
 
-        # aux_fake = self.discriminator(fake)
-        scale, bias = self.attribute_net(other_batch)
         aux_fake = self.discriminator([fake])
 
         self.combined = Model(
-            inputs=[real_images, other_batch, positive_images,latent_code],
+            inputs=[real_images, latent_code],
             outputs=[aux_fake],
             name = 'Combined'
         )
 
-        # fake_perceptual_features = self.vgg16_features(fake)
-        # real_perceptual_features = self.vgg16_features(other_batch)
 
-        # performce triplet loss
-        margin = 1.0
-        d_pos = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(positive_images)))
-        d_neg = K.mean(K.square(self.latent_encoder(other_batch) - self.latent_encoder(real_images)))
-        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
-
-        margin = 2.0
-        d_pos = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(other_batch)))
-        d_neg = K.mean(K.square(self.features_from_d_model(fake) - self.features_from_d_model(real_images)))
-        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
-
+        self.combined.add_loss(K.mean(K.abs(
+            self.latent_encoder(fake) - self.latent_encoder(real_images)
+        )))
 
         self.combined.compile(
             optimizer=Adam(
@@ -760,18 +784,63 @@ class BalancingGAN:
             loss = self.g_loss,
         )
 
+    def compile_latent_encoder(self):
+        anchor_image = Input((self.resolution, self.resolution, self.channels),name='anchor_image_complile_lantent_encoder')
+        pos_image = Input((self.resolution, self.resolution, self.channels), name='pos_image_compile_latent_encoder')
+        neg_image = Input((self.resolution, self.resolution, self.channels), name='neg_image_compile_latent_encoder')
+
+        # triplet
+        margin = 1.0
+        anchor_code = self.latent_encoder(anchor_image)
+        d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(pos_image)))
+        d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(neg_image)))
+
+        self.latent_encoder_trainer = Model(
+            inputs = [anchor_image, pos_image, neg_image],
+            output = anchor_code,
+        )
+        self.latent_encoder_trainer.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
+        self.latent_encoder_trainer.compile(
+            optimizer=Adam(
+                lr=0.0001,
+                # beta_1=0.5
+            ),
+            loss = 'mse',
+            loss_weights = [0.0]
+        )
+
+
+    def train_latent_encoder(self, bg_train, epochs = 100):
+        save_path = '{}/latent_encoder.h5'.format(self.res_dir)
+        if os.path.exists(save_path):
+            print('Load latent_encoder')
+            return self.latent_encoder.load_weights(save_path)
+        print('Train latent_encoder')
+        for e in range(epochs):
+            losses = []
+            for x, y, x2, y2 in bg_train.next_batch():
+                flipped_y = bg_train.flip_labels(y)
+                pos_x = bg_train.get_samples_by_labels(y)
+                neg_x = bg_train.get_samples_by_labels(flipped_y)
+                out = self.latent_encoder.predict(x)
+                loss = self.latent_encoder_trainer.train_on_batch([x, pos_x, neg_x], out)
+                losses.append(loss)
+            print('train attribute net epoch {} - loss: {}'.format(e, np.mean(np.array(losses))))
+
+        self.latent_encoder.save(save_path)
+
+
     def _feature(self, x):
         return self.encoder(x)[-1]
 
-    def vgg16_features(self, image):
+    def _vgg16_features(self, image):
         return self.perceptual_model(Concatenate()([
             image, image, image
         ]))
 
     def build_attribute_net(self):
-        image = Input((self.resolution, self.resolution, self.channels))
-        feature = self.latent_encoder(image)
-        attr_feature = Flatten()(feature)
+        image = Input((self.resolution, self.resolution, self.channels), name='image_build_attribute_net')
+        attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
@@ -782,109 +851,54 @@ class BalancingGAN:
                                    name = 'attribute_net')
 
     def build_res_unet(self):
-        def _encoder(activation = 'relu'):
-            if activation == 'leaky_relu':
-                actv = LeakyReLU()
-            else:
-                actv = Activation(activation)
-
-            image = Input(shape=(self.resolution, self.resolution, self.channels))
-
-            en_1 = self._res_block(image, activation)
-            en_1 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_1)
-            en_1 = self._norm()(en_1)
-            en_1 = actv(en_1)
-            en_1 = Dropout(0.3)(en_1)
-            # out_shape: 32*32*64
-
-            en_2 = self._res_block(en_1, activation)
-            en_2 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_2)
-            en_2 = self._norm()(en_2)
-            en_2 = actv(en_2)
-            en_2 = Dropout(0.3)(en_2)
-            # out_shape:  16*16*64
-
-            en_3 = self._res_block(en_2, activation)
-            en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
-            en_3 = self._norm()(en_3)
-            en_3 = actv(en_3)
-            en_3 = Dropout(0.3)(en_3)
-            # out_shape: 8*8*128
-            
-            # TODO HARD CODE
-            # return Model(inputs = image, outputs = [en_1, en_2, en_3, en_3])
-
-            en_4 = self._res_block(en_3, activation)
-            en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
-            en_4 = self._norm()(en_4)
-            en_4 = actv(en_4)
-            en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
-            # out_shape: 4 4 128
-
-            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
-
-        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
-        image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
-
         latent_code = Input(shape=(128,), name = 'latent_code')
 
-        self.encoder = _encoder()
-        feature = self.encoder(image)
-        # attribute_code = self.latent_encoder(image2)
-        
-        scale, bias = self.attribute_net(image2)
+        scale, bias = self.attribute_net(image)
 
         hw = int(0.0625 * self.resolution)
-        latent_noise1 = Dense(hw*hw*128,)(latent_code)
-        latent_noise1 = Reshape((hw, hw, 128))(latent_noise1)
+        latent_noise = Dense(hw*hw*128,)(latent_code)
+        latent_noise = Reshape((hw, hw, 128))(latent_noise)
 
-        hw *= 2
-        latent_noise2 = Dense(hw*hw*128,)(latent_code)
-        latent_noise2 = Reshape((hw, hw, 128))(latent_noise2)
-
-        hw *= 2
-        latent_noise3 = Dense(hw*hw*64,)(latent_code)
-        latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
-
-        en_1 = feature[0]
-        en_2 = feature[1]
-        en_3 = feature[2]
-        en_4 = feature[3]
-
-        # botteneck
         decoder_activation = Activation('relu')
-        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_1 = self._res_block(en_4, 'relu')
-        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
-        de_1 = decoder_activation(de_1)
-        de_1 = FeatureNorm()([de_1, scale, bias])
-        # de_1 = self._norm()(de_1)
-        de_1 = Dropout(0.3)(de_1)
-        # de_1 = Add()([de_1, en_3])
+        if self.use_resblock:
+            de_1 = self._res_block(latent_noise, 'relu')
+            de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(de_1)
+            de_1 = decoder_activation(de_1)
+            de_1 = self._norm()(de_1)
+            de_1 = Dropout(0.3)(de_1)
 
-        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_2 = self._res_block(de_1, 'relu')
-        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
-        de_2 = decoder_activation(de_2)
-        de_2 = FeatureNorm()([de_2, scale, bias])
-        # de_2 = self._norm()(de_2)
-        de_2 = Dropout(0.3)(de_2)
-        # de_2 = Add()([de_2, en_2])
+            de_2 = self._res_block(de_1, 'relu')
+            de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
+            de_2 = decoder_activation(de_2)
+            de_2 = self._norm()(de_2)
+            de_2 = Dropout(0.3)(de_2)
 
-        # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_3 = self._res_block(de_2, 'relu')
-        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
-        de_3 = decoder_activation(de_3)
-        # de_3 = FeatureNorm()([de_3, scale, bias])
-        de_3 = self._norm()(de_3)
-        de_3 = Dropout(0.3)(de_3)
-        # de_3 = Add()([de_3, en_1])
+            de_3 = self._res_block(de_2, 'relu')
+            de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
+            de_3 = decoder_activation(de_3)
+            de_3 = self._norm()(de_3)
+            de_3 = Dropout(0.3)(de_3)
+        else:
+            de_1 = Conv2DTranspose(256, 5, strides = 2, padding = 'same')(latent_noise)
+            de_1 = decoder_activation(de_1)
+            de_1 = self._norm()(de_1)
+            de_1 = Dropout(0.3)(de_1)
+
+            de_2 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_2)
+            de_2 = decoder_activation(de_2)
+            de_2 = self._norm()(de_2)
+            de_2 = Dropout(0.3)(de_2)
+
+            de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
+            de_3 = decoder_activation(de_3)
+            de_3 = self._norm()(de_3)
+            de_3 = Dropout(0.3)(de_3)
 
         final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
-            inputs = [image, image2, latent_code],
+            inputs = [latent_code],
             outputs = outputs,
             name='unet'
         )
@@ -915,7 +929,7 @@ class BalancingGAN:
             plt.plot(toarray(train_g, 'loss'), label='train_g_loss')
             plt.plot(toarray(train_g, 'loss_from_d'), label='train_g_loss_from_d')
             plt.plot(toarray(train_g, 'fm_loss'), label='train_g_loss_fm')
-            plt.plot(toarray(test_g, 'loss'), label='test_g_loss')
+            plt.plot(toarray(test_g,     'loss'), label='test_g_loss')
             plt.plot(toarray(test_g, 'loss_from_d'), label='test_g_loss_from_d')
             plt.plot(toarray(test_g, 'fm_loss'), label='test_g_loss_fm')
             plt.ylabel('loss')
@@ -1048,7 +1062,7 @@ class BalancingGAN:
 
 
     def build_features_from_d_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name='image_build_feature_from_d')
         model_output = self.discriminator.layers[-3](image)
         self.features_from_d_model = Model(
             inputs = image,
@@ -1079,12 +1093,10 @@ class BalancingGAN:
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(image_batch.shape[0]))
             flipped_labels = bg_train.flip_labels(label_batch)
-            other_batch = bg_train.get_samples_by_labels(flipped_labels)
             for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
                     [
                         image_batch,
-                        other_batch,
                         f,
                     ],
                     verbose=0
@@ -1099,12 +1111,12 @@ class BalancingGAN:
                     real_label *= 0
                     real_label_for_d *= 0
                 if self.loss_type == 'categorical':
-                    real_label = flipped_labels
+                    real_label = label_batch
                     real_label_for_d = label_batch
                     fake_label = np.full(label_batch.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
-                    [image_batch, other_batch, generated_images],
+                    [image_batch, generated_images],
                     [fake_label, real_label_for_d]
                 )
             epoch_disc_loss.append(loss)
@@ -1112,9 +1124,9 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
-            positive_images = bg_train.get_samples_by_labels(flipped_labels)
+            negative_images = bg_train.get_samples_by_labels(flipped_labels)
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, other_batch, positive_images, f],
+                [image_batch, negative_images, f],
                 [real_label],
             )
 
@@ -1211,35 +1223,32 @@ class BalancingGAN:
             self.autoenc_epochs = 100
 
             # Initialization
+            print('compute distribution')
+            self.compute_distribution(bg_train)
+
             print("init gan")
             start_e = self.init_gan()
-            # self.init_autoenc(bg_train)
             print("gan initialized, start_e: ", start_e)
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-            random_samples = bg_train.get_samples_for_class(crt_c, 10)
-            f = self.generate_latent(range(10))
+            f = self.generate_latent(np.full((10,), crt_c))
     
             img_samples = np.array([
                 [
                     act_img_samples,
                     self.generator.predict([
-                        act_img_samples,
-                        random_samples,
                         f,
                     ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses):
+                f = self.generate_latent(np.full((10,), crt_c))
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                random_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
                         act_img_samples,
                         self.generator.predict([
-                            act_img_samples,
-                            random_samples,
                             f,
                         ]),
                     ]
@@ -1253,14 +1262,12 @@ class BalancingGAN:
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
-            
-                f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
-                rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)
 
+                f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
+                flipped_labels = bg_test.flip_labels(bg_test.dataset_y)
+                negative_images = bg_test.get_samples_by_labels(flipped_labels)
                 generated_images = self.generator.predict(
                     [
-                        bg_test.dataset_x,
-                        rand_x,
                         f
                     ],
                     verbose=False
@@ -1279,10 +1286,10 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = rand_y
+                    real_label = bg_test.dataset_y
                     fake_label = np.full(generated_images.shape[0], self.nclasses)
 
-                X = [bg_test.dataset_x,rand_x, generated_images]
+                X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
 
                 test_disc_loss, test_disc_acc, *rest = self.discriminator_model.evaluate(X, Y, verbose=False)
@@ -1290,8 +1297,6 @@ class BalancingGAN:
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
-                        rand_x,
-                        rand_x,
                         f
                     ],
                     [real_label],
@@ -1300,45 +1305,33 @@ class BalancingGAN:
 
                 if e % 25 == 0:
                     self.evaluate_d(X, Y)
+                    f = self.generate_latent(bg_test.dataset_y)
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
-                            rand_x,
-                            rand_x,
                             f,
-                            
                         ],
                         [real_label],
                     )
 
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    random_imgs = bg_train.get_samples_for_class(1, 10)
-
-                    f = self.generate_latent(range(10))
+                    f = self.generate_latent(np.full((10,), crt_c))
                     img_samples = np.array([
                         [
                             act_img_samples,
-                            random_imgs,
                             self.generator.predict([
-                                act_img_samples,
-                                random_imgs,
                                 f,
-                                
                             ]),
                         ]
                     ])
                     for crt_c in range(1, self.nclasses):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        random_imgs = bg_train.get_samples_for_class(0, 10)
-                        f = self.generate_latent(range(10))
+                        f = self.generate_latent(np.full((10,), crt_c))
                         new_samples = np.array([
                             [
                                 act_img_samples,
-                                random_imgs,
                                 self.generator.predict([
-                                    act_img_samples,
-                                    random_imgs,
                                     f,
                                     
                                 ]),
@@ -1416,5 +1409,4 @@ class BalancingGAN:
             self.reconstructor.save(reconstructor_fname)
 
     def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
-        self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
         self.discriminator.load_weights(fname_discriminator)
