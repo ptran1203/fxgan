@@ -1233,7 +1233,6 @@ class BalancingGAN:
                     img_samples = np.array([
                         [
                             act_img_samples,
-                            random_imgs,
                             self.generator.predict([
                                 act_img_samples,
                                 f,
@@ -1247,7 +1246,6 @@ class BalancingGAN:
                         new_samples = np.array([
                             [
                                 act_img_samples,
-                                random_imgs,
                                 self.generator.predict([
                                     act_img_samples,
                                     f,
