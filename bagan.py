@@ -601,7 +601,7 @@ class BalancingGAN:
         """
         Mapping image to latent code
         """
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels),name='image_build_latent_encoder')
 
         x = self._res_block(image, 'relu')
         x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
@@ -633,7 +633,7 @@ class BalancingGAN:
         )
 
     def build_features_from_classifier_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels),name='image_build_features_from_classifier_model')
         model_output = self.classifier.layers[-3](image)
         self.features_from_classifier = Model(
             inputs = image,
@@ -697,11 +697,11 @@ class BalancingGAN:
         self.build_res_unet()
         self.compile_latent_encoder()
 
-        real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        negative_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        latent_code = Input(shape=(self.latent_size,))
+        real_images = Input(shape=(self.resolution, self.resolution, self.channels), name='real_images_init')
+        negative_images = Input(shape=(self.resolution, self.resolution, self.channels), name='negative_images_init')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code_init')
 
-        fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        fake_images = Input(shape=(self.resolution, self.resolution, self.channels), name='fake_images_init')
 
         real_output_for_d = self.discriminator([real_images])
         fake_output_for_d = self.discriminator([fake_images])
@@ -752,9 +752,9 @@ class BalancingGAN:
         )
 
     def compile_latent_encoder(self):
-        anchor_image = Input((self.resolution, self.resolution, self.channels))
-        pos_image = Input((self.resolution, self.resolution, self.channels))
-        neg_image = Input((self.resolution, self.resolution, self.channels))
+        anchor_image = Input((self.resolution, self.resolution, self.channels),name='anchor_image_complile_lantent_encoder')
+        pos_image = Input((self.resolution, self.resolution, self.channels), name='pos_image_compile_latent_encoder')
+        neg_image = Input((self.resolution, self.resolution, self.channels), name='neg_image_compile_latent_encoder')
 
         # triplet
         margin = 1.0
@@ -798,7 +798,7 @@ class BalancingGAN:
         ]))
 
     def build_attribute_net(self):
-        image = Input((self.resolution, self.resolution, self.channels))
+        image = Input((self.resolution, self.resolution, self.channels), name='image_build_attribute_net')
         feature = self.latent_encoder(image)
         attr_feature = Flatten()(feature)
 
@@ -811,7 +811,7 @@ class BalancingGAN:
                                    name = 'attribute_net')
 
     def build_res_unet(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_rest_unet')
         latent_code = Input(shape=(128,), name = 'latent_code')
 
         scale, bias = self.attribute_net(image)
@@ -1013,7 +1013,7 @@ class BalancingGAN:
 
 
     def build_features_from_d_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name='image_build_feature_from_d')
         model_output = self.discriminator.layers[-3](image)
         self.features_from_d_model = Model(
             inputs = image,
