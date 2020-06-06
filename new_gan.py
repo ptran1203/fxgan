@@ -401,7 +401,7 @@ class BatchGenerator:
         new_arr = []
 
         for label in labels:
-            idx, classes[label] = classes[label][-1], classes[label[:-1]
+            idx, classes[label] = classes[label][-1], classes[label][:-1]
             new_arr.append(idx)
 
         return self.dataset_x[np.array(new_arr)]
