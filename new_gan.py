@@ -591,7 +591,8 @@ class BalancingGAN:
         skip = norm_layer(skip)
         out = actv(skip)
 
-        skip = Conv2D(units, 1, strides = 1, padding='same')(skip)
+        skip = Conv2D(units, 1, strides=1, padding='same')(skip)
+        skip = actv(skip)
 
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
         out = norm_layer(out)
@@ -877,25 +878,25 @@ class BalancingGAN:
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
 
-            en_2 = self._res_block(en_1, activation)
             en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_2)
             en_2 = self._norm()(en_2)
             en_2 = actv(en_2)
             en_2 = Dropout(0.3)(en_2)
 
-            en_3 = self._res_block(en_2, activation)
             en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_3)
             en_3 = self._norm()(en_3)
             en_3 = actv(en_3)
             en_3 = Dropout(0.3)(en_3)
 
-            en_4 = self._res_block(en_3, activation)
             en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_4)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
-            en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
+            en_4 = Dropout(0.3)(en_4)
 
-            return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
+            content_code = self._res_block(en_4, 512, kernel_size, activation)
+            content_code = self._res_block(content_code, 512, kernel_size, activation)
+
+            return Model(inputs = image, outputs = content_code)
 
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
         image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
@@ -903,19 +904,13 @@ class BalancingGAN:
         latent_code = Input(shape=(128,), name = 'latent_code')
 
         self.encoder = _encoder()
-        feature = self.encoder(image)
-        # attribute_code = self.latent_encoder(image2)
-        
+        content_code = self.encoder(image)        
         scale, bias = self.attribute_net(image2)
-
-        en_1 = feature[0]
-        en_2 = feature[1]
-        en_3 = feature[2]
-        en_4 = feature[3]
 
         decoder_activation = Activation('relu')
         kernel_size = 5
-        de = self._res_block(en_4, 512, kernel_size,
+
+        de = self._res_block(content_code, 512, kernel_size,
                             'relu', norm='fn',
                             scale=scale, bias=bias)
         de = self._res_block(de, 512, kernel_size,
