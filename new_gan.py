@@ -849,8 +849,7 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
-        feature = self.latent_encoder(image)
-        attr_feature = Flatten()(feature)
+        attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(256, activation = 'relu')(scale)
