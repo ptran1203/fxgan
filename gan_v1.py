@@ -851,7 +851,7 @@ class BalancingGAN:
                                    name = 'attribute_net')
 
     def build_res_unet(self):
-        latent_code = Input(shape=(128,), name = 'latent_code')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
 
         hw = int(0.0625 * self.resolution)
         latent_noise = Dense(hw*hw*128,)(latent_code)
