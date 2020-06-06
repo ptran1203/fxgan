@@ -878,17 +878,17 @@ class BalancingGAN:
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
 
-            en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_2)
+            en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_1)
             en_2 = self._norm()(en_2)
             en_2 = actv(en_2)
             en_2 = Dropout(0.3)(en_2)
 
-            en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_3)
+            en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_2)
             en_3 = self._norm()(en_3)
             en_3 = actv(en_3)
             en_3 = Dropout(0.3)(en_3)
 
-            en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_4)
+            en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_3)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
             en_4 = Dropout(0.3)(en_4)
