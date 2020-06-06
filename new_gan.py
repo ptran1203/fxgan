@@ -349,7 +349,7 @@ class BatchGenerator:
 
         # Prune
         if prune_classes:
-            for class_to_prune in range(len(classes)):
+            for class_to_prune in range(len(prune_classes)):
                 remove_size = prune_classes[class_to_prune]
                 all_ids = list(np.arange(len(self.dataset_x)))
                 mask = [lc == class_to_prune for lc in self.dataset_y]
