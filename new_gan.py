@@ -53,21 +53,21 @@ DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
 CATEGORIES_MAP = {
-    'No Finding' : 0,
-    'Atelectasis' : 1,
-    'Effusion' : 2,
-    'Mass' : 3,
-    'Consolidation' : 4,
-    'Pneumothorax' : 5,
-    'Fibrosis' : 6,
-    'Infiltration' : 7,
-    'Emphysema' : 8,
-    'Nodule' : 9,
-    'Pleural_Thickening' : 10,
-    'Edema' : 11,
-    'Cardiomegaly' : 12,
-    'Hernia' : 13,
-    'Pneumonia' : 14,
+    'No Finding': 0,
+    'Atelectasis': 1,
+    'Effusion': 2,
+    'Mass' :3,
+    'Consolidation': 4,
+    'Pneumothorax': 5,
+    'Fibrosis': 6,
+    'Infiltration': 7,
+    'Emphysema': 8,
+    'Nodule': 9,
+    'Pleural_Thickening': 10,
+    'Edema': 11,
+    'Cardiomegaly': 12,
+    'Hernia': 13,
+    'Pneumonia': 14,
 }
 
 # ===========================================
@@ -642,33 +642,28 @@ class BalancingGAN:
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         kernel_size = 5
 
-        x = Conv2D(32, kernel_size + 2, strides = 1, padding='same')(image)
+        x = Conv2D(32, kernel_size, strides = 1, padding='same')(image)
         x = self._norm()(x)
         x = Activation('relu')(x)
-        x = Dropout(0.3)(x)
         # 32 * 32 * 32
 
-        x = Conv2D(64, kernel_size, strides=2, padding='same')(x)
+        x = Conv2D(64, kernel_size, strides=1, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
-        x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
         x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
-        x = Dropout(0.3)(x)
         # 8*8*128
 
         x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
-        x = Dropout(0.3)(x)
 
         x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
-        x = Dropout(0.3)(x)
 
         code = AveragePooling2D()(x)
         code = Flatten()(code)
@@ -772,7 +767,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = True
+        self.latent_encoder.trainable = False
 
         # aux_fake = self.discriminator(fake)
         scale, bias = self.attribute_net(other_batch)
@@ -888,22 +883,22 @@ class BalancingGAN:
             en_1 = Conv2D(64, kernel_size, strides=1, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
-            en_1 = Dropout(0.3)(en_1)
+            # en_1 = Dropout(0.3)(en_1)
 
             en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_1)
             en_2 = self._norm()(en_2)
             en_2 = actv(en_2)
-            en_2 = Dropout(0.3)(en_2)
+            # en_2 = Dropout(0.3)(en_2)
 
             en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_2)
             en_3 = self._norm()(en_3)
             en_3 = actv(en_3)
-            en_3 = Dropout(0.3)(en_3)
+            # en_3 = Dropout(0.3)(en_3)
 
             en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_3)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
-            en_4 = Dropout(0.3)(en_4)
+            # en_4 = Dropout(0.3)(en_4)
 
             content_code = self._res_block(en_4, 512, kernel_size, activation)
             content_code = self._res_block(content_code, 512, kernel_size, activation)
@@ -932,17 +927,17 @@ class BalancingGAN:
         de_1 = self._upscale(de, 'bilinear', 256, kernel_size)
         de_1 = decoder_activation(de_1)
         de_1 = self._norm()(de_1)
-        de_1 = Dropout(0.3)(de_1)
+        # de_1 = Dropout(0.3)(de_1)
 
         de_2 = self._upscale(de_1, 'bilinear', 128, kernel_size)
         de_2 = decoder_activation(de_2)
         de_2 = self._norm()(de_2)
-        de_2 = Dropout(0.3)(de_2)
+        # de_2 = Dropout(0.3)(de_2)
 
         de_3 = self._upscale(de_2, 'bilinear', 64, kernel_size)
         de_3 = decoder_activation(de_3)
         de_3 = self._norm()(de_3)
-        de_3 = Dropout(0.3)(de_3)
+        # de_3 = Dropout(0.3)(de_3)
 
         final = Conv2D(1, kernel_size, strides=1, padding='same')(de_3)
         outputs = Activation('tanh')(final)
