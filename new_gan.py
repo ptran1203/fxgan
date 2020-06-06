@@ -622,7 +622,7 @@ class BalancingGAN:
             else:
                 # use upsamling layer
                 # nearest  or   bilinear
-                x = UpSampling2D(x, size=(2, 2), interpolation=interpolation)
+                x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
                 return x
 
     def _downscale(self, x, interpolation='conv', units=64,kernel_size=5):
@@ -632,7 +632,7 @@ class BalancingGAN:
             return x
         else:
             # use upsamling layer
-            x = MaxPooling2D(x)
+            x = MaxPooling2D()(x)
             return x
 
     def build_latent_encoder(self):
