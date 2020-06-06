@@ -52,6 +52,24 @@ DS_DIR_2 = '/content/drive/My Drive/bagan/dataset/multi_chest'
 DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
 CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
+CATEGORIES_MAP = {
+    'No Finding' : 0,
+    'Atelectasis' : 1,
+    'Effusion' : 2,
+    'Mass' : 3,
+    'Consolidation' : 4,
+    'Pneumothorax' : 5,
+    'Fibrosis' : 6,
+    'Infiltration' : 7,
+    'Emphysema' : 8,
+    'Nodule' : 9,
+    'Pleural_Thickening' : 10,
+    'Edema' : 11,
+    'Cardiomegaly' : 12,
+    'Hernia' : 13,
+    'Pneumonia' : 14,
+}
+
 # ===========================================
 # I have no idea how it works, happy coding #
 #               ¯\_(ツ)_/¯                  #
@@ -251,8 +269,6 @@ def pred2bin(pred):
             x[0] = 0
     return pred
 
-
-
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
@@ -299,19 +315,27 @@ class BatchGenerator:
 
         else: # multi chest
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
-            
+            to_keep = [i for i, l in enumerate(y) if '|' not in l]
+            to_keep = np.array(to_keep)
+            x = x[to_keep]
+            y = y[to_keep]
+            x = np.expand_dims(x, axis=-1)
+            to_train_classes = ['No Finding', 'Infiltration', 'Effusion', 'Atelectasis', 'Nodule']
             if self.data_src == self.TEST:
-                self.dataset_x = x[:self.D_SIZE]
-                # TODO: HARD CODE HERE
-                self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
+                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                x, y = x[to_keep], y[to_keep]
+                self.dataset_x = x
+                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
             else:
-                self.dataset_x = x[self.D_SIZE:self.D_SIZE * 2]
-                # TODO: HARD CODE HERE
-                self.dataset_y = np.ones((self.dataset_x.shape[0], 1))
+                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
+                x, y = x[to_keep], y[to_keep]
+                self.dataset_x = x
+                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
 
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
 
+        print(self.dataset_x.shape[0] , self.dataset_y.shape[0])
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
         # Compute per class instance count.
@@ -373,25 +397,24 @@ class BatchGenerator:
             samples = self.batch_size
 
         count = Counter(labels)
-        class_1 = np.random.choice(self.per_class_ids[0], count[0])
-        class_2 = np.random.choice(self.per_class_ids[1], count[1])
+        classes = [[] * len(count.keys())]
+        for c_id in range(classes):
+            classes[c_id] = np.random.choice(self.per_class_ids[c_id], count[c_id])
+
         new_arr = []
 
         for label in labels:
-            if label == 0:
-                idx, class_1 = class_1[-1], class_1[:-1]
-            else:
-                idx, class_2 = class_2[-1], class_2[:-1]
+            idx, classes[label] = classes[label][-1], classes[label][:-1]
             new_arr.append(idx)
 
         return self.dataset_x[np.array(new_arr)]
 
-    @staticmethod
-    def flip_labels(labels):
+    def other_labels(self, labels):
         clone = np.arange(labels.shape[0])
         clone[:] = labels
         for i in range(labels.shape[0]):
-            clone[i] = (int(not labels[i]))
+            to_get = self.classes[self.classes != labels[i]]
+            clone[i] = to_get[np.random.randint(0, len(self.classes))]
         return clone
 
     def pair_samples(self, train_x):
@@ -441,20 +464,6 @@ class BatchGenerator:
                 dataset_x[access_pattern, :, :, :], labels[access_pattern],
                 dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
-
-    def next_pair_batch(self):
-        dataset_x = self.pair_x
-        labels = self.pair_y
-
-        indices = np.arange(dataset_x.shape[0])
-
-        np.random.shuffle(indices)
-
-        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
-            access_pattern = indices[start_idx:start_idx + self.batch_size]
-            access_pattern = sorted(access_pattern)
-
-            yield dataset_x[access_pattern, :, :, :], labels[access_pattern]
 
 
 class RandomPick(keras.layers.Layer):

@@ -321,18 +321,23 @@ class BatchGenerator:
             to_keep = np.array(to_keep)
             x = x[to_keep]
             y = y[to_keep]
+            x = np.expand_dims(x, axis=-1)
+            to_train_classes = ['No Finding', 'Infiltration', 'Effusion', 'Atelectasis', 'Nodule']
             if self.data_src == self.TEST:
-                self.dataset_x = x[:self.D_SIZE]
-                # TODO: HARD CODE HERE
+                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                x, y = x[to_keep], y[to_keep]
+                self.dataset_x = x
                 self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
             else:
-                self.dataset_x = x[self.D_SIZE:self.D_SIZE * 2]
-                # TODO: HARD CODE HERE
+                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
+                x, y = x[to_keep], y[to_keep]
+                self.dataset_x = x
                 self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
 
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
 
+        print(self.dataset_x.shape[0] , self.dataset_y.shape[0])
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
 
         # Compute per class instance count.
@@ -406,8 +411,7 @@ class BatchGenerator:
 
         return self.dataset_x[np.array(new_arr)]
 
-    @staticmethod
-    def other_labels(labels):
+    def other_labels(self, labels):
         clone = np.arange(labels.shape[0])
         clone[:] = labels
         for i in range(labels.shape[0]):
