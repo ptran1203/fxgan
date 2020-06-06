@@ -615,13 +615,13 @@ class BalancingGAN:
 
     def _downscale(self, x, type='conv', units=64,kernel_size=5):
         if type == 'conv':
-                # use convolution
-                x = Conv2D(units, kernel_size, strides=2, padding='same')(x)
-                return x
-            else:
-                # use upsamling layer
-                x = MaxPooling2D(x)
-                return x
+            # use convolution
+            x = Conv2D(units, kernel_size, strides=2, padding='same')(x)
+            return x
+        else:
+            # use upsamling layer
+            x = MaxPooling2D(x)
+            return x
 
     def build_latent_encoder(self):
         """
