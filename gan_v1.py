@@ -1226,6 +1226,8 @@ class BalancingGAN:
             self.autoenc_epochs = 100
 
             # Initialization
+            print('Load latent_encoder ....')
+            self.train_latent_encoder(bg_train)
             print('compute distribution')
             self.compute_distribution(bg_train)
 
