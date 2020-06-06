@@ -399,13 +399,12 @@ class BatchGenerator:
             samples = self.batch_size
 
         count = Counter(labels)
-        classes = [[] * len(count.keys())]
-        for c_id in range(classes):
+        classes = {k: [] for k in count.keys()}
+        for c_id in count.keys():
             classes[c_id] = np.random.choice(self.per_class_ids[c_id], count[c_id])
 
         new_arr = []
-
-        for label in labels:
+        for i, label in enumerate(labels):
             idx, classes[label] = classes[label][-1], classes[label][:-1]
             new_arr.append(idx)
 
@@ -791,11 +790,12 @@ class BalancingGAN:
         )))
 
         # triplet
-        margin = 1.0
+        # margin = 1.0
         anchor_code = self.latent_encoder(fake)
-        d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(other_batch)))
-        d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
+        # d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(other_batch)))
+        # d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
         self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.0))
+        self.combined.add_loss(K.mean(K.abs(anchor_code - self.latent_encoder(other_batch))))
 
         self.combined.compile(
             optimizer=Adam(
@@ -928,23 +928,22 @@ class BalancingGAN:
                             'relu', norm='fn',
                             scale=scale, bias=bias)
 
-        de_1 = Conv2DTranspose(256, kernel_size, strides=2, padding='same')(de)
+        de_1 = self._upscale(de, 'near', 256, kernel_size)
         de_1 = decoder_activation(de_1)
         de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
 
-        de_2 = Conv2DTranspose(128, kernel_size, strides=2, padding='same')(de_1)
+        de_2 = self._upscale(de_1, 'near', 128, kernel_size)
         de_2 = decoder_activation(de_2)
         de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
 
-        de_3 = Conv2DTranspose(64, kernel_size, strides=2, padding='same')(de_2)
+        de_3 = self._upscale(de_2, 'near', 64, kernel_size)
         de_3 = decoder_activation(de_3)
         de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
 
-
-        final = Conv2DTranspose(1, kernel_size, strides=1, padding='same')(de_3)
+        final = Conv2D(1, kernel_size, strides=1, padding='same')(de_3)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(

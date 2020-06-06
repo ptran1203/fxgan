@@ -398,7 +398,7 @@ class BatchGenerator:
 
         count = Counter(labels)
         classes = [[] * len(count.keys())]
-        for c_id in range(classes):
+        for c_id in range(len(classes)):
             classes[c_id] = np.random.choice(self.per_class_ids[c_id], count[c_id])
 
         new_arr = []
@@ -414,7 +414,7 @@ class BatchGenerator:
         clone[:] = labels
         for i in range(labels.shape[0]):
             to_get = self.classes[self.classes != labels[i]]
-            clone[i] = to_get[np.random.randint(0, len(self.classes))]
+            clone[i] = to_get[np.random.randint(0, len(self.classes) - 1)]
         return clone
 
     def pair_samples(self, train_x):
