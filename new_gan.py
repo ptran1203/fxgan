@@ -614,18 +614,19 @@ class BalancingGAN:
         out = Add()([out, skip])
         return out
 
-    def _upscale(self, x, type='conv', units=64, kernel_size=5):
-            if type == 'conv':
+    def _upscale(self, x, interpolation='conv', units=64, kernel_size=5):
+            if interpolation == 'conv':
                 # use convolution
                 x = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
                 return x
             else:
                 # use upsamling layer
-                x = UpSampling2D(x)
+                # nearest  or   bilinear
+                x = UpSampling2D(x, size=(2, 2), interpolation=interpolation)
                 return x
 
-    def _downscale(self, x, type='conv', units=64,kernel_size=5):
-        if type == 'conv':
+    def _downscale(self, x, interpolation='conv', units=64,kernel_size=5):
+        if interpolation == 'conv':
             # use convolution
             x = Conv2D(units, kernel_size, strides=2, padding='same')(x)
             return x
@@ -928,17 +929,17 @@ class BalancingGAN:
                             'relu', norm='fn',
                             scale=scale, bias=bias)
 
-        de_1 = self._upscale(de, 'near', 256, kernel_size)
+        de_1 = self._upscale(de, 'bilinear', 256, kernel_size)
         de_1 = decoder_activation(de_1)
         de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
 
-        de_2 = self._upscale(de_1, 'near', 128, kernel_size)
+        de_2 = self._upscale(de_1, 'bilinear', 128, kernel_size)
         de_2 = decoder_activation(de_2)
         de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
 
-        de_3 = self._upscale(de_2, 'near', 64, kernel_size)
+        de_3 = self._upscale(de_2, 'bilinear', 64, kernel_size)
         de_3 = decoder_activation(de_3)
         de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
