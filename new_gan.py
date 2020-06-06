@@ -777,9 +777,13 @@ class BalancingGAN:
         self.combined.add_loss(K.mean(K.abs(
             fake_perceptual_features - real_perceptual_features
         )))
-        self.combined.add_loss(K.mean(K.abs(
-            self.latent_encoder(fake) - self.latent_encoder(other_batch)
-        )))
+
+        # triplet
+        margin = 1.0
+        anchor_code = self.latent_encoder(fake)
+        d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(other_batch)))
+        d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
+        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.0))
 
         self.combined.compile(
             optimizer=Adam(
@@ -1264,7 +1268,7 @@ class BalancingGAN:
 
             # Initialization
             print("init gan")
-            self.train_latent_encoder(bg_train)
+            # self.train_latent_encoder(bg_train)
             start_e = self.init_gan()
             # self.init_autoenc(bg_train)
             print("gan initialized, start_e: ", start_e)
