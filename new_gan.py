@@ -1247,6 +1247,7 @@ class BalancingGAN:
 
             # Initialization
             print("init gan")
+            self.train_latent_encoder(bg_train)
             start_e = self.init_gan()
             # self.init_autoenc(bg_train)
             print("gan initialized, start_e: ", start_e)
