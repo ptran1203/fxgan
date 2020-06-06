@@ -567,7 +567,14 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
-    def _res_block(self,  x, activation = 'leaky_relu', norm = 'batch', scale=None, bias=None):
+    def _res_block(self,
+                  x,
+                  units = 64,
+                  kernel_size = 3,
+                  activation = 'leaky_relu',
+                  norm = 'batch',
+                  scale=None,
+                  bias=None):
         if activation == 'leaky_relu':
             actv = LeakyReLU()
         else:
@@ -580,51 +587,79 @@ class BalancingGAN:
                 x = FeatureNorm()([x, scale, bias])
             return x
 
-        skip = Conv2D(64, 3, strides = 1, padding = 'same')(x)
+        skip = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
         skip = norm_layer(skip)
         out = actv(skip)
 
-        skip = Conv2D(64, 1, strides = 1, padding = 'same')(skip)
+        skip = Conv2D(units, 1, strides = 1, padding='same')(skip)
 
-        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
         out = norm_layer(out)
         out = actv(out)
 
-        out = Conv2D(64, 3, strides = 1, padding = 'same')(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
         out = norm_layer(out)
         out = actv(out)
         out = Add()([out, skip])
         return out
+
+    def _upscale(self, x, type='conv', units=64, kernel_size=5):
+            if type == 'conv':
+                # use convolution
+                x = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
+                return x
+            else:
+                # use upsamling layer
+                x = UpSampling2D(x)
+                return x
+
+    def _downscale(self, x, type='conv', units=64,kernel_size=5):
+        if type == 'conv':
+                # use convolution
+                x = Conv2D(units, kernel_size, strides=2, padding='same')(x)
+                return x
+            else:
+                # use upsamling layer
+                x = MaxPooling2D(x)
+                return x
 
     def build_latent_encoder(self):
         """
         Mapping image to latent code
         """
         image = Input(shape=(self.resolution, self.resolution, self.channels))
+        kernel_size = 5
 
-        x = self._res_block(image, 'relu')
-        x = Conv2D(32, 3, strides = 2, padding = 'same')(x)
+        x = Conv2D(32, kernel_size + 2, strides = 1, padding='same')(image)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
-        # 32 * 32 * 128
+        # 32 * 32 * 32
 
-        # x = self._res_block(x, 'relu')
-        x = Conv2D(64, 3, strides = 2, padding = 'same')(x)
+        x = Conv2D(64, kernel_size, strides=2, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 16 * 16 * 64
 
-        # x = self._res_block(x, 'relu')
-        x = Conv2D(128, 3, strides = 2, padding = 'same')(x)
+        x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
         x = Dropout(0.3)(x)
         # 8*8*128
 
+        x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+
+        x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+        x = Dropout(0.3)(x)
+
         code = AveragePooling2D()(x)
-        # 4*4*128
+        code = Flatten()(code)
 
         self.latent_encoder = Model(
             inputs = image,
@@ -725,7 +760,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = False
+        self.latent_encoder.trainable = True
 
         # aux_fake = self.discriminator(fake)
         scale, bias = self.attribute_net(other_batch)
@@ -737,9 +772,11 @@ class BalancingGAN:
             name = 'Combined',
         )
 
-        # fake_perceptual_features = self.vgg16_features(fake)
-        # real_perceptual_features = self.vgg16_features(other_batch)
-
+        fake_perceptual_features = self.vgg16_features(fake)
+        real_perceptual_features = self.vgg16_features(other_batch)
+        self.combined.add_loss(K.mean(K.abs(
+            fake_perceptual_features - real_perceptual_features
+        )))
         self.combined.add_loss(K.mean(K.abs(
             self.latent_encoder(fake) - self.latent_encoder(other_batch)
         )))
@@ -812,8 +849,11 @@ class BalancingGAN:
         attr_feature = Flatten()(feature)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
+        scale = Dense(256, activation = 'relu')(scale)
         scale = Dense(1, name = 'norm_scale')(scale)
+
         bias = Dense(256, activation = 'relu')(attr_feature)
+        bias = Dense(256, activation = 'relu')(bias)
         bias = Dense(1, name = 'norm_bias')(bias)
 
         self.attribute_net = Model(inputs = image, outputs = [scale, bias],
@@ -827,34 +867,30 @@ class BalancingGAN:
                 actv = Activation(activation)
 
             image = Input(shape=(self.resolution, self.resolution, self.channels))
+            kernel_size = 5
 
-            en_1 = self._res_block(image, activation)
-            en_1 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_1)
+            en_1 = Conv2D(64, kernel_size, strides=1, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
-            # out_shape: 32*32*64
 
             en_2 = self._res_block(en_1, activation)
-            en_2 = Conv2D(64, 5, strides=(2, 2), padding="same")(en_2)
+            en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_2)
             en_2 = self._norm()(en_2)
             en_2 = actv(en_2)
             en_2 = Dropout(0.3)(en_2)
-            # out_shape:  16*16*64
 
             en_3 = self._res_block(en_2, activation)
-            en_3 = Conv2D(128, 5, strides = 2, padding = 'same')(en_3)
+            en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_3)
             en_3 = self._norm()(en_3)
             en_3 = actv(en_3)
             en_3 = Dropout(0.3)(en_3)
-            # out_shape: 8*8*128
 
             en_4 = self._res_block(en_3, activation)
-            en_4 = Conv2D(128, 5, strides = 2, padding = 'same')(en_4)
+            en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_4)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
             en_4 = Dropout(0.3, name = 'decoder_output')(en_4)
-            # out_shape: 4 4 128
 
             return Model(inputs = image, outputs = [en_1, en_2, en_3, en_4])
 
@@ -869,53 +905,37 @@ class BalancingGAN:
         
         scale, bias = self.attribute_net(image2)
 
-        hw = int(0.0625 * self.resolution)
-        latent_noise1 = Dense(hw*hw*128,)(latent_code)
-        latent_noise1 = Reshape((hw, hw, 128))(latent_noise1)
-
-        hw *= 2
-        latent_noise2 = Dense(hw*hw*128,)(latent_code)
-        latent_noise2 = Reshape((hw, hw, 128))(latent_noise2)
-
-        hw *= 2
-        latent_noise3 = Dense(hw*hw*64,)(latent_code)
-        latent_noise3 = Reshape((hw, hw, 64))(latent_noise3)
-
         en_1 = feature[0]
         en_2 = feature[1]
         en_3 = feature[2]
         en_4 = feature[3]
 
-        # botteneck
         decoder_activation = Activation('relu')
-        de_1 = self._res_block(en_4, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_1 = self._res_block(en_4, 'relu')
-        de_1 = Conv2DTranspose(128, 5, strides = 2, padding = 'same')(de_1)
+        kernel_size = 5
+        de = self._res_block(en_4, 512, kernel_size,
+                            'relu', norm='fn',
+                            scale=scale, bias=bias)
+        de = self._res_block(de, 512, kernel_size,
+                            'relu', norm='fn',
+                            scale=scale, bias=bias)
+
+        de_1 = Conv2DTranspose(256, kernel_size, strides=2, padding='same')(de)
         de_1 = decoder_activation(de_1)
-        de_1 = FeatureNorm()([de_1, scale, bias])
-        # de_1 = self._norm()(de_1)
+        de_1 = self._norm()(de_1)
         de_1 = Dropout(0.3)(de_1)
-        # de_1 = Add()([de_1, en_3])
 
-        de_2 = self._res_block(de_1, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        # de_2 = self._res_block(de_1, 'relu')
-        de_2 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_2)
+        de_2 = Conv2DTranspose(128, kernel_size, strides=2, padding='same')(de_1)
         de_2 = decoder_activation(de_2)
-        de_2 = FeatureNorm()([de_2, scale, bias])
-        # de_2 = self._norm()(de_2)
+        de_2 = self._norm()(de_2)
         de_2 = Dropout(0.3)(de_2)
-        # de_2 = Add()([de_2, en_2])
 
-        # de_3 = self._res_block(de_2, activation='relu', norm = 'feature', scale=scale, bias=bias)
-        de_3 = self._res_block(de_2, 'relu')
-        de_3 = Conv2DTranspose(64, 5, strides = 2, padding = 'same')(de_3)
+        de_3 = Conv2DTranspose(64, kernel_size, strides=2, padding='same')(de_2)
         de_3 = decoder_activation(de_3)
-        # de_3 = FeatureNorm()([de_3, scale, bias])
         de_3 = self._norm()(de_3)
         de_3 = Dropout(0.3)(de_3)
-        # de_3 = Add()([de_3, en_1])
 
-        final = Conv2DTranspose(1, 5, strides = 2, padding = 'same')(de_3)
+
+        final = Conv2DTranspose(1, kernel_size, strides=1, padding='same')(de_3)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
@@ -1015,34 +1035,33 @@ class BalancingGAN:
 
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
+        kernel_size = 5
 
-        cnn.add(Conv2D(64, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(64, kernel_size, strides=2, padding='same'))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
         # 32 * 32 * 64
 
         cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
 
-        cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(128, kernel_size, padding='same', strides=(2, 2)))
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
         # 16 * 16 * 128
 
-        cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(256, kernel_size, padding='same', strides=(2, 2)))
         # cnn.add(SelfAttention(256))
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
         # 8 * 8 * 256
 
-        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(512, kernel_size, padding='same', strides=(2, 2)))
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
-        # cnn.add(Dropout(0.3))
-        # 4 * 4 * 512
 
-        # cnn.add(Flatten())
+        cnn.add(Flatten())
 
         features = cnn(image)
         return features
@@ -1058,8 +1077,6 @@ class BalancingGAN:
         bias = Input((1,))
 
         features = self._build_common_encoder(image)
-        # features = FeatureNorm()([features, scale, bias])
-        features = Flatten()(features)
         features = Dropout(0.3)(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
