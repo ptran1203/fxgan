@@ -1345,7 +1345,7 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    self.evaluate_d(X, Y)
+                    self.evaluate_d(np.concatenate([X[0], X[2]], axis=0), np.concatenate(Y, axis=0))
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
