@@ -1433,8 +1433,8 @@ class BalancingGAN:
             for label in np.unique(y):
                 decomposed_embeddings_class = decomposed_embeddings[y == label]
                 plt.subplot(1,2,2)
-                plt.scatter(decomposed_embeddings_class[::step, 1],
-                            decomposed_embeddings_class[::step, 0],
+                plt.scatter(decomposed_embeddings_class[:, 1],
+                            decomposed_embeddings_class[:, 0],
                             label=str(label))
                 plt.title(name)
                 plt.legend()
