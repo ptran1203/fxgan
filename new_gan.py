@@ -1486,4 +1486,4 @@ class BalancingGAN:
 
     def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
         self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
-        self.discriminator.load_weights(fname_discriminator)ca
+        self.discriminator.load_weights(fname_discriminator)
