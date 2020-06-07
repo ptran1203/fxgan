@@ -597,21 +597,14 @@ class BalancingGAN:
                 x = FeatureNorm()([x, scale, bias])
             return x
 
-        skip = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
-        skip = norm_layer(skip)
-        out = actv(skip)
-
-        skip = Conv2D(units, 1, strides=1, padding='same')(skip)
-        skip = actv(skip)
-
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
         out = norm_layer(out)
         out = actv(out)
 
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
         out = norm_layer(out)
         out = actv(out)
-        out = Add()([out, skip])
+        out = Add()([out, x])
         return out
 
     def _upscale(self, x, interpolation='conv', units=64, kernel_size=5):
@@ -883,27 +876,27 @@ class BalancingGAN:
             en_1 = Conv2D(64, kernel_size, strides=1, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
-            # en_1 = Dropout(0.3)(en_1)
+            en_1 = Dropout(0.3)(en_1)
 
             en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_1)
             en_2 = self._norm()(en_2)
             en_2 = actv(en_2)
-            # en_2 = Dropout(0.3)(en_2)
+            en_2 = Dropout(0.3)(en_2)
 
             en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_2)
             en_3 = self._norm()(en_3)
             en_3 = actv(en_3)
-            # en_3 = Dropout(0.3)(en_3)
+            en_3 = Dropout(0.3)(en_3)
 
             en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_3)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
             # en_4 = Dropout(0.3)(en_4)
 
-            content_code = self._res_block(en_4, 512, kernel_size, activation)
-            content_code = self._res_block(content_code, 512, kernel_size, activation)
+            # content_code = self._res_block(en_4, 512, kernel_size, activation)
+            # content_code = self._res_block(content_code, 512, kernel_size, activation)
 
-            return Model(inputs = image, outputs = content_code)
+            return Model(inputs = image, outputs = [en_2, en_3, en_4])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
         image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
@@ -911,33 +904,34 @@ class BalancingGAN:
         latent_code = Input(shape=(128,), name = 'latent_code')
 
         self.encoder = _encoder()
-        content_code = self.encoder(image)        
+        feature = self.encoder(image)        
         scale, bias = self.attribute_net(image2)
 
         decoder_activation = LeakyReLU()
         kernel_size = 5
 
-        de = self._res_block(content_code, 512, kernel_size,
-                            'relu', norm='fn',
-                            scale=scale, bias=bias)
-        de = self._res_block(de, 512, kernel_size,
+        de = self._res_block(feature[2], 256, kernel_size,
                             'relu', norm='fn',
                             scale=scale, bias=bias)
 
-        de_1 = self._upscale(de, 'bilinear', 256, kernel_size)
+        de_1 = self._upscale(de, 'conv', 256, kernel_size)
         de_1 = decoder_activation(de_1)
-        de_1 = self._norm()(de_1)
-        # de_1 = Dropout(0.3)(de_1)
+        de_1 = FeatureNorm()([de_1, scale, bias])
+        de_1 = Dropout(0.3)(de_1)
+        de_1 = Add()([de_1, feature[1]])
 
-        de_2 = self._upscale(de_1, 'bilinear', 128, kernel_size)
+        de_2 = self._res_block(de_1, 128, kernel_size)
+        de_2 = self._upscale(de_2, 'conv', 128, kernel_size)
         de_2 = decoder_activation(de_2)
-        de_2 = self._norm()(de_2)
-        # de_2 = Dropout(0.3)(de_2)
+        de_2 = FeatureNorm()([de_2, scale, bias])
+        de_2 = Dropout(0.3)(de_2)
+        de_2 = Add()([de_2, feature[0]])
 
-        de_3 = self._upscale(de_2, 'bilinear', 64, kernel_size)
+        de_3 = self._res_block(de_2, 64, kernel_size)
+        de_3 = self._upscale(de_3, 'conv', 64, kernel_size)
         de_3 = decoder_activation(de_3)
-        de_3 = self._norm()(de_3)
-        # de_3 = Dropout(0.3)(de_3)
+        de_3 = FeatureNorm()([de_3, scale, bias])
+        de_3 = Dropout(0.3)(de_3)
 
         final = Conv2D(1, kernel_size, strides=1, padding='same')(de_3)
         outputs = Activation('tanh')(final)

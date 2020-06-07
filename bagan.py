@@ -727,21 +727,21 @@ class BalancingGAN:
         )
 
         # Define combined for training generator.
+        real_images_g = Input(shape=(self.resolution, self.resolution, self.channels))
         fake = self.generator([
-            real_images, latent_code
+            real_images_g, latent_code
         ])
 
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = False
-        self.latent_encoder_trainer.trainable = False
+        self.latent_encoder.trainable = True
 
         # aux_fake = self.discriminator(fake)
         aux_fake = self.discriminator([fake])
 
         self.combined = Model(
-            inputs=[real_images, negative_images,latent_code],
+            inputs=[real_images_g, negative_images,latent_code],
             outputs=[aux_fake],
             name = 'Combined'
         )
