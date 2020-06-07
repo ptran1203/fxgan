@@ -628,14 +628,14 @@ class BalancingGAN:
             x = MaxPooling2D()(x)
             return x
 
-    def build_latent_encoder(self):
+    def build_attribute_encoder(self):
         """
         Mapping image to latent code
         """
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         kernel_size = 5
 
-        x = Conv2D(32, kernel_size, strides = 1, padding='same')(image)
+        x = Conv2D(32, kernel_size+2, strides = 1, padding='same')(image)
         x = self._norm()(x)
         x = Activation('relu')(x)
         # 32 * 32 * 32
@@ -661,7 +661,7 @@ class BalancingGAN:
         code = AveragePooling2D()(x)
         code = Flatten()(code)
 
-        self.latent_encoder = Model(
+        self.attribute_encoder = Model(
             inputs = image,
             outputs = code
         )
@@ -722,14 +722,12 @@ class BalancingGAN:
         # Build generator
         self.build_perceptual_model()
         self.build_latent_encoder()
-        self.classifier = load_classifier(self.resolution)
-        self.classifier.trainable = False
-        self.build_features_from_classifier_model()
+        self.build_attribute_encoder()
         self.build_discriminator()
         self.build_features_from_d_model()
         self.build_attribute_net()
         self.build_res_unet()
-        self.compile_latent_encoder()
+
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -761,8 +759,8 @@ class BalancingGAN:
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
         self.latent_encoder.trainable = False
+        self.attribute_encoder.trainable = True
 
-        # aux_fake = self.discriminator(fake)
         scale, bias = self.attribute_net(other_batch)
         aux_fake = self.discriminator([fake])
 
@@ -772,10 +770,10 @@ class BalancingGAN:
             name = 'Combined',
         )
 
-        fake_perceptual_features = self.vgg16_features(fake)
-        real_perceptual_features = self.vgg16_features(other_batch)
-        self.combined.add_loss(K.mean(K.abs(
-            fake_perceptual_features - real_perceptual_features
+        # fake_perceptual_features = self.vgg16_features(fake)
+        # real_perceptual_features = self.vgg16_features(other_batch)
+        self.combined.add_loss(0.1 * K.mean(K.abs(
+            fake - other_batch
         )))
 
         # triplet
@@ -784,7 +782,8 @@ class BalancingGAN:
         # d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(other_batch)))
         # d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
         # self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.0))
-        self.combined.add_loss(K.mean(K.abs(anchor_code - self.latent_encoder(other_batch))))
+        self.combined.add_loss(K.mean(K.abs(
+            anchor_code - self.latent_encoder(other_batch))))
 
         self.combined.compile(
             optimizer=Adam(
@@ -850,7 +849,7 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
-        attr_feature = self.latent_encoder(image)
+        attr_feature = self.attribute_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(256, activation = 'relu')(scale)
@@ -966,13 +965,9 @@ class BalancingGAN:
             return [d[k] for d in lis]
 
         def plot_g(train_g, test_g):
-            plt.plot(toarray(train_g, 'loss'), label='train_g_loss')
-            plt.plot(toarray(train_g, 'loss_from_d'), label='train_g_loss_from_d')
-            plt.plot(toarray(train_g, 'fm_loss'), label='train_g_loss_fm')
-            plt.plot(toarray(test_g, 'loss'), label='test_g_loss')
-            plt.plot(toarray(test_g, 'loss_from_d'), label='test_g_loss_from_d')
-            plt.plot(toarray(test_g, 'fm_loss'), label='test_g_loss_fm')
-            plt.ylabel('loss')
+            plt.plot(train_g, label='train_g_loss')
+            plt.plot(test_g, label='test_g_loss')
+            plt.ylabel('acc')
             plt.xlabel('epoch')
             plt.legend()
             plt.show()
@@ -993,7 +988,7 @@ class BalancingGAN:
         if len(train_g) == 0:
             return 
 
-        # plot_g(train_g, test_g)
+        plot_g(train_g, test_g)
         plot_d(train_d, test_d)
 
 
