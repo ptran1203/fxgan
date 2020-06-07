@@ -269,6 +269,8 @@ def pred2bin(pred):
             x[0] = 0
     return pred
 
+
+
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
@@ -347,7 +349,7 @@ class BatchGenerator:
 
         # Prune
         if prune_classes:
-            for class_to_prune in range(len(classes)):
+            for class_to_prune in range(len(prune_classes)):
                 remove_size = prune_classes[class_to_prune]
                 all_ids = list(np.arange(len(self.dataset_x)))
                 mask = [lc == class_to_prune for lc in self.dataset_y]
@@ -397,13 +399,12 @@ class BatchGenerator:
             samples = self.batch_size
 
         count = Counter(labels)
-        classes = [[] * len(count.keys())]
-        for c_id in range(len(classes)):
+        classes = {k: [] for k in count.keys()}
+        for c_id in count.keys():
             classes[c_id] = np.random.choice(self.per_class_ids[c_id], count[c_id])
 
         new_arr = []
-
-        for label in labels:
+        for i, label in enumerate(labels):
             idx, classes[label] = classes[label][-1], classes[label][:-1]
             new_arr.append(idx)
 
@@ -414,7 +415,7 @@ class BatchGenerator:
         clone[:] = labels
         for i in range(labels.shape[0]):
             to_get = self.classes[self.classes != labels[i]]
-            clone[i] = to_get[np.random.randint(0, len(self.classes) - 1)]
+            clone[i] = to_get[np.random.randint(0, len(self.classes))]
         return clone
 
     def pair_samples(self, train_x):
@@ -464,6 +465,7 @@ class BatchGenerator:
                 dataset_x[access_pattern, :, :, :], labels[access_pattern],
                 dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
+
 
 
 class RandomPick(keras.layers.Layer):
@@ -819,8 +821,7 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels), name='image_build_attribute_net')
-        feature = self.latent_encoder(image)
-        attr_feature = Flatten()(feature)
+        attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(1, name = 'norm_scale')(scale)
@@ -1009,7 +1010,7 @@ class BalancingGAN:
 
         features = self._build_common_encoder(image)
         # features = FeatureNorm()([features, scale, bias])
-        features = Flatten()(features)
+        # features = Flatten()(features)
         features = Dropout(0.3)(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
