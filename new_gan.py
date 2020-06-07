@@ -1426,6 +1426,7 @@ class BalancingGAN:
         x, y = bg.dataset_x, bg.dataset_y
 
         def _plot_pca(x, y, encoder, name):
+            step = 15
             x_embeddings = encoder.predict(x)
             decomposed_embeddings = pca.fit_transform(x_embeddings)
             fig = plt.figure(figsize=(16, 8))
@@ -1437,6 +1438,7 @@ class BalancingGAN:
                             label=str(label))
                 plt.title(name)
                 plt.legend()
+            plt.show()
 
         # latent_encoder
         _plot_pca(x, y, self.latent_encoder, 'latent encoder')
