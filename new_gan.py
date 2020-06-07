@@ -871,9 +871,9 @@ class BalancingGAN:
                 actv = Activation(activation)
 
             image = Input(shape=(self.resolution, self.resolution, self.channels))
-            kernel_size = 5
+            kernel_size = 3
 
-            en_1 = Conv2D(64, kernel_size, strides=1, padding="same")(image)
+            en_1 = Conv2D(64, kernel_size + 2, strides=1, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
@@ -908,7 +908,7 @@ class BalancingGAN:
         scale, bias = self.attribute_net(image2)
 
         decoder_activation = LeakyReLU()
-        kernel_size = 5
+        kernel_size = 3
 
         de = self._res_block(feature[2], 256, kernel_size,
                             norm='fn',
