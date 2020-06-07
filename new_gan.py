@@ -1394,8 +1394,6 @@ class BalancingGAN:
                     show_samples(img_samples)
 
                     # calculate attribute distance
-                    class_1_img = 
-
                     self.plot_loss_his()
                     self.plot_acc_his()
                     self.plot_feature_distr(bg_train)
