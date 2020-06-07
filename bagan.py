@@ -1235,7 +1235,7 @@ class BalancingGAN:
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
 
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
-                flipped_labels = bg_test.flip_labels(bg_test.dataset_y)
+                flipped_labels = bg_test.other_labels(bg_test.dataset_y)
                 negative_images = bg_test.get_samples_by_labels(flipped_labels)
                 generated_images = self.generator.predict(
                     [
