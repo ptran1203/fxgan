@@ -601,7 +601,7 @@ class BalancingGAN:
         out = norm_layer(out)
         out = actv(out)
 
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
+        out = Conv2D(K.int_shape(x)[-1], kernel_size, strides = 1, padding='same')(out)
         out = norm_layer(out)
         out = actv(out)
         out = Add()([out, x])
@@ -911,27 +911,28 @@ class BalancingGAN:
         kernel_size = 5
 
         de = self._res_block(feature[2], 256, kernel_size,
-                            'relu', norm='fn',
+                            norm='fn',
                             scale=scale, bias=bias)
 
         de_1 = self._upscale(de, 'conv', 256, kernel_size)
         de_1 = decoder_activation(de_1)
-        de_1 = FeatureNorm()([de_1, scale, bias])
-        de_1 = Dropout(0.3)(de_1)
+        # de_1 = Dropout(0.3)(de_1)
         de_1 = Add()([de_1, feature[1]])
 
-        de_2 = self._res_block(de_1, 128, kernel_size)
+        de_2 = self._res_block(de_1, 128, kernel_size,
+                                norm='fn',
+                                scale=scale, bias=bias)
         de_2 = self._upscale(de_2, 'conv', 128, kernel_size)
         de_2 = decoder_activation(de_2)
-        de_2 = FeatureNorm()([de_2, scale, bias])
-        de_2 = Dropout(0.3)(de_2)
+        # de_2 = Dropout(0.3)(de_2)
         de_2 = Add()([de_2, feature[0]])
 
-        de_3 = self._res_block(de_2, 64, kernel_size)
+        de_3 = self._res_block(de_2, 64, kernel_size,
+                                norm='fn',
+                                scale=scale, bias=bias)
         de_3 = self._upscale(de_3, 'conv', 64, kernel_size)
         de_3 = decoder_activation(de_3)
-        de_3 = FeatureNorm()([de_3, scale, bias])
-        de_3 = Dropout(0.3)(de_3)
+        # de_3 = Dropout(0.3)(de_3)
 
         final = Conv2D(1, kernel_size, strides=1, padding='same')(de_3)
         outputs = Activation('tanh')(final)
