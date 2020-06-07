@@ -914,7 +914,7 @@ class BalancingGAN:
         content_code = self.encoder(image)        
         scale, bias = self.attribute_net(image2)
 
-        decoder_activation = Activation('relu')
+        decoder_activation = LeakyReLU()
         kernel_size = 5
 
         de = self._res_block(content_code, 512, kernel_size,
