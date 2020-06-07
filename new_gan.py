@@ -35,7 +35,7 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix
 import matplotlib.pyplot as plt
-
+from sklearn.decomposition import PCA
 import os
 import sys
 import re
@@ -1393,8 +1393,12 @@ class BalancingGAN:
 
                     show_samples(img_samples)
 
+                    # calculate attribute distance
+                    class_1_img = 
+
                     self.plot_loss_his()
                     self.plot_acc_his()
+                    self.plot_feature_distr(bg_train)
 
                 if e % 100 == 0:
                     self.backup_point(e)
@@ -1418,6 +1422,28 @@ class BalancingGAN:
                 # self.plot_his()
 
             self.trained = True
+
+    def plot_feature_distr(self, bg):
+        pca = PCA(n_components=2)
+        x, y = bg.dataset_x, bg.dataset_y
+
+        def _plot_pca(x, y, encoder, name):
+            x_embeddings = encoder.predict(x)
+            decomposed_embeddings = pca.fit_transform(x_embeddings)
+            fig = plt.figure(figsize=(16, 8))
+            for label in np.unique(y):
+                decomposed_embeddings_class = decomposed_embeddings[y == label]
+                plt.subplot(1,2,2)
+                plt.scatter(decomposed_embeddings_class[::step, 1],
+                            decomposed_embeddings_class[::step, 0],
+                            label=str(label))
+                plt.title(name)
+                plt.legend()
+
+        # latent_encoder
+        _plot_pca(x, y, self.latent_encoder, 'latent encoder')
+        # attribute encoder
+        _plot_pca(x, y, self.attribute_encoder, 'latent encoder')
 
 
     def generate_samples(self, c, samples, bg = None):
@@ -1462,4 +1488,4 @@ class BalancingGAN:
 
     def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
         self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
-        self.discriminator.load_weights(fname_discriminator)
+        self.discriminator.load_weights(fname_discriminator)ca
