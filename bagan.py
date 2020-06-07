@@ -415,7 +415,7 @@ class BatchGenerator:
         clone[:] = labels
         for i in range(labels.shape[0]):
             to_get = self.classes[self.classes != labels[i]]
-            clone[i] = to_get[np.random.randint(0, len(self.classes))]
+            clone[i] = to_get[np.random.randint(0, len(self.classes) - 1)]
         return clone
 
     def pair_samples(self, train_x):
@@ -1064,7 +1064,7 @@ class BalancingGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(image_batch.shape[0]))
-            flipped_labels = bg_train.flip_labels(label_batch)
+            flipped_labels = bg_train.other_labels(label_batch)
             for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
                     [
