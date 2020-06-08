@@ -929,18 +929,24 @@ class BalancingGAN:
 
         # fake_perceptual_features = self.vgg16_features(fake)
         # real_perceptual_features = self.vgg16_features(other_batch)
-        self.combined.add_loss(0.1 * K.mean(K.abs(
-            fake - other_batch
-        )))
 
-        # triplet
+        # triplet function
         margin = 1.0
         anchor_code = self.latent_encoder(fake)
-        d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(other_batch)))
+        pos_code = self.latent_encoder(other_batch)
+        d_pos = K.mean(K.abs(anchor_code - pos_code))
         d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
+
         self.combined.add_loss(2 * K.maximum(d_pos - d_neg + margin, 0.0))
-        # self.combined.add_loss(K.mean(K.abs(
-        #     anchor_code - self.latent_encoder(other_batch))))
+        self.combined.add_loss(K.mean(K.abs(anchor_code - pos_code)))
+
+        # triplet for attribute
+        anchor_code = self.attribute_encoder(fake)
+        pos_code = self.attribute_encoder(other_batch)
+        d_pos = K.mean(K.abs(anchor_code - pos_code))
+        d_neg = K.mean(K.abs(anchor_code - self.attribute_encoder(real_images)))
+
+        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.0))
 
         self.combined.compile(
             optimizer=Adam(
@@ -950,31 +956,7 @@ class BalancingGAN:
             metrics=['accuracy'],
             loss = self.g_loss,
         )
-
-    def compile_latent_encoder(self):
-        anchor_image = Input((self.resolution, self.resolution, self.channels),name='anchor_image_complile_lantent_encoder')
-        pos_image = Input((self.resolution, self.resolution, self.channels), name='pos_image_compile_latent_encoder')
-        neg_image = Input((self.resolution, self.resolution, self.channels), name='neg_image_compile_latent_encoder')
-
-        # triplet
-        margin = 1.0
-        anchor_code = self.latent_encoder(anchor_image)
-        d_pos = K.mean(K.abs(anchor_code - self.latent_encoder(pos_image)))
-        d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(neg_image)))
-
-        self.latent_encoder_trainer = Model(
-            inputs = [anchor_image, pos_image, neg_image],
-            output = anchor_code,
-        )
-        self.latent_encoder_trainer.add_loss(K.maximum(d_pos - d_neg + margin, 0.))
-        self.latent_encoder_trainer.compile(
-            optimizer=Adam(
-                lr=0.0001,
-                # beta_1=0.5
-            ),
-            loss = 'mse',
-            loss_weights = [0.0]
-        )
+        # lossG = loss_adv + triplet_latent + triplet_attribute + latent_L1
 
 
     def train_latent_encoder(self, bg_train, epochs = 100):
@@ -1609,7 +1591,7 @@ class BalancingGAN:
 
         # latent_encoder
         imgs = np.concatenate([x, fake_1, fake_2])
-        show_samples(np.concatenate([fake_1, fake_2]))
+        show_samples(np.concatenate([fake_1[0:2], fake_2[0:2]]))
         labels = np.concatenate([y, np.full((100,), 'fake of 1'),  np.full((100,), 'fake of 0')])
     
         _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
