@@ -1042,7 +1042,7 @@ class BalancingGAN:
                             scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 512, kernel_size)
         de = decoder_activation(de)
-        de = Add()([de_1, feature[1]])
+        de = Add()([de, feature[1]])
 
         de = self._res_block(de, 256, kernel_size,
                                 norm='fn',
