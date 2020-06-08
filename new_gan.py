@@ -880,9 +880,9 @@ class BalancingGAN:
         self.build_perceptual_model()
         self.build_latent_encoder()
         self.build_attribute_encoder()
+        self.build_attribute_net()
         self.build_discriminator()
         self.build_features_from_d_model()
-        self.build_attribute_net()
         self.build_res_unet()
 
 
