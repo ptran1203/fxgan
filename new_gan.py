@@ -1000,7 +1000,7 @@ class BalancingGAN:
             image = Input(shape=(self.resolution, self.resolution, self.channels))
             kernel_size = 3
 
-            en_1 = Conv2D(64, kernel_size + 2, strides=2, padding="same")(image)
+            en_1 = Conv2D(64, kernel_size + 2, strides=1, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
@@ -1018,12 +1018,17 @@ class BalancingGAN:
             en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_3)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
+
+            en_5 = Conv2D(512, kernel_size, strides=2, padding='same')(en_4)
+            en_5 = self._norm()(en_4)
+            en_5 = actv(en_4)
+
             # en_4 = Dropout(0.3)(en_4)
 
             # content_code = self._res_block(en_4, 512, kernel_size, activation)
             # content_code = self._res_block(content_code, 512, kernel_size, activation)
 
-            return Model(inputs = image, outputs = [en_2, en_3, en_4])
+            return Model(inputs = image, outputs = [en_3, en_4, en_5])
 
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
         image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
