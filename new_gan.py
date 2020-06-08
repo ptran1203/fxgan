@@ -1582,25 +1582,40 @@ class BalancingGAN:
         pca = PCA(n_components=2)
         x, y = bg.dataset_x, bg.dataset_y
 
+        class_1 = bg.get_samples_for_class(0, 100)
+        class_2 = bg.get_samples_for_class(1, 100)
+        fake_1 = self.generator.predict([class_1,
+                                       class_2,
+                                       self.generate_latent(range(100))])
+
+        fake_2 = self.generator.predict([class_2,
+                                       class_1,
+                                       self.generate_latent(range(100))])
+
         def _plot_pca(x, y, encoder, name):
-            step = 15
+            step = 1
             x_embeddings = encoder.predict(x)
             decomposed_embeddings = pca.fit_transform(x_embeddings)
             fig = plt.figure(figsize=(16, 8))
             for label in np.unique(y):
                 decomposed_embeddings_class = decomposed_embeddings[y == label]
                 plt.subplot(1,2,2)
-                plt.scatter(decomposed_embeddings_class[:, 1],
-                            decomposed_embeddings_class[:, 0],
+                plt.scatter(decomposed_embeddings_class[::step, 1],
+                            decomposed_embeddings_class[::step, 0],
                             label=str(label))
                 plt.title(name)
                 plt.legend()
             plt.show()
 
         # latent_encoder
-        _plot_pca(x, y, self.latent_encoder, 'latent encoder')
+        imgs = np.concatenate([x, fake_1, fake_2])
+        show_samples(np.concatenate([fake_1, fake_2]))
+        labels = np.concatenate([y, np.full((100,), 'fake of 1'),  np.full((100,), 'fake of 0')])
+    
+        _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
         # attribute encoder
-        _plot_pca(x, y, self.attribute_encoder, 'latent encoder')
+        _plot_pca(imgs, labels, self.attribute_encoder, 'attribute   encoder')
+
 
 
     def generate_samples(self, c, samples, bg = None):
