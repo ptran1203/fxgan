@@ -1000,7 +1000,7 @@ class BalancingGAN:
             image = Input(shape=(self.resolution, self.resolution, self.channels))
             kernel_size = 3
 
-            en_1 = Conv2D(64, kernel_size + 2, strides=1, padding="same")(image)
+            en_1 = Conv2D(64, kernel_size + 2, strides=2, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
@@ -1037,31 +1037,33 @@ class BalancingGAN:
         decoder_activation = LeakyReLU()
         kernel_size = 3
 
-        de = self._res_block(feature[2], 256, kernel_size,
+        de = self._res_block(feature[2], 512, kernel_size,
                             norm='fn',
                             scale=scale, bias=bias)
+        de = self._upscale(de, 'conv', 512, kernel_size)
+        de = decoder_activation(de)
+        de = Add()([de_1, feature[1]])
 
-        de_1 = self._upscale(de, 'conv', 256, kernel_size)
-        de_1 = decoder_activation(de_1)
-        # de_1 = Dropout(0.3)(de_1)
-        de_1 = Add()([de_1, feature[1]])
-
-        de_2 = self._res_block(de_1, 128, kernel_size,
+        de = self._res_block(de, 256, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
-        de_2 = self._upscale(de_2, 'conv', 128, kernel_size)
-        de_2 = decoder_activation(de_2)
-        # de_2 = Dropout(0.3)(de_2)
-        de_2 = Add()([de_2, feature[0]])
+        de = self._upscale(de, 'conv', 256, kernel_size)
+        de = decoder_activation(de)
+        de = Add()([de, feature[0]])
 
-        de_3 = self._res_block(de_2, 64, kernel_size,
+        de = self._res_block(de, 128, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
-        de_3 = self._upscale(de_3, 'conv', 64, kernel_size)
-        de_3 = decoder_activation(de_3)
-        # de_3 = Dropout(0.3)(de_3)
+        de = self._upscale(de, 'conv', 128, kernel_size)
+        de = decoder_activation(de)
 
-        final = Conv2D(1, kernel_size, strides=1, padding='same')(de_3)
+        de = self._res_block(de, 64, kernel_size,
+                                norm='fn',
+                                scale=scale, bias=bias)
+        de = self._upscale(de, 'conv', 64, kernel_size)
+        de = decoder_activation(de)
+
+        final = Conv2D(1, kernel_size, strides=1, padding='same')(de)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
