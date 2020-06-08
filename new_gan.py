@@ -892,10 +892,9 @@ class BalancingGAN:
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        scale, bias = self.attribute_net(other_batch)
 
-        real_output_for_d = self.discriminator([real_images])
-        fake_output_for_d = self.discriminator([fake_images])
+        real_output_for_d = self.discriminator([real_images, real_images])
+        fake_output_for_d = self.discriminator([fake_images, other_batch])
 
         self.discriminator_model = Model(
             inputs = [real_images, other_batch, fake_images],
@@ -918,8 +917,7 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
-        scale, bias = self.attribute_net(other_batch)
-        aux_fake = self.discriminator([fake])
+        aux_fake = self.discriminator([fake, other_batch])
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -938,15 +936,7 @@ class BalancingGAN:
         d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
 
         self.combined.add_loss(2 * K.maximum(d_pos - d_neg + margin, 0.0))
-        self.combined.add_loss(K.mean(K.abs(anchor_code - pos_code)))
-
-        # triplet for attribute
-        anchor_code = self.attribute_encoder(fake)
-        pos_code = self.attribute_encoder(other_batch)
-        d_pos = K.mean(K.abs(anchor_code - pos_code))
-        d_neg = K.mean(K.abs(anchor_code - self.attribute_encoder(real_images)))
-
-        self.combined.add_loss(K.maximum(d_pos - d_neg + margin, 0.0))
+        # self.combined.add_loss(K.mean(K.abs(anchor_code - pos_code)))
 
         self.combined.compile(
             optimizer=Adam(
@@ -956,7 +946,6 @@ class BalancingGAN:
             metrics=['accuracy'],
             loss = self.g_loss,
         )
-        # lossG = loss_adv + triplet_latent + triplet_attribute + latent_L1
 
 
     def train_latent_encoder(self, bg_train, epochs = 100):
@@ -988,7 +977,7 @@ class BalancingGAN:
 
     def build_attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
-        attr_feature = self.attribute_encoder(image)
+        attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(256, activation = 'relu')(scale)
@@ -1204,12 +1193,13 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
+        other_batch = Input(shape=(resolution, resolution, channels))
 
         # scale bias for feature norm
-        scale = Input((1,))
-        bias = Input((1,))
+        scale, bias = self.attribute_net(other_batch)
 
         features = self._build_common_encoder(image)
+        features = FeatureNorm()([features, scale, bias])
         features = Dropout(0.3)(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
@@ -1220,7 +1210,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=[image],
+        self.discriminator = Model(inputs=[image, other_batch],
                                    outputs=aux,
                                    name='discriminator')
 
