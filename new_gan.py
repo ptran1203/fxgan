@@ -1183,7 +1183,7 @@ class BalancingGAN:
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
 
-        cnn.add(Flatten())
+        # cnn.add(Flatten())
 
         features = cnn(image)
         return features
@@ -1201,6 +1201,8 @@ class BalancingGAN:
         features = self._build_common_encoder(image)
         features = FeatureNorm()([features, scale, bias])
         features = Dropout(0.3)(features)
+
+        features = Flatten()(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
