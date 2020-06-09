@@ -1397,7 +1397,6 @@ class BalancingGAN:
                 generated_images = self.generator.predict(
                     [
                         bg_test.dataset_x,
-                        rand_x,
                         f
                     ],
                     verbose=False
