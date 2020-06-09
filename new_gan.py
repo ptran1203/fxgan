@@ -847,6 +847,21 @@ class BalancingGAN:
             output = model_output,
             name = 'Feature_matching_classifier'
         )
+    
+    def build_attribute_net(self):
+        image = Input((self.resolution, self.resolution, self.channels))
+        attr_feature = self.attribute_encoder(image)
+
+        scale = Dense(256, activation = 'relu')(attr_feature)
+        scale = Dense(256, activation = 'relu')(scale)
+        scale = Dense(1, name = 'norm_scale')(scale)
+
+        bias = Dense(256, activation = 'relu')(attr_feature)
+        bias = Dense(256, activation = 'relu')(bias)
+        bias = Dense(1, name = 'norm_bias')(bias)
+
+        self.attribute_net = Model(inputs = image, outputs = [scale, bias],
+                                   name = 'attribute_net')
 
     def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
