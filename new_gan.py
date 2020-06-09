@@ -432,6 +432,8 @@ class BatchGenerator:
     TRAIN = 1
     TEST = 0
     D_SIZE = 400
+    to_train_classes = list(range(1, 80))
+    to_test_classes = list(range(81, 86))
 
     def __init__(
         self,
@@ -474,8 +476,8 @@ class BatchGenerator:
 
         elif dataset == 'flowers':
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/flowers/imgs_labels.pkl')
-            to_train_classes = list(range(1, 30))
-            to_test_classes = list(range(81, 86))
+            to_train_classes = self.to_train_classes
+            to_test_classes = self.to_test_classes
 
             if self.data_src == self.TEST:
                 to_keep = np.array([i for i, l in enumerate(y) if l in to_test_classes])
