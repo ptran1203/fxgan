@@ -962,7 +962,7 @@ class BalancingGAN:
         # anchor_code = self.latent_encoder(fake)
         # pos_code = self.latent_encoder(other_batch)
         # d_pos = K.mean(K.abs(anchor_code - pos_code))
-        d_neg = K.mean(K.square(anchor_code - self.latent_encoder(real_images)))
+        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
 
         self.combined.add_loss(d_neg)
 
