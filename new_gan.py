@@ -935,7 +935,7 @@ class BalancingGAN:
         d_pos = K.mean(K.abs(anchor_code - pos_code))
         d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
 
-        self.combined.add_loss(2 * K.maximum(d_pos - d_neg + margin, 0.0))
+        self.combined.add_loss(d_neg)
         # self.combined.add_loss(K.mean(K.abs(anchor_code - pos_code)))
 
         self.combined.compile(
@@ -1030,26 +1030,29 @@ class BalancingGAN:
 
         latent_code = Input(shape=(128,), name = 'latent_code')
 
-        self.encoder = _encoder()
-        feature = self.encoder(image)        
-        scale, bias = self.attribute_net(image2)
+        # self.encoder = _encoder()
+        # feature = self.encoder(image)
+        scale, bias = self.attribute_net(image)
 
         decoder_activation = LeakyReLU()
         kernel_size = 3
 
-        de = self._res_block(feature[2], 512, kernel_size,
+        latent = Dense(4 * 4 * 512)(latent_code)
+        latent = Reshape((4, 4, 512))(latent)
+
+        de = self._res_block(latent, 512, kernel_size,
                             norm='fn',
                             scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 512, kernel_size)
         de = decoder_activation(de)
-        de = Add()([de_1, feature[1]])
+        # de = Add()([de_1, feature[1]])
 
         de = self._res_block(de, 256, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
-        de = Add()([de, feature[0]])
+        # de = Add()([de, feature[0]])
 
         de = self._res_block(de, 128, kernel_size,
                                 norm='fn',
