@@ -1015,21 +1015,27 @@ class BalancingGAN:
 
         decoder_activation = LeakyReLU()
         kernel_size = 3
+        
+        attribute_code = self.latent_encoder(image)
+        attr = Dense(4 * 4 * 256)(attribute_code)
+        attr = Reshape((4, 4, 256))(attribute_code)
+
+        latent = Concatenate()([latent, attr])
 
         de = self._res_block(latent, 256, kernel_size,
-                            norm='fn',
+                            norm='batch',
                             norm_var=self.attribute_net(image))
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
 
         de = self._res_block(de, 128, kernel_size,
-                                norm='fn',
+                                norm='batch',
                                 norm_var=self.attribute_net(image))
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = decoder_activation(de)
 
         de = self._res_block(de, 64, kernel_size,
-                                norm='fn',
+                                norm='batch',
                                 norm_var=self.attribute_net(image))
 
         de = self._upscale(de, 'conv', 64, kernel_size)
@@ -1051,7 +1057,11 @@ class BalancingGAN:
         latent = Dense(4 * 4 * 256)(latent_code)
         latent = Reshape((4, 4, 256))(latent)
        
-        scale, bias = self.attribute_net(image)
+        attribute_code = self.latent_encoder(image)
+        attr = Dense(4 * 4 * 256)(attribute_code)
+        attr = Reshape((4, 4, 256))(attribute_code)
+
+        latent = Concatenate()([latent, attr])
 
         decoder_activation = LeakyReLU()
         kernel_size = 5
@@ -1072,13 +1082,13 @@ class BalancingGAN:
 
 
         de = _transpose_block(latent, 256, decoder_activation,
-                             kernel_size, norm='fn',
+                             kernel_size, norm='batch',
                              norm_var=self.attribute_net(image))
         de = _transpose_block(de, 128, decoder_activation,
-                             kernel_size, norm='fn',
+                             kernel_size, norm='batch',
                              norm_var=self.attribute_net(image))
         de = _transpose_block(de, 64, decoder_activation,
-                             kernel_size, norm='fn',
+                             kernel_size, norm='batch',
                              norm_var=self.attribute_net(image))
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
