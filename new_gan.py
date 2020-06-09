@@ -1005,7 +1005,6 @@ class BalancingGAN:
 
     def build_res_unet(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
-        image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
 
         latent_code = Input(shape=(128,), name = 'latent_code')
         latent = Dense(4 * 4 * 256)(latent_code)
@@ -1038,7 +1037,7 @@ class BalancingGAN:
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
-            inputs = [image, image2, latent_code],
+            inputs = [image, latent_code],
             outputs = outputs,
             name='unet'
         )
