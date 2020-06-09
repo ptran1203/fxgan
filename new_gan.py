@@ -759,8 +759,8 @@ class BalancingGAN:
                   kernel_size = 3,
                   activation = 'leaky_relu',
                   norm = 'batch',
-                  scale=None,
-                  bias=None):
+                  norm_var = [0,0]):
+        scale, bias = norm_var
         if activation == 'leaky_relu':
             actv = LeakyReLU()
         else:
@@ -851,25 +851,25 @@ class BalancingGAN:
             name = 'Feature_matching_classifier'
         )
     
-    def build_attribute_net(self):
+    def attribute_net(self):
         image = Input((self.resolution, self.resolution, self.channels))
         attr_feature = self.attribute_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(256, activation = 'relu')(scale)
-        scale = Dense(1, name = 'norm_scale')(scale)
+        scale = Dense(1, activation='relu')(scale)
 
         bias = Dense(256, activation = 'relu')(attr_feature)
         bias = Dense(256, activation = 'relu')(bias)
-        bias = Dense(1, name = 'norm_bias')(bias)
+        bias = Dense(1, activation='relu')(bias)
 
-        self.attribute_net = Model(inputs = image, outputs = [scale, bias],
-                                   name = 'attribute_net')
+        return scale, bias
 
     def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
-                g_lr = 0.000005, norm = 'batch'):
+                g_lr = 0.000005, norm = 'batch',
+                resnet=False):
         self.classes = classes
         self.nclasses = len(classes)
         self.latent_size = latent_size
@@ -877,6 +877,7 @@ class BalancingGAN:
         self.channels = image_shape[-1]
         self.resolution = image_shape[0]
         self.g_lr = g_lr
+        self.resnet = resnet
 
         self.norm = norm
         self.loss_type = loss_type
@@ -914,10 +915,12 @@ class BalancingGAN:
         self.build_perceptual_model()
         self.build_latent_encoder()
         self.build_attribute_encoder()
-        self.build_attribute_net()
         self.build_discriminator()
         self.build_features_from_d_model()
-        self.build_res_unet()
+        if self.resnet:
+            self.build_resnet_generator()
+        else:
+            self.build_dc_generator()
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -1003,33 +1006,32 @@ class BalancingGAN:
             image, image, image
         ]))
 
-    def build_res_unet(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
+    def build_resnet_generator(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
 
         latent_code = Input(shape=(128,), name = 'latent_code')
         latent = Dense(4 * 4 * 256)(latent_code)
         latent = Reshape((4, 4, 256))(latent)
-       
-        scale, bias = self.attribute_net(image)
 
         decoder_activation = LeakyReLU()
         kernel_size = 3
 
         de = self._res_block(latent, 256, kernel_size,
                             norm='fn',
-                            scale=scale, bias=bias)
+                            norm_var=self.attribute_net(image))
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
 
         de = self._res_block(de, 128, kernel_size,
                                 norm='fn',
-                                scale=scale, bias=bias)
+                                norm_var=self.attribute_net(image))
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = decoder_activation(de)
 
         de = self._res_block(de, 64, kernel_size,
                                 norm='fn',
-                                scale=scale, bias=bias)
+                                norm_var=self.attribute_net(image))
+
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = decoder_activation(de)
 
@@ -1039,9 +1041,54 @@ class BalancingGAN:
         self.generator = Model(
             inputs = [image, latent_code],
             outputs = outputs,
-            name='unet'
+            name='resnet_gen'
         )
 
+    def build_dc_generator(self):
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
+
+        latent_code = Input(shape=(128,), name = 'latent_code')
+        latent = Dense(4 * 4 * 256)(latent_code)
+        latent = Reshape((4, 4, 256))(latent)
+       
+        scale, bias = self.attribute_net(image)
+
+        decoder_activation = LeakyReLU()
+        kernel_size = 5
+
+        def _transpose_block(x, units, activation, kernel_size=3, norm='batch', norm_var = [0,0]):
+            scale, bias = norm_var
+            def _norm_layer(x):
+                if norm == 'batch':
+                    x = BatchNormalization()(x)
+                else:
+                    x = FeatureNorm()([x, scale, bias])
+                return x
+
+            out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
+            out = _norm_layer(out)
+            out = activation(out)
+            return out
+
+
+        de = _transpose_block(latent, 256, decoder_activation,
+                             kernel_size, norm='fn',
+                             norm_var=self.attribute_net(image))
+        de = _transpose_block(de, 128, decoder_activation,
+                             kernel_size, norm='fn',
+                             norm_var=self.attribute_net(image))
+        de = _transpose_block(de, 64, decoder_activation,
+                             kernel_size, norm='fn',
+                             norm_var=self.attribute_net(image))
+
+        final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
+        outputs = Activation('tanh')(final)
+
+        self.generator = Model(
+            inputs = [image, latent_code],
+            outputs = outputs,
+            name='dc_gen'
+        )
 
     def build_perceptual_model(self):
         """
@@ -1508,14 +1555,13 @@ class BalancingGAN:
         size = np.min(bg.per_class_count)
         real = bg.get_samples_for_class(0, size)
         fakes = self.generator.predict([real,
-                                        real,
                                         self.generate_latent(range(size))])
         fake_labels = [np.full((size,), 'fake of 0')]
 
         for classid in range(1, self.nclasses):
             real = bg.get_samples_for_class(classid, size)
-            fake = self.generator.predict([real, real, self.generate_latent(range(size))])
-            fakes = np.concatenate(fakes, fake)
+            fake = self.generator.predict([real, self.generate_latent(range(size))])
+            fakes = np.concatenate([fakes, fake])
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
         def _plot_pca(x, y, encoder, name):
@@ -1535,7 +1581,6 @@ class BalancingGAN:
 
         # latent_encoder
         imgs = np.concatenate([x, fakes])
-        show_samples(np.concatenate([fake_1[0:2], fake_2[0:2]]))
         labels = np.concatenate([y, np.concatenate(fake_labels)])
     
         _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
