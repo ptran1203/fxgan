@@ -851,8 +851,7 @@ class BalancingGAN:
             name = 'Feature_matching_classifier'
         )
     
-    def attribute_net(self):
-        image = Input((self.resolution, self.resolution, self.channels))
+    def attribute_net(self, image):
         attr_feature = self.attribute_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
