@@ -1386,7 +1386,7 @@ class BalancingGAN:
                     ]),
                 ]
             ])
-            for crt_c in range(1, self.nclasses):
+            for crt_c in range(1, self.nclasses[:3]):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                 random_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
@@ -1481,7 +1481,7 @@ class BalancingGAN:
                             ]),
                         ]
                     ])
-                    for crt_c in range(1, self.nclasses):
+                    for crt_c in range(1, self.nclasses[:3]):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                         random_imgs = bg_train.get_samples_for_class(0, 10)
                         f = self.generate_latent(range(10))
