@@ -1018,7 +1018,7 @@ class BalancingGAN:
         
         attribute_code = self.latent_encoder(image)
         attr = Dense(4 * 4 * 256)(attribute_code)
-        attr = Reshape((4, 4, 256))(attribute_code)
+        attr = Reshape((4, 4, 256))(attr)
 
         latent = Concatenate()([latent, attr])
 
@@ -1059,7 +1059,7 @@ class BalancingGAN:
        
         attribute_code = self.latent_encoder(image)
         attr = Dense(4 * 4 * 256)(attribute_code)
-        attr = Reshape((4, 4, 256))(attribute_code)
+        attr = Reshape((4, 4, 256))(attr)
 
         latent = Concatenate()([latent, attr])
 
@@ -1645,3 +1645,4 @@ class BalancingGAN:
     def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
         self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
         self.discriminator.load_weights(fname_discriminator)
+
