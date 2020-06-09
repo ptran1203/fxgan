@@ -921,8 +921,6 @@ class BalancingGAN:
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        other_batch = Input(shape=(self.resolution, self.resolution, self.channels))
-        positive_images = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -931,7 +929,7 @@ class BalancingGAN:
         fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_model = Model(
-            inputs = [real_images, other_batch, fake_images],
+            inputs = [real_images, fake_images],
             outputs = [fake_output_for_d, real_output_for_d],
         )
         self.discriminator_model.compile(
@@ -942,7 +940,7 @@ class BalancingGAN:
 
         # Define combined for training generator.
         fake = self.generator([
-            real_images, other_batch, latent_code
+            real_images, latent_code
         ])
 
         self.discriminator.trainable = False
@@ -954,23 +952,19 @@ class BalancingGAN:
         aux_fake = self.discriminator([fake])
 
         self.combined = Model(
-            inputs=[real_images, other_batch, latent_code],
+            inputs=[real_images, latent_code],
             outputs=[aux_fake],
             name = 'Combined',
         )
 
-        # fake_perceptual_features = self.vgg16_features(fake)
-        # real_perceptual_features = self.vgg16_features(other_batch)
-
         # triplet function
-        margin = 1.0
-        anchor_code = self.latent_encoder(fake)
-        pos_code = self.latent_encoder(other_batch)
-        d_pos = K.mean(K.abs(anchor_code - pos_code))
-        d_neg = K.mean(K.abs(anchor_code - self.latent_encoder(real_images)))
+        # margin = 1.0
+        # anchor_code = self.latent_encoder(fake)
+        # pos_code = self.latent_encoder(other_batch)
+        # d_pos = K.mean(K.abs(anchor_code - pos_code))
+        d_neg = K.mean(K.square(anchor_code - self.latent_encoder(real_images)))
 
         self.combined.add_loss(d_neg)
-        # self.combined.add_loss(K.mean(K.abs(anchor_code - pos_code)))
 
         self.combined.compile(
             optimizer=Adam(
@@ -1172,13 +1166,8 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
-        other_batch = Input(shape=(resolution, resolution, channels))
-
-        # scale bias for feature norm
-        scale, bias = self.attribute_net(other_batch)
 
         features = self._build_common_encoder(image)
-        # features = FeatureNorm()([features, scale, bias])
         features = Dropout(0.3)(features)
 
         features = Flatten()(features)
@@ -1234,13 +1223,10 @@ class BalancingGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(range(image_batch.shape[0]))
-            flipped_labels = bg_train.other_labels(label_batch)
-            other_batch = bg_train.get_samples_by_labels(flipped_labels)
             for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
                     [
                         image_batch,
-                        other_batch,
                         f,
                     ],
                     verbose=0
@@ -1255,12 +1241,12 @@ class BalancingGAN:
                     real_label *= 0
                     real_label_for_d *= 0
                 if self.loss_type == 'categorical':
-                    real_label = flipped_labels
+                    real_label = label_batch
                     real_label_for_d = label_batch
                     fake_label = np.full(label_batch.shape[0], self.nclasses)
 
                 loss, acc, *rest = self.discriminator_model.train_on_batch(
-                    [image_batch, other_batch, generated_images],
+                    [image_batch, generated_images],
                     [fake_label, real_label_for_d]
                 )
             epoch_disc_loss.append(loss)
@@ -1268,9 +1254,8 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
-            # positive_images = bg_train.get_samples_by_labels(flipped_labels)
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, other_batch, f],
+                [image_batch, f],
                 [real_label],
             )
 
@@ -1375,7 +1360,6 @@ class BalancingGAN:
 
             crt_c = 0
             act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-            random_samples = bg_train.get_samples_for_class(crt_c, 10)
             f = self.generate_latent(range(10))
     
             img_samples = np.array([
@@ -1383,20 +1367,17 @@ class BalancingGAN:
                     act_img_samples,
                     self.generator.predict([
                         act_img_samples,
-                        random_samples,
                         f,
                     ]),
                 ]
             ])
             for crt_c in range(1, self.nclasses[:3]):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                random_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
                         act_img_samples,
                         self.generator.predict([
                             act_img_samples,
-                            random_samples,
                             f,
                         ]),
                     ]
@@ -1439,7 +1420,7 @@ class BalancingGAN:
                     real_label = rand_y
                     fake_label = np.full(generated_images.shape[0], self.nclasses)
 
-                X = [bg_test.dataset_x,rand_x, generated_images]
+                X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
 
                 test_disc_loss, test_disc_acc, *rest = self.discriminator_model.evaluate(X, Y, verbose=False)
@@ -1447,7 +1428,6 @@ class BalancingGAN:
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
-                        rand_x,
                         f
                     ],
                     [real_label],
@@ -1459,7 +1439,6 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
-                            rand_x,
                             f,
                             
                         ],
@@ -1468,16 +1447,13 @@ class BalancingGAN:
 
                     crt_c = 0
                     act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    random_imgs = bg_train.get_samples_for_class(1, 10)
 
                     f = self.generate_latent(range(10))
                     img_samples = np.array([
                         [
                             act_img_samples,
-                            random_imgs,
                             self.generator.predict([
                                 act_img_samples,
-                                random_imgs,
                                 f,
                                 
                             ]),
@@ -1485,15 +1461,12 @@ class BalancingGAN:
                     ])
                     for crt_c in range(1, self.nclasses[:3]):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        random_imgs = bg_train.get_samples_for_class(0, 10)
                         f = self.generate_latent(range(10))
                         new_samples = np.array([
                             [
                                 act_img_samples,
-                                random_imgs,
                                 self.generator.predict([
                                     act_img_samples,
-                                    random_imgs,
                                     f,
                                     
                                 ]),
@@ -1535,15 +1508,17 @@ class BalancingGAN:
         pca = PCA(n_components=2)
         x, y = bg.dataset_x, bg.dataset_y
         size = np.min(bg.per_class_count)
-        class_1 = bg.get_samples_for_class(0, size)
-        class_2 = bg.get_samples_for_class(1, size)
-        fake_1 = self.generator.predict([class_1,
-                                       class_2,
-                                       self.generate_latent(range(size))])
+        real = bg.get_samples_for_class(0, size)
+        fakes = self.generator.predict([real,
+                                        real,
+                                        self.generate_latent(range(size))])
+        fake_labels = [np.full((size,), 'fake of 0')]
 
-        fake_2 = self.generator.predict([class_2,
-                                       class_1,
-                                       self.generate_latent(range(size))])
+        for classid in range(1, self.nclasses):
+            real = bg.get_samples_for_class(classid, size)
+            fake = self.generator.predict([real, real, self.generate_latent(range(size))])
+            fakes = np.concatenate(fakes, fake)
+            fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
         def _plot_pca(x, y, encoder, name):
             step = 1
@@ -1561,13 +1536,12 @@ class BalancingGAN:
             plt.show()
 
         # latent_encoder
-        imgs = np.concatenate([x, fake_1, fake_2])
+        imgs = np.concatenate([x, fakes])
         show_samples(np.concatenate([fake_1[0:2], fake_2[0:2]]))
-        labels = np.concatenate([y, np.full((100,), 'fake of 1'),  np.full((100,), 'fake of 0')])
+        labels = np.concatenate([y, np.concatenate(fake_labels)])
     
         _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
-        # attribute encoder
-        _plot_pca(imgs, labels, self.attribute_encoder, 'attribute   encoder')
+        # _plot_pca(imgs, labels, self.attribute_encoder, 'attribute   encoder')
 
 
 
