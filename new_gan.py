@@ -152,7 +152,6 @@ def pickle_save(object, path):
         print('save data to {} failed'.format(path))
 
 
-
 def pickle_load(path):
     try:
         print('load data from {} successfully'.format(path))
@@ -917,8 +916,10 @@ class BalancingGAN:
         self.build_discriminator()
         self.build_features_from_d_model()
         if self.resnet:
+            print('INFO: Use resnet generator')
             self.build_resnet_generator()
         else:
+            print('INFO: Use DCGAN generator')
             self.build_dc_generator()
 
 
@@ -1580,7 +1581,11 @@ class BalancingGAN:
 
         # latent_encoder
         imgs = np.concatenate([x, fakes])
-        labels = np.concatenate([y, np.concatenate(fake_labels)])
+        # labels = np.concatenate([y, np.concatenate(fake_labels)])
+        labels = np.concatenate([
+            np.full((x.shape[0],), 'real'),
+            np.full((fakes.shape[0],), 'fake'),
+        ])
     
         _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
         # _plot_pca(imgs, labels, self.attribute_encoder, 'attribute   encoder')
