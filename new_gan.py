@@ -472,6 +472,22 @@ class BatchGenerator:
                 self.dataset_x = x  
                 self.dataset_y = y
 
+        elif dataset == 'flowers':
+            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/flowers/imgs_labels.pkl')
+            to_train_classes = list(range(1, 81))
+
+            if self.data_src == self.TEST:
+                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                x, y = x[to_keep], y[to_keep]
+                self.dataset_x = x
+                self.dataset_y = y
+            else:
+                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
+                x, y = x[to_keep], y[to_keep]
+                self.dataset_x = x
+                self.dataset_y = y
+
+
         else: # multi chest
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
             to_keep = [i for i, l in enumerate(y) if '|' not in l]
@@ -975,95 +991,38 @@ class BalancingGAN:
             image, image, image
         ]))
 
-    def build_attribute_net(self):
-        image = Input((self.resolution, self.resolution, self.channels))
-        attr_feature = self.latent_encoder(image)
-
-        scale = Dense(256, activation = 'relu')(attr_feature)
-        scale = Dense(256, activation = 'relu')(scale)
-        scale = Dense(1, name = 'norm_scale')(scale)
-
-        bias = Dense(256, activation = 'relu')(attr_feature)
-        bias = Dense(256, activation = 'relu')(bias)
-        bias = Dense(1, name = 'norm_bias')(bias)
-
-        self.attribute_net = Model(inputs = image, outputs = [scale, bias],
-                                   name = 'attribute_net')
-
     def build_res_unet(self):
-        def _encoder(activation = 'relu'):
-            if activation == 'leaky_relu':
-                actv = LeakyReLU()
-            else:
-                actv = Activation(activation)
-
-            image = Input(shape=(self.resolution, self.resolution, self.channels))
-            kernel_size = 3
-
-            en_1 = Conv2D(64, kernel_size + 2, strides=1, padding="same")(image)
-            en_1 = self._norm()(en_1)
-            en_1 = actv(en_1)
-            en_1 = Dropout(0.3)(en_1)
-
-            en_2 = Conv2D(128, kernel_size, strides=2, padding="same")(en_1)
-            en_2 = self._norm()(en_2)
-            en_2 = actv(en_2)
-            en_2 = Dropout(0.3)(en_2)
-
-            en_3 = Conv2D(256, kernel_size, strides=2, padding='same')(en_2)
-            en_3 = self._norm()(en_3)
-            en_3 = actv(en_3)
-            en_3 = Dropout(0.3)(en_3)
-
-            en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_3)
-            en_4 = self._norm()(en_4)
-            en_4 = actv(en_4)
-
-            # en_4 = Dropout(0.3)(en_4)
-
-            # content_code = self._res_block(en_4, 512, kernel_size, activation)
-            # content_code = self._res_block(content_code, 512, kernel_size, activation)
-
-            return Model(inputs = image, outputs = [en_2, en_3, en_4])
-
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_1')
         image2 = Input(shape=(self.resolution, self.resolution, self.channels), name = 'image_2')
 
         latent_code = Input(shape=(128,), name = 'latent_code')
-
-        # self.encoder = _encoder()
-        # feature = self.encoder(image)
+        latent = Dense(4 * 4 * 256)(latent_code)
+        latent = Reshape((4, 4, 256))(latent)
+       
         scale, bias = self.attribute_net(image)
 
         decoder_activation = LeakyReLU()
         kernel_size = 3
-
-        latent = Dense(4 * 4 * 256)(latent_code)
-        latent = Reshape((4, 4, 256))(latent)
 
         de = self._res_block(latent, 256, kernel_size,
                             norm='fn',
                             scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
-        # de = Add()([de_1, feature[1]])
 
         de = self._res_block(de, 128, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = decoder_activation(de)
-        # de = Add()([de, feature[0]])
 
         de = self._res_block(de, 64, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = decoder_activation(de)
-        # de = Add()([de, feature[0]])
 
-
-        final = Conv2D(1, kernel_size, strides=1, padding='same')(de)
+        final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
