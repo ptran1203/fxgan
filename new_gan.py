@@ -893,8 +893,8 @@ class BalancingGAN:
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        real_output_for_d = self.discriminator([real_images, real_images])
-        fake_output_for_d = self.discriminator([fake_images, other_batch])
+        real_output_for_d = self.discriminator([real_images])
+        fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_model = Model(
             inputs = [real_images, other_batch, fake_images],
@@ -917,7 +917,7 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
-        aux_fake = self.discriminator([fake, other_batch])
+        aux_fake = self.discriminator([fake])
 
         self.combined = Model(
             inputs=[real_images, other_batch, latent_code],
@@ -1000,7 +1000,7 @@ class BalancingGAN:
             image = Input(shape=(self.resolution, self.resolution, self.channels))
             kernel_size = 3
 
-            en_1 = Conv2D(64, kernel_size + 2, strides=2, padding="same")(image)
+            en_1 = Conv2D(64, kernel_size + 2, strides=1, padding="same")(image)
             en_1 = self._norm()(en_1)
             en_1 = actv(en_1)
             en_1 = Dropout(0.3)(en_1)
@@ -1018,6 +1018,7 @@ class BalancingGAN:
             en_4 = Conv2D(512, kernel_size, strides=2, padding='same')(en_3)
             en_4 = self._norm()(en_4)
             en_4 = actv(en_4)
+
             # en_4 = Dropout(0.3)(en_4)
 
             # content_code = self._res_block(en_4, 512, kernel_size, activation)
@@ -1037,34 +1038,30 @@ class BalancingGAN:
         decoder_activation = LeakyReLU()
         kernel_size = 3
 
-        latent = Dense(4 * 4 * 512)(latent_code)
-        latent = Reshape((4, 4, 512))(latent)
+        latent = Dense(4 * 4 * 256)(latent_code)
+        latent = Reshape((4, 4, 256))(latent)
 
-        de = self._res_block(latent, 512, kernel_size,
+        de = self._res_block(latent, 256, kernel_size,
                             norm='fn',
                             scale=scale, bias=bias)
-        de = self._upscale(de, 'conv', 512, kernel_size)
-        de = decoder_activation(de)
-        # de = Add()([de_1, feature[1]])
-
-        de = self._res_block(de, 256, kernel_size,
-                                norm='fn',
-                                scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
-        # de = Add()([de, feature[0]])
+        # de = Add()([de_1, feature[1]])
 
         de = self._res_block(de, 128, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = decoder_activation(de)
+        # de = Add()([de, feature[0]])
 
         de = self._res_block(de, 64, kernel_size,
                                 norm='fn',
                                 scale=scale, bias=bias)
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = decoder_activation(de)
+        # de = Add()([de, feature[0]])
+
 
         final = Conv2D(1, kernel_size, strides=1, padding='same')(de)
         outputs = Activation('tanh')(final)
@@ -1204,7 +1201,7 @@ class BalancingGAN:
         scale, bias = self.attribute_net(other_batch)
 
         features = self._build_common_encoder(image)
-        features = FeatureNorm()([features, scale, bias])
+        # features = FeatureNorm()([features, scale, bias])
         features = Dropout(0.3)(features)
 
         features = Flatten()(features)
@@ -1217,7 +1214,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=[image, other_batch],
+        self.discriminator = Model(inputs=[image],
                                    outputs=aux,
                                    name='discriminator')
 
