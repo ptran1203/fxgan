@@ -474,10 +474,11 @@ class BatchGenerator:
 
         elif dataset == 'flowers':
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/flowers/imgs_labels.pkl')
-            to_train_classes = list(range(1, 81))
+            to_train_classes = list(range(1, 30))
+            to_test_classes = list(range(81, 86))
 
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                to_keep = np.array([i for i, l in enumerate(y) if l in to_test_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = y
@@ -1531,16 +1532,16 @@ class BalancingGAN:
     def plot_feature_distr(self, bg):
         pca = PCA(n_components=2)
         x, y = bg.dataset_x, bg.dataset_y
-
-        class_1 = bg.get_samples_for_class(0, 100)
-        class_2 = bg.get_samples_for_class(1, 100)
+        size = np.min(bg.per_class_count)
+        class_1 = bg.get_samples_for_class(0, size)
+        class_2 = bg.get_samples_for_class(1, size)
         fake_1 = self.generator.predict([class_1,
                                        class_2,
-                                       self.generate_latent(range(100))])
+                                       self.generate_latent(range(size))])
 
         fake_2 = self.generator.predict([class_2,
                                        class_1,
-                                       self.generate_latent(range(100))])
+                                       self.generate_latent(range(size))])
 
         def _plot_pca(x, y, encoder, name):
             step = 1
