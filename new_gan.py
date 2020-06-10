@@ -1480,7 +1480,10 @@ class BalancingGAN:
                 X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
 
-                test_disc_loss, test_disc_acc, *rest = self.discriminator_model.evaluate(X, Y, verbose=False)
+                loss_fake, acc_fake, *rest = self.discriminator_fake.evaluate(generated_images, fake_label, verbose=False)
+                loss_real, acc_real, *rest = self.discriminator_real.evaluate(bg_test.dataset_x, real_label, verbose=False)
+                test_disc_loss = 0.5 * (loss_fake + loss_real)
+                test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
@@ -1492,7 +1495,7 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    self.evaluate_d(np.concatenate([X[0], X[1]], axis=0), np.concatenate(Y, axis=0))
+                    # self.evaluate_d(np.concatenate([X[0], X[1]], axis=0), np.concatenate(Y, axis=0))
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
