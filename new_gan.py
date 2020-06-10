@@ -4,7 +4,6 @@ from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
 import keras
-from tensorflow.examples.tutorials.mnist import input_data
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import (
@@ -444,25 +443,8 @@ class BatchGenerator:
     ):
         self.batch_size = batch_size
         self.data_src = data_src
-        if dataset == 'MNIST':
-            mnist = input_data.read_data_sets("dataset/mnist", one_hot=False)
 
-            if self.data_src == self.TEST:
-                self.dataset_x = mnist.test.images
-                self.dataset_y = mnist.test.labels
-            else:
-                self.dataset_x = mnist.train.images
-                self.dataset_y = mnist.train.labels
-
-            # Normalize between -1 and 1
-            self.dataset_x = self.dataset_x.reshape((self.dataset_x.shape[0], 28, 28, 1))
-            self.dataset_x = (self.dataset_x * 255.0 - 127.5) / 127.5
-            # revert x = x * 127.5+127.5 / 255.0
-
-            # Include 1 single color channel
-            self.dataset_x = np.expand_dims(self.dataset_x, axis=-1)
-
-        elif dataset == 'chest':
+        if dataset == 'chest':
             if self.data_src == self.TEST:
                 x, y = load_test_data(rst)
                 self.dataset_x = x
@@ -768,6 +750,8 @@ class BalancingGAN:
         def norm_layer(x):
             if norm == 'batch':
                 x = BatchNormalization()(x)
+            elif norm == 'in':
+                x = InstanceNormalization()(x)
             else:
                 x = FeatureNorm()([x, scale, bias])
             return x
@@ -1009,33 +993,34 @@ class BalancingGAN:
     def build_resnet_generator(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
 
+        init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        latent = Dense(4 * 4 * 256)(latent_code)
-        latent = Reshape((4, 4, 256))(latent)
+        latent = Dense(4 * 4 * init_channels)(latent_code)
+        latent = Reshape((4, 4, init_channels))(latent)
 
         decoder_activation = LeakyReLU()
-        kernel_size = 3
+        kernel_size = 5
         
         attribute_code = self.latent_encoder(image)
-        attr = Dense(4 * 4 * 256)(attribute_code)
-        attr = Reshape((4, 4, 256))(attr)
+        attr = Dense(4 * 4 * init_channels)(attribute_code)
+        attr = Reshape((4, 4, init_channels))(attr)
 
         latent = Concatenate()([latent, attr])
 
         de = self._res_block(latent, 256, kernel_size,
-                            norm='batch',
+                            norm='in',
                             norm_var=self.attribute_net(image))
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
 
         de = self._res_block(de, 128, kernel_size,
-                                norm='batch',
+                                norm='in',
                                 norm_var=self.attribute_net(image))
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = decoder_activation(de)
 
         de = self._res_block(de, 64, kernel_size,
-                                norm='batch',
+                                norm='in',
                                 norm_var=self.attribute_net(image))
 
         de = self._upscale(de, 'conv', 64, kernel_size)
