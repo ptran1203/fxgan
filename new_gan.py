@@ -915,14 +915,24 @@ class BalancingGAN:
         real_output_for_d = self.discriminator([real_images])
         fake_output_for_d = self.discriminator([fake_images])
 
-        self.discriminator_model = Model(
-            inputs = [real_images, fake_images],
-            outputs = [fake_output_for_d, real_output_for_d],
+        self.discriminator_fake = Model(
+            inputs = fake_images,
+            outputs = fake_output_for_d,
         )
-        self.discriminator_model.compile(
+        self.discriminator_fake.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics = ['accuracy'],
-            loss = [self.d_fake_loss, self.d_real_loss]
+            loss = [self.d_fake_loss]
+        )
+
+        self.discriminator_real = Model(
+            inputs = real_images,
+            outputs = real_output_for_d,
+        )
+        self.discriminator_real.compile(
+            optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            metrics = ['accuracy'],
+            loss = [self.d_real_loss]
         )
 
         # Define combined for training generator.
@@ -1038,17 +1048,18 @@ class BalancingGAN:
     def build_dc_generator(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
 
+        init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        latent = Dense(4 * 4 * 256)(latent_code)
-        latent = Reshape((4, 4, 256))(latent)
+        latent = Dense(4 * 4 * init_channels)(latent_code)
+        latent = Reshape((4, 4, init_channels))(latent)
        
         attribute_code = self.latent_encoder(image)
-        attr = Dense(4 * 4 * 256)(attribute_code)
-        attr = Reshape((4, 4, 256))(attr)
+        attr = Dense(4 * 4 * init_channels)(attribute_code)
+        attr = Reshape((4, 4, init_channels))(attr)
 
         latent = Concatenate()([latent, attr])
 
-        decoder_activation = LeakyReLU()
+        decoder_activation = Activation('relu')
         kernel_size = 5
 
         def _transpose_block(x, units, activation, kernel_size=3, norm='batch', norm_var = [0,0]):
@@ -1056,6 +1067,9 @@ class BalancingGAN:
             def _norm_layer(x):
                 if norm == 'batch':
                     x = BatchNormalization()(x)
+
+                elif norm == 'in':
+                    x = InstanceNormalization()(x)
                 else:
                     x = FeatureNorm()([x, scale, bias])
                 return x
@@ -1063,17 +1077,19 @@ class BalancingGAN:
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
             out = _norm_layer(out)
             out = activation(out)
+            # out = Dropout(0.3)(out)
             return out
 
 
         de = _transpose_block(latent, 256, decoder_activation,
-                             kernel_size, norm='batch',
+                             kernel_size, norm='in',
                              norm_var=self.attribute_net(image))
+        # de = SelfAttention(256)(de)
         de = _transpose_block(de, 128, decoder_activation,
-                             kernel_size, norm='batch',
+                             kernel_size, norm='in',
                              norm_var=self.attribute_net(image))
         de = _transpose_block(de, 64, decoder_activation,
-                             kernel_size, norm='batch',
+                             kernel_size, norm='in',
                              norm_var=self.attribute_net(image))
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
@@ -1286,10 +1302,11 @@ class BalancingGAN:
                     real_label_for_d = label_batch
                     fake_label = np.full(label_batch.shape[0], self.nclasses)
 
-                loss, acc, *rest = self.discriminator_model.train_on_batch(
-                    [image_batch, generated_images],
-                    [fake_label, real_label_for_d]
-                )
+                loss_fake, acc_fake, *rest = self.discriminator_fake.train_on_batch(generated_images, fake_label)
+                loss_real, acc_real, *rest = self.discriminator_real.train_on_batch(image_batch, real_label_for_d)
+                loss = 0.5 * (loss_fake + loss_real)
+                acc = 0.5 * (acc_fake + acc_real)
+
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
 
