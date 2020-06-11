@@ -903,20 +903,23 @@ class BalancingGAN:
 
         aux_fake = self.discriminator([fake])
 
+        negative_samples = Input((self.resolution,self.resolution,self.channels))
+
         self.combined = Model(
-            inputs=[real_images, latent_code],
+            inputs=[real_images, negative_samples, latent_code],
             outputs=[aux_fake],
             name = 'Combined',
         )
 
         # triplet function
-        # margin = 1.0
-        # anchor_code = self.latent_encoder(fake)
-        # pos_code = self.latent_encoder(other_batch)
-        # d_pos = K.mean(K.abs(anchor_code - pos_code))
-        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(real_images)))
+        margin = 1.0
+        anchor_code = self.latent_encoder(fake)
+        pos_code = self.latent_encoder(real_images)
+        d_pos = K.mean(K.abs(anchor_code - pos_code))
+        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(negative_samples)))
+        triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
-        self.combined.add_loss(d_neg)
+        self.combined.add_loss(triplet)
 
         self.combined.compile(
             optimizer=Adam(
@@ -1246,8 +1249,9 @@ class BalancingGAN:
 
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
+            negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
             [loss, acc, *rest] = self.combined.train_on_batch(
-                [image_batch, f],
+                [image_batch,negative_samples, f],
                 [real_label],
             )
 
@@ -1411,9 +1415,11 @@ class BalancingGAN:
                 test_disc_loss = 0.5 * (loss_fake + loss_real)
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
+                negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(bg_test.dataset_y))
                 [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
+                        negative_samples,
                         f
                     ],
                     [real_label],
@@ -1425,6 +1431,7 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             bg_test.dataset_x,
+                            negative_samples,
                             f,
                             
                         ],
