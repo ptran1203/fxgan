@@ -70,11 +70,6 @@ CATEGORIES_MAP = {
     'Pneumonia': 14,
 }
 
-# ===========================================
-# I have no idea how it works, happy coding #
-#               ¯\_(ツ)_/¯                  #
-#===========================================#
-
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
 
@@ -532,11 +527,9 @@ class BatchGenerator:
         # per class ids
         self.per_class_ids = dict()
         ids = np.array(range(len(self.dataset_x)))
-        try:
-            for c in classes:
-                self.per_class_ids[c] = ids[self.labels == c]
-        except:
-            pass
+        for c in classes:
+            self.per_class_ids[c] = ids[self.labels == c]
+
 
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
@@ -550,6 +543,7 @@ class BatchGenerator:
             np.random.shuffle(random)
             to_return = random[:samples]
             return self.dataset_x[to_return]
+
 
     def get_samples_by_labels(self, labels, samples = None):
         if samples is None:
@@ -567,6 +561,7 @@ class BatchGenerator:
 
         return self.dataset_x[np.array(new_arr)]
 
+
     def other_labels(self, labels):
         clone = np.arange(labels.shape[0])
         clone[:] = labels
@@ -575,18 +570,6 @@ class BatchGenerator:
             clone[i] = to_get[np.random.randint(0, len(self.classes) - 1)]
         return clone
 
-    def pair_samples(self, train_x):
-        # merge 2 nearest image
-        img1 = np.expand_dims(train_x[0], 0)
-        img2 = np.expand_dims(train_x[1], 0)
-        pair_x = np.array([np.concatenate((img1, img2))])
-        for i in range(2, len(train_x) - 1, 2):
-            img1 = np.expand_dims(train_x[i], 0)
-            img2 = np.expand_dims(train_x[i + 1], 0)
-            pair_x = np.concatenate((pair_x, np.expand_dims(
-                                    np.concatenate((img1, img2)), 0)))
-
-        return pair_x
 
     def get_label_table(self):
         return self.label_table
@@ -622,25 +605,6 @@ class BatchGenerator:
                 dataset_x[access_pattern, :, :, :], labels[access_pattern],
                 dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
-
-
-class RandomPick(keras.layers.Layer):
-    def __init__(self):
-        super(RandomPick, self).__init__()
-
-    def call(self, inputs):
-        ip1, ip2, vector = inputs
-        out = []
-
-        for i in range(ip1.shape[-1]):
-            r = tf.cond(vector[0,i] >= -5, lambda: ip1[:, :, :, i], lambda: ip2[:, :, :, i])
-            # merged = vector[0, i] * ip1[]
-            out.append(r)
-
-        return tf.transpose(tf.stack(out), [1, 2, 3, 0])
-
-    def compute_output_shape(self, input_shape):
-        return input_shape[0]
 
 
 class SelfAttention(Layer):
@@ -777,15 +741,6 @@ class BalancingGAN:
                 x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
                 return x
 
-    def _downscale(self, x, interpolation='conv', units=64,kernel_size=5):
-        if interpolation == 'conv':
-            # use convolution
-            x = Conv2D(units, kernel_size, strides=2, padding='same')(x)
-            return x
-        else:
-            # use upsamling layer
-            x = MaxPooling2D()(x)
-            return x
 
     def build_attribute_encoder(self):
         """
@@ -893,7 +848,7 @@ class BalancingGAN:
         self.test_history = defaultdict(list)
         self.trained = False
 
-        # Build generator
+        # Build networks
         self.build_perceptual_model()
         self.build_latent_encoder()
         self.build_attribute_encoder()
@@ -973,49 +928,27 @@ class BalancingGAN:
         )
 
 
-    def train_latent_encoder(self, bg_train, epochs = 100):
-        save_path = '{}/latent_encoder.h5'.format(self.res_dir)
-        if os.path.exists(save_path):
-            print('Load latent_encoder')
-            return self.latent_encoder.load_weights(save_path)
-        print('Train latent_encoder')
-        for e in range(epochs):
-            losses = []
-            for x, y, x2, y2 in bg_train.next_batch():
-                flipped_y = bg_train.other_labels(y)
-                pos_x = bg_train.get_samples_by_labels(y)
-                neg_x = bg_train.get_samples_by_labels(flipped_y)
-                out = self.latent_encoder.predict(x)
-                loss = self.latent_encoder_trainer.train_on_batch([x, pos_x, neg_x], out)
-                losses.append(loss)
-            print('train attribute net epoch {} - loss: {}'.format(e, np.mean(np.array(losses))))
-
-        self.latent_encoder.save(save_path)
-
-    def _feature(self, x):
-        return self.encoder(x)[-1]
-
     def vgg16_features(self, image):
         return self.perceptual_model(Concatenate()([
             image, image, image
         ]))
 
+
     def build_resnet_generator(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
+        decoder_activation = Activation('relu')
 
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
+        attribute_code = self.latent_encoder(image)
+
+        latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
+        latent = self._norm()(latent)
+        latent = decoder_activation(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        decoder_activation = LeakyReLU()
         kernel_size = 5
-        
-        attribute_code = self.latent_encoder(image)
-        attr = Dense(4 * 4 * init_channels)(attribute_code)
-        attr = Reshape((4, 4, init_channels))(attr)
-
-        latent = Concatenate()([latent, attr])
 
         de = self._res_block(latent, 256, kernel_size,
                             norm='in',
@@ -1073,9 +1006,9 @@ class BalancingGAN:
 
         latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
-        latent = Reshape((4, 4, init_channels))(latent)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
+        latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 5
 
@@ -1098,6 +1031,7 @@ class BalancingGAN:
             outputs = outputs,
             name='dc_gen'
         )
+
 
     def build_perceptual_model(self):
         """
@@ -1179,7 +1113,7 @@ class BalancingGAN:
         plot_d(train_d, test_d)
 
 
-    def _build_common_encoder(self, image):
+    def _discriminator_feature(self, image):
         resolution = self.resolution
         channels = self.channels
 
@@ -1212,6 +1146,7 @@ class BalancingGAN:
         cnn.add(Conv2D(512, kernel_size, padding='same', strides=(2, 2)))
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
 
         cnn.add(Flatten())
 
@@ -1225,7 +1160,7 @@ class BalancingGAN:
 
         image = Input(shape=(resolution, resolution, channels))
 
-        features = self._build_common_encoder(image)
+        features = self._discriminator_feature(image)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
@@ -1319,13 +1254,6 @@ class BalancingGAN:
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
 
-        # In case generator have multiple metrics
-        # epoch_gen_loss_cal = {
-        #     'loss': np.mean(np.array([e['loss'] for e in epoch_gen_loss])),
-        #     'loss_from_d': np.mean(np.array([e['loss_from_d'] for e in epoch_gen_loss])),
-        #     'fm_loss': np.mean(np.array([e['fm_loss'] for e in epoch_gen_loss]))
-        # }
-
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
             np.mean(np.array(epoch_gen_loss), axis=0),
@@ -1410,7 +1338,6 @@ class BalancingGAN:
 
             # Initialization
             print("init gan")
-            # self.train_latent_encoder(bg_train)
             start_e = self.init_gan()
             # self.init_autoenc(bg_train)
             print("gan initialized, start_e: ", start_e)
@@ -1604,49 +1531,34 @@ class BalancingGAN:
         _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
         # _plot_pca(imgs, labels, self.attribute_encoder, 'attribute   encoder')
 
-
-
-    def generate_samples(self, c, samples, bg = None):
-        """
-        Refactor later
-        """
-        return self.generate(np.full(samples, c), bg)
-    
     def interval_process(self, epoch, interval = 20):
         if epoch % interval != 0:
             return
         # do bussiness thing
 
-    def save_history(self, res_dir, class_id):
-        if self.trained:
-            filename = "{}/class_{}_score.csv".format(res_dir, class_id)
-            generator_fname = "{}/class_{}_generator.h5".format(res_dir, class_id)
-            discriminator_fname = "{}/class_{}_discriminator.h5".format(res_dir, class_id)
-            reconstructor_fname = "{}/class_{}_reconstructor.h5".format(res_dir, class_id)
-            with open(filename, 'w') as csvfile:
-                fieldnames = [
-                    'train_gen_loss', 'train_disc_loss',
-                    'test_gen_loss', 'test_disc_loss'
-                ]
 
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-                writer.writeheader()
-                for e in range(len(self.train_history['gen_loss'])):
-                    row = [
-                        self.train_history['gen_loss'][e],
-                        self.train_history['disc_loss'][e],
-                        self.test_history['gen_loss'][e],
-                        self.test_history['disc_loss'][e]
-                    ]
-
-                    writer.writerow(dict(zip(fieldnames,row)))
-
-            self.generator.save(generator_fname)
-            self.discriminator.save(discriminator_fname)
-            self.reconstructor.save(reconstructor_fname)
-
-    def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
-        self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
-        self.discriminator.load_weights(fname_discriminator)
-
+#
+#                       _oo0oo_
+#                      o8888888o
+#                      88" . "88
+#                      (| -_- |)
+#                      0\  =  /0
+#                    ___/`---'\___
+#                  .' \\|     |// '.
+#                 / \\|||  :  |||// \
+#                / _||||| -:- |||||- \
+#               |   | \\\  -  /// |   |
+#               | \_|  ''\---/''  |_/ |
+#               \  .-\__  '-'  ___/-. /
+#             ___'. .'  /--.--\  `. .'___
+#          ."" '<  `.___\_<|>_/___.' >' "".
+#         | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+#         \  \ `_.   \_ __\ /__ _/   .-` /  /
+#     =====`-.____`.___ \_____/___.-`___.-'=====
+#                       `=---='
+#
+#
+#     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+#               Độ ta không độ code
+#
