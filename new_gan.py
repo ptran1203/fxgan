@@ -1165,10 +1165,12 @@ class BalancingGAN:
         image = Input(shape=(resolution, resolution, channels))
 
         features = self._discriminator_feature(image)
+        semantic_features = self.latent_encoder(image)
 
-        # combined_feature = Concatenate()([features, semantic_features])
+        combined_feature = Concatenate()([features, semantic_features])
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
+
         if self.loss_type == 'categorical':
             aux = Dense(self.nclasses + 1,
                         activation = 'softmax',
@@ -1176,7 +1178,7 @@ class BalancingGAN:
         else:
             aux = Dense(
                 1, activation = activation,name='auxiliary'
-            )(features)
+            )(combined_feature)
 
         self.discriminator = Model(inputs=[image],
                                    outputs=aux,
@@ -1203,12 +1205,6 @@ class BalancingGAN:
     def _norm(self):
         return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
 
-
-    def get_pair_features(self, image_batch):
-        features = self.features_from_d_model.predict(image_batch)
-        p_features = self.perceptual_model.predict(triple_channels(image_batch))
-
-        return features, p_features
 
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
