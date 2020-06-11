@@ -851,7 +851,7 @@ class BalancingGAN:
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
                 g_lr = 0.000005, norm = 'batch',
-                resnet=False, beta_1 = 0):
+                resnet=False, beta_1 = 0.5):
         self.classes = classes
         self.nclasses = len(classes)
         self.latent_size = latent_size
@@ -1065,9 +1065,9 @@ class BalancingGAN:
             return out
 
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
-        decoder_activation = LeakyReLU(alpha=0.02)
+        decoder_activation = Activation('relu')
 
-        init_channels = 256
+        init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
         attribute_code = self.latent_encoder(image)
 
@@ -1078,8 +1078,6 @@ class BalancingGAN:
         latent = decoder_activation(latent)
 
         kernel_size = 5
-
-
 
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
@@ -1184,36 +1182,36 @@ class BalancingGAN:
     def _build_common_encoder(self, image):
         resolution = self.resolution
         channels = self.channels
-        min_latent_res = 4
 
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
+        kernel_size = 5
 
-        cnn.add(Conv2D(32, (3, 3), padding='same', strides=(2, 2),
-                       input_shape=(channels, resolution, resolution), use_bias=True))
-        cnn.add(LeakyReLU())
+        cnn.add(Conv2D(64, kernel_size, strides=2, padding='same'))
+        cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
+        # 32 * 32 * 64
 
-        cnn.add(Conv2D(64, (3, 3), padding='same', strides=(1, 1), use_bias=True))
-        cnn.add(LeakyReLU())
+        # cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
+
+        cnn.add(Conv2D(128, kernel_size, padding='same', strides=(2, 2)))
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
+        # 16 * 16 * 128
 
-        cnn.add(Conv2D(128, (3, 3), padding='same', strides=(2, 2), use_bias=True))
-        cnn.add(LeakyReLU())
+        cnn.add(SelfAttention(128))
+
+        cnn.add(Conv2D(256, kernel_size, padding='same', strides=(2, 2)))
+        # cnn.add(SelfAttention(256))
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
+        # 8 * 8 * 256
 
-        cnn.add(Conv2D(256, (3, 3), padding='same', strides=(1, 1), use_bias=True))
-        cnn.add(LeakyReLU())
-        cnn.add(Dropout(0.3))
-
-        while cnn.output_shape[-1] > min_latent_res:
-            cnn.add(Conv2D(256, (3, 3), padding='same', strides=(2, 2), use_bias=True))
-            cnn.add(LeakyReLU())
-            cnn.add(Dropout(0.3))
-
-            cnn.add(Conv2D(256, (3, 3), padding='same', strides=(1, 1), use_bias=True))
-            cnn.add(LeakyReLU())
-            cnn.add(Dropout(0.3))
+        cnn.add(Conv2D(512, kernel_size, padding='same', strides=(2, 2)))
+        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
+        cnn.add(LeakyReLU(alpha=0.2))
 
         cnn.add(Flatten())
 
