@@ -915,9 +915,10 @@ class BalancingGAN:
         margin = 1.0
         anchor_code = self.latent_encoder(fake)
         pos_code = self.latent_encoder(real_images)
-        d_pos = K.mean(K.abs(anchor_code - pos_code))
+        d_pos = K.mean(K.square(anchor_code - pos_code))
         d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(negative_samples)))
         triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
+
 
         self.combined.add_loss(triplet)
 
@@ -1164,10 +1165,13 @@ class BalancingGAN:
         image = Input(shape=(resolution, resolution, channels))
 
         features = self._discriminator_feature(image)
+        semantic_features = self.latent_encoder(image)
+
+        combined_feature = Concatenate()([features, semantic_features])
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
-            aux = Dense(self.nclasses + 1, activation = 'softmax', name='auxiliary')(features)
+            aux = Dense(self.nclasses + 1, activation = 'softmax', name='auxiliary')(combined_feature)
         else:
             aux = Dense(
                 1, activation = activation,name='auxiliary'
