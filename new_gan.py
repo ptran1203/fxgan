@@ -1185,7 +1185,7 @@ class BalancingGAN:
 
     def build_features_from_d_model(self):
         image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.discriminator.layers[-3](image)
+        model_output = self.discriminator.layers[-2](image)
         self.features_from_d_model = Model(
             inputs = image,
             output = model_output,
@@ -1508,6 +1508,8 @@ class BalancingGAN:
         def _plot_pca(x, y, encoder, name):
             step = 1
             x_embeddings = encoder.predict(x)
+            if len(x_embeddings.shape) > 2:
+                x_embeddings = x_embeddings.reshape(x_embeddings.shape[0], -1)
             decomposed_embeddings = pca.fit_transform(x_embeddings)
             fig = plt.figure(figsize=(16, 8))
             for label in np.unique(y):
@@ -1522,14 +1524,18 @@ class BalancingGAN:
 
         # latent_encoder
         imgs = np.concatenate([x, fakes])
-        # labels = np.concatenate([y, np.concatenate(fake_labels)])
         labels = np.concatenate([
             np.full((x.shape[0],), 'real'),
             np.full((fakes.shape[0],), 'fake'),
         ])
     
+        _plot_pca(imgs, labels, self.features_from_d_model, 'fake real space')
+        labels = np.concatenate([
+            np.full((x.shape[0],), 'real'),
+            np.full((fakes.shape[0],), 'fake'),
+        ])
+        labels = np.concatenate([y, np.concatenate(fake_labels)])
         _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
-        # _plot_pca(imgs, labels, self.attribute_encoder, 'attribute   encoder')
 
     def interval_process(self, epoch, interval = 20):
         if epoch % interval != 0:
