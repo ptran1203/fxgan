@@ -1046,22 +1046,6 @@ class BalancingGAN:
         )
 
     def build_dc_generator(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
-
-        init_channels = 512
-        latent_code = Input(shape=(128,), name = 'latent_code')
-        latent = Dense(4 * 4 * init_channels)(latent_code)
-        latent = Reshape((4, 4, init_channels))(latent)
-       
-        attribute_code = self.latent_encoder(image)
-        attr = Dense(4 * 4 * init_channels)(attribute_code)
-        attr = Reshape((4, 4, init_channels))(attr)
-
-        latent = Concatenate()([latent, attr])
-
-        decoder_activation = Activation('relu')
-        kernel_size = 5
-
         def _transpose_block(x, units, activation, kernel_size=3, norm='batch', norm_var = [0,0]):
             scale, bias = norm_var
             def _norm_layer(x):
@@ -1080,16 +1064,32 @@ class BalancingGAN:
             # out = Dropout(0.3)(out)
             return out
 
+        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
+        decoder_activation = LeakyReLU(alpha=0.02)
+
+        init_channels = 256
+        latent_code = Input(shape=(128,), name = 'latent_code')
+        attribute_code = self.latent_encoder(image)
+
+        latent = Concatenate()([latent_code, attribute_code])
+        latent = Dense(4 * 4 * init_channels)(latent_code)
+        latent = Reshape((4, 4, init_channels))(latent)
+        latent = self._norm()(latent)
+        latent = decoder_activation(latent)
+
+        kernel_size = 5
+
+
 
         de = _transpose_block(latent, 256, decoder_activation,
-                             kernel_size, norm='in',
+                             kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(image))
-        # de = SelfAttention(256)(de)
+        de = SelfAttention(256)(de)
         de = _transpose_block(de, 128, decoder_activation,
-                             kernel_size, norm='in',
+                             kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(image))
         de = _transpose_block(de, 64, decoder_activation,
-                             kernel_size, norm='in',
+                             kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(image))
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
@@ -1184,39 +1184,42 @@ class BalancingGAN:
     def _build_common_encoder(self, image):
         resolution = self.resolution
         channels = self.channels
+        min_latent_res = 4
 
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
-        kernel_size = 5
 
-        cnn.add(Conv2D(64, kernel_size, strides=2, padding='same'))
-        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Conv2D(32, (3, 3), padding='same', strides=(2, 2),
+                       input_shape=(channels, resolution, resolution), use_bias=True))
+        cnn.add(LeakyReLU())
         cnn.add(Dropout(0.3))
-        # 32 * 32 * 64
 
-        cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
-
-        cnn.add(Conv2D(128, kernel_size, padding='same', strides=(2, 2)))
-        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Conv2D(64, (3, 3), padding='same', strides=(1, 1), use_bias=True))
+        cnn.add(LeakyReLU())
         cnn.add(Dropout(0.3))
-        # 16 * 16 * 128
 
-        cnn.add(Conv2D(256, kernel_size, padding='same', strides=(2, 2)))
-        # cnn.add(SelfAttention(256))
-        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Conv2D(128, (3, 3), padding='same', strides=(2, 2), use_bias=True))
+        cnn.add(LeakyReLU())
         cnn.add(Dropout(0.3))
-        # 8 * 8 * 256
 
-        cnn.add(Conv2D(512, kernel_size, padding='same', strides=(2, 2)))
-        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Conv2D(256, (3, 3), padding='same', strides=(1, 1), use_bias=True))
+        cnn.add(LeakyReLU())
+        cnn.add(Dropout(0.3))
 
-        # cnn.add(Flatten())
+        while cnn.output_shape[-1] > min_latent_res:
+            cnn.add(Conv2D(256, (3, 3), padding='same', strides=(2, 2), use_bias=True))
+            cnn.add(LeakyReLU())
+            cnn.add(Dropout(0.3))
+
+            cnn.add(Conv2D(256, (3, 3), padding='same', strides=(1, 1), use_bias=True))
+            cnn.add(LeakyReLU())
+            cnn.add(Dropout(0.3))
+
+        cnn.add(Flatten())
 
         features = cnn(image)
         return features
+
 
     def build_discriminator(self):
         resolution = self.resolution
@@ -1225,9 +1228,6 @@ class BalancingGAN:
         image = Input(shape=(resolution, resolution, channels))
 
         features = self._build_common_encoder(image)
-        features = Dropout(0.3)(features)
-
-        features = Flatten()(features)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
@@ -1240,6 +1240,7 @@ class BalancingGAN:
         self.discriminator = Model(inputs=[image],
                                    outputs=aux,
                                    name='discriminator')
+
 
 
     def generate_latent(self, c, size = 1):
