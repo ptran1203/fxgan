@@ -851,7 +851,7 @@ class BalancingGAN:
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
                 g_lr = 0.000005, norm = 'batch',
-                resnet=False):
+                resnet=False, beta_1 = 0):
         self.classes = classes
         self.nclasses = len(classes)
         self.latent_size = latent_size
@@ -886,7 +886,7 @@ class BalancingGAN:
 
         # Initialize learning variables
         self.adam_lr = adam_lr 
-        self.adam_beta_1 = 0.5
+        self.adam_beta_1 = beta_1
 
         # Initialize stats
         self.train_history = defaultdict(list)
