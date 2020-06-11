@@ -1170,7 +1170,9 @@ class BalancingGAN:
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
-            aux = Dense(self.nclasses + 1, activation = 'softmax', name='auxiliary')(combined_feature)
+            aux = Dense(self.nclasses + 1,
+                        activation = 'softmax',
+                        name='auxiliary')(features)
         else:
             aux = Dense(
                 1, activation = activation,name='auxiliary'
