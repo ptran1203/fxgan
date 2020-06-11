@@ -1165,9 +1165,8 @@ class BalancingGAN:
         image = Input(shape=(resolution, resolution, channels))
 
         features = self._discriminator_feature(image)
-        semantic_features = self.latent_encoder(image)
 
-        combined_feature = Concatenate()([features, semantic_features])
+        # combined_feature = Concatenate()([features, semantic_features])
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
         if self.loss_type == 'categorical':
