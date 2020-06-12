@@ -427,7 +427,6 @@ class BatchGenerator:
     D_SIZE = 400
     to_train_classes = list(range(1, 80))
     to_test_classes = list(range(81, 86))
-    attribute_loss_weight = 2
 
     def __init__(
         self,
@@ -699,6 +698,7 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
+    attribute_loss_weight = 2
     def _res_block(self,
                   x,
                   units = 64,
