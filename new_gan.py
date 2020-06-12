@@ -427,6 +427,7 @@ class BatchGenerator:
     D_SIZE = 400
     to_train_classes = list(range(1, 80))
     to_test_classes = list(range(81, 86))
+    attribute_loss_weight = 2
 
     def __init__(
         self,
@@ -789,7 +790,7 @@ class BalancingGAN:
         )
     
     def attribute_net(self, image):
-        attr_feature = self.attribute_encoder(image)
+        attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(256, activation = 'relu')(scale)
@@ -919,7 +920,7 @@ class BalancingGAN:
         triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
 
-        self.combined.add_loss(d_pos)
+        self.combined.add_loss(self.attribute_loss_weight * d_pos)
 
         self.combined.compile(
             optimizer=Adam(
