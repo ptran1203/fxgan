@@ -20,7 +20,7 @@ from keras.layers import (
     Lambda,Layer, Add, Concatenate,
     Average,GaussianNoise,
     MaxPooling2D, AveragePooling2D,
-    RepeatVector,
+    RepeatVector,GlobalAveragePooling2D,
 )
 from keras_contrib.losses import DSSIMObjective
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
@@ -772,8 +772,7 @@ class BalancingGAN:
         x = self._norm()(x)
         x = Activation('relu')(x)
 
-        code = AveragePooling2D()(x)
-        code = Flatten()(code)
+        code = GlobalAveragePooling2D()(x)
 
         self.attribute_encoder = Model(
             inputs = image,
@@ -920,7 +919,7 @@ class BalancingGAN:
         triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
 
-        self.combined.add_loss(triplet)
+        self.combined.add_loss(d_pos)
 
         self.combined.compile(
             optimizer=Adam(
@@ -944,7 +943,7 @@ class BalancingGAN:
 
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        attribute_code = self.latent_encoder(image)
+        attribute_code = self.attribute_encoder(image)
 
         latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
@@ -1003,10 +1002,10 @@ class BalancingGAN:
 
         image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
         decoder_activation = Activation('relu')
-
+        kernel_size = 5
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        attribute_code = self.latent_encoder(image)
+        attribute_code = self.attribute_code(image)
 
         latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
@@ -1014,11 +1013,9 @@ class BalancingGAN:
         latent = decoder_activation(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        kernel_size = 5
-
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image))
+                             norm_var=self.attribute_net(image)) # output: 8*8*256
         de = SelfAttention(256)(de)
         de = _transpose_block(de, 128, decoder_activation,
                              kernel_size, norm=self.norm,
@@ -1165,9 +1162,9 @@ class BalancingGAN:
         image = Input(shape=(resolution, resolution, channels))
 
         features = self._discriminator_feature(image)
-        semantic_features = self.latent_encoder(image)
+        # semantic_features = self.latent_encoder(image)
 
-        combined_feature = Concatenate()([features, semantic_features])
+        # combined_feature = Concatenate()([features, semantic_features])
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
 
@@ -1178,7 +1175,7 @@ class BalancingGAN:
         else:
             aux = Dense(
                 1, activation = activation,name='auxiliary'
-            )(combined_feature)
+            )(features)
 
         self.discriminator = Model(inputs=[image],
                                    outputs=aux,
