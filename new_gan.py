@@ -916,11 +916,10 @@ class BalancingGAN:
         anchor_code = self.latent_encoder(fake)
         pos_code = self.latent_encoder(real_images)
         d_pos = K.mean(K.square(anchor_code - pos_code))
-        d_neg = K.mean(K.square(self.latent_encoder(fake) - self.latent_encoder(negative_samples)))
+        d_neg = K.mean(K.square(anchor_code - self.latent_encoder(negative_samples)))
         triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
-
-        self.combined.add_loss(self.attribute_loss_weight * d_pos)
+        self.combined.add_loss(self.attribute_loss_weight * triplet)
 
         self.combined.compile(
             optimizer=Adam(
