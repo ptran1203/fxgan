@@ -1052,11 +1052,20 @@ class BalancingGAN:
 
 
     def plot_loss_his(self):
+        def _get_arr(x, idx):
+            return [i[idx] for i in x]
+
         def plot_g(train_g, test_g):
-            plt.plot(train_g[0], label='train adv')
-            plt.plot(train_g[1], label='train mse')
-            plt.plot(test_g[0], label='test adv')
-            plt.plot(test_g[1], label='test mse')
+            plt.plot(_get_arr(train_g, 1), label='train mse')
+            plt.plot(_get_arr(test_g, 1), label='test mse')
+            plt.ylabel('loss')
+            plt.xlabel('epoch')
+            plt.title('Generator')
+            plt.legend()
+            plt.show()
+
+            plt.plot(_get_arr(train_g, 0), label='train adv')
+            plt.plot(_get_arr(test_g, 0), label='test adv')
             plt.ylabel('loss')
             plt.xlabel('epoch')
             plt.title('Generator')
