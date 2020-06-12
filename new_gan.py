@@ -1052,22 +1052,23 @@ class BalancingGAN:
 
 
     def plot_loss_his(self):
-        def toarray(lis, k):
-            return [d[k] for d in lis]
-
         def plot_g(train_g, test_g):
-            plt.plot(train_g, label='train_g_loss')
-            plt.plot(test_g, label='test_g_loss')
-            plt.ylabel('acc')
+            plt.plot(train_g[0], label='train adv')
+            plt.plot(train_g[1], label='train mse')
+            plt.plot(test_g[0], label='test adv')
+            plt.plot(test_g[1], label='test mse')
+            plt.ylabel('loss')
             plt.xlabel('epoch')
+            plt.title('Generator')
             plt.legend()
             plt.show()
 
         def plot_d(train_d, test_d):
-            plt.plot(train_d, label='train_d_loss')
-            plt.plot(test_d, label='test_d_loss')
+            plt.plot(train_d, label='train')
+            plt.plot(test_d, label='test')
             plt.ylabel('loss')
             plt.xlabel('epoch')
+            plt.title('Discriminator')
             plt.legend()
             plt.show()
 
@@ -1079,37 +1080,6 @@ class BalancingGAN:
         if len(train_g) == 0:
             return 
 
-        plot_g(train_g, test_g)
-        plot_d(train_d, test_d)
-
-
-    def plot_acc_his(self):
-        def toarray(lis, k):
-            return [d[k] for d in lis]
-
-        def plot_g(train_g, test_g):
-            plt.plot(train_g, label='train_g_acc')
-            plt.plot(test_g, label='test_g_acc')
-            plt.ylabel('acc')
-            plt.xlabel('epoch')
-            plt.legend()
-            plt.show()
-        
-        def plot_d(train_d, test_d):
-            plt.plot(train_d, label='train_d_acc')
-            plt.plot(test_d, label='test_d_acc')
-            plt.ylabel('acc')
-            plt.xlabel('epoch')
-            plt.legend()
-            plt.show()
-
-        train_d = self.train_history['disc_acc']
-        train_g = self.train_history['gen_acc']
-        test_d = self.test_history['disc_acc']
-        test_g = self.test_history['gen_acc']
-        if len(train_g) == 0:
-            return
- 
         plot_g(train_g, test_g)
         plot_d(train_d, test_d)
 
@@ -1206,8 +1176,6 @@ class BalancingGAN:
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
         epoch_gen_loss = []
-        epoch_disc_acc = []
-        epoch_gen_acc = []
 
         for image_batch, label_batch, image_batch2, label_batch2 in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
@@ -1243,25 +1211,21 @@ class BalancingGAN:
                 acc = 0.5 * (acc_fake + acc_real)
 
             epoch_disc_loss.append(loss)
-            epoch_disc_acc.append(acc)
 
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
             real_attribute = self.latent_encoder.predict(image_batch)
-            [loss, acc, *rest] = self.combined.train_on_batch(
+            [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
                 [image_batch,negative_samples, f],
                 [real_label, real_attribute],
             )
 
-            epoch_gen_loss.append(loss)
-            epoch_gen_acc.append(acc)
+            epoch_gen_loss.append([d_loss, l_loss])
 
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
             np.mean(np.array(epoch_gen_loss), axis=0),
-            np.mean(np.array(epoch_disc_acc), axis=0),
-            np.mean(np.array(epoch_gen_acc), axis=0),
         )
 
     def shuffle_data(self, data_x, data_y):
@@ -1377,7 +1341,7 @@ class BalancingGAN:
             for e in range(start_e, epochs):
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
-                train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
+                train_disc_loss, train_gen_loss = self._train_one_epoch(bg_train)
             
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
                 rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)
@@ -1416,7 +1380,7 @@ class BalancingGAN:
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(bg_test.dataset_y))
                 real_attribute = self.latent_encoder.predict(bg_test.dataset_x)
-                [test_gen_loss, test_gen_acc, *rest] = self.combined.evaluate(
+                [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
                         negative_samples,
@@ -1471,7 +1435,6 @@ class BalancingGAN:
 
                     # calculate attribute distance
                     self.plot_loss_his()
-                    self.plot_acc_his()
                     self.plot_feature_distr(bg_train)
 
                 if e % 100 == 0:
@@ -1480,20 +1443,15 @@ class BalancingGAN:
                 self.interval_process(e)
 
 
-                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
-                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
+                print("D_loss {}, G_adv_loss {} G_mse_loss - {}".format(
+                    train_disc_loss, train_gen_loss[0], train_gen_loss[1]
                     datetime.datetime.now() - start_time
                 ))
+
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append(test_gen_loss)
-                # accuracy
-                self.train_history['disc_acc'].append(train_disc_acc)
-                self.train_history['gen_acc'].append(train_gen_acc)
-                self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append(test_gen_acc)
-                # self.plot_his()
+                self.test_history['gen_loss'].append([gen_d_loss, gen_latent_loss])
 
             self.trained = True
 
