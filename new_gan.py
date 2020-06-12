@@ -1444,7 +1444,7 @@ class BalancingGAN:
 
 
                 print("D_loss {}, G_adv_loss {} G_mse_loss - {}".format(
-                    train_disc_loss, train_gen_loss[0], train_gen_loss[1]
+                    train_disc_loss, train_gen_loss[0], train_gen_loss[1],
                     datetime.datetime.now() - start_time
                 ))
 
