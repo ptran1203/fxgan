@@ -802,12 +802,41 @@ class BalancingGAN:
 
         return scale, bias
 
+    def build_latent_encoder(self):
+        img = Input((self.resolution, self.resolution, self.channels))
+
+        x = Conv2D(64, 3, strides=1, activation='relu',)(img)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, 3, strides=1, activation='relu')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, 3, strides=1, activation='relu')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(64, 3, strides=2, activation='relu')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, 3, strides=1, activation='relu')(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(128, 3, strides=2, activation='relu')(x)
+
+        x = AveragePooling2D()(x)
+        feature = Flatten()(x)
+        feature = Dense(128, activation='relu')(feature)
+        self.latent_encoder = Model(inputs = img, outputs = feature,name='latent_encoder')
+        fpath = '/content/drive/My Drive/bagan/{}/latent_encoder_{}.h5'.format(self.dataset,
+                                                                               self.resolution)
+        modified = os.path.getmtime(fpath)
+        print('Latent model modified at: ',
+            datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
+        self.latent_encoder.load_weights(fpath)
+        self.latent_encoder.trainable = False
+
     def __init__(self, classes, loss_type = 'binary',
                 adam_lr=0.00005, latent_size=100,
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
                 g_lr = 0.000005, norm = 'batch',
-                resnet=False, beta_1 = 0.5):
+                resnet=False, beta_1 = 0.5,
+                dataset = 'chest'):
         self.classes = classes
+        self.dataset = dataset
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
@@ -1117,7 +1146,6 @@ class BalancingGAN:
         cnn.add(SelfAttention(128))
 
         cnn.add(Conv2D(256, kernel_size, padding='same', strides=(2, 2)))
-        # cnn.add(SelfAttention(256))
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
