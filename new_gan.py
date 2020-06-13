@@ -1407,7 +1407,7 @@ class BalancingGAN:
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(bg_test.dataset_y))
-                real_attribute = self.latent_encoder.predict(bg_test.dataset_x)
+                real_attribute = self.attribute_encoder.predict(bg_test.dataset_x)
                 [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
