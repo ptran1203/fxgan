@@ -930,7 +930,7 @@ class BalancingGAN:
             inputs=[real_images, negative_samples, latent_code],
             outputs=[aux_fake, fake_attribute],
             name = 'Combined',
-            loss_weights = [1, 0]
+            class_weight = [1, 0]
         )
 
         # triplet function
