@@ -1492,7 +1492,7 @@ class BalancingGAN:
                                         self.generate_latent(range(size))])
         fake_labels = [np.full((size,), 'fake of 0')]
 
-        for classid in range(1, self.nclasses):
+        for classid in range(1, 5):
             real = bg.get_samples_for_class(classid, size)
             fake = self.generator.predict([real, self.generate_latent(range(size))])
             fakes = np.concatenate([fakes, fake])
