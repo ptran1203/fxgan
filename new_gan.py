@@ -930,16 +930,17 @@ class BalancingGAN:
             inputs=[real_images, negative_samples, latent_code],
             outputs=[aux_fake, fake_attribute],
             name = 'Combined',
+            loss_weights = [1, 0]
         )
 
         # triplet function
-        # margin = 1.0
-        # pos_code = self.latent_encoder(real_images)
-        # d_pos = K.mean(K.square(anchor_code - pos_code))
-        # d_neg = K.mean(K.square(anchor_code - self.latent_encoder(negative_samples)))
-        # triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
+        margin = 1.0
+        pos_code = self.attribute_encoder(real_images)
+        d_pos = K.mean(K.square(fake_attribute - pos_code))
+        d_neg = K.mean(K.square(fake_attribute - self.attribute_encoder(negative_samples)))
+        triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
-        # self.combined.add_loss(self.attribute_loss_weight * triplet)
+        self.combined.add_loss(self.attribute_loss_weight * triplet)
 
         self.combined.compile(
             optimizer=Adam(
