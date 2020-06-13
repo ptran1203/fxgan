@@ -924,7 +924,7 @@ class BalancingGAN:
         aux_fake = self.discriminator([fake])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
-        fake_attribute = self.latent_encoder(fake)
+        fake_attribute = self.attribute_encoder(fake)
 
         self.combined = Model(
             inputs=[real_images, negative_samples, latent_code],
@@ -1025,9 +1025,9 @@ class BalancingGAN:
         kernel_size = 5
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        attribute_code = self.attribute_code(image)
+        # attribute_code = self.attribute_code(image)
 
-        latent = Concatenate()([latent_code, attribute_code])
+        # latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
@@ -1243,7 +1243,7 @@ class BalancingGAN:
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
-            real_attribute = self.latent_encoder.predict(image_batch)
+            real_attribute = self.attribute_encoder.predict(image_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
                 [image_batch,negative_samples, f],
                 [real_label, real_attribute],
