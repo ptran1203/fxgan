@@ -924,7 +924,7 @@ class BalancingGAN:
         aux_fake = self.discriminator([fake])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
-        fake_attribute = self.attribute_encoder(fake)
+        fake_attribute = self.latent_encoder(fake)
 
         self.combined = Model(
             inputs=[real_images, negative_samples, latent_code],
@@ -933,13 +933,13 @@ class BalancingGAN:
         )
 
         # triplet function
-        margin = 1.0
-        pos_code = self.attribute_encoder(real_images)
-        d_pos = K.mean(K.square(fake_attribute - pos_code))
-        d_neg = K.mean(K.square(fake_attribute - self.attribute_encoder(negative_samples)))
-        triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
+        # margin = 1.0
+        # pos_code = self.latent_encoder(real_images)
+        # d_pos = K.mean(K.square(anchor_code - pos_code))
+        # d_neg = K.mean(K.square(anchor_code - self.latent_encoder(negative_samples)))
+        # triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
-        self.combined.add_loss(self.attribute_loss_weight * triplet)
+        # self.combined.add_loss(self.attribute_loss_weight * triplet)
 
         self.combined.compile(
             optimizer=Adam(
@@ -948,7 +948,6 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss = [self.g_loss, 'mse'],
-            loss_weights = [1, 0],
         )
 
 
@@ -1026,9 +1025,9 @@ class BalancingGAN:
         kernel_size = 5
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        # attribute_code = self.attribute_code(image)
+        attribute_code = self.attribute_code(image)
 
-        # latent = Concatenate()([latent_code, attribute_code])
+        latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
@@ -1244,7 +1243,7 @@ class BalancingGAN:
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
-            real_attribute = self.attribute_encoder.predict(image_batch)
+            real_attribute = self.latent_encoder.predict(image_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
                 [image_batch,negative_samples, f],
                 [real_label, real_attribute],
@@ -1408,7 +1407,7 @@ class BalancingGAN:
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(bg_test.dataset_y))
-                real_attribute = self.attribute_encoder.predict(bg_test.dataset_x)
+                real_attribute = self.latent_encoder.predict(bg_test.dataset_x)
                 [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
