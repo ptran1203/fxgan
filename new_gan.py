@@ -479,6 +479,7 @@ class BatchGenerator:
             x = x[to_keep]
             y = y[to_keep]
             x = np.expand_dims(x, axis=-1)
+            to_train_classes = ['No Finding', 'Infiltration', 'Effusion', 'Atelectasis', 'Nodule']
             if self.data_src == self.TEST:
                 to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
@@ -813,7 +814,7 @@ class BalancingGAN:
         model = json_file.read()
         json_file.close()
         self.latent_encoder = model_from_json(model)
-        modified = os.path.getmtime(fpath)
+        modified = os.path.getmtime(fname + '.json')
         print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
         self.latent_encoder.load_weights(fname + '.h5')
