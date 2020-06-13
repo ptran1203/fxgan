@@ -36,6 +36,8 @@ from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+
 import os
 import sys
 import re
@@ -469,12 +471,14 @@ class BatchGenerator:
 
         else: # multi chest
             x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
+            to_train_classes = self.to_train_classes
+            to_test_classes = self.to_test_classes
+
             to_keep = [i for i, l in enumerate(y) if '|' not in l]
             to_keep = np.array(to_keep)
             x = x[to_keep]
             y = y[to_keep]
             x = np.expand_dims(x, axis=-1)
-            to_train_classes = ['No Finding', 'Infiltration', 'Effusion', 'Atelectasis', 'Nodule']
             if self.data_src == self.TEST:
                 to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
@@ -803,30 +807,16 @@ class BalancingGAN:
         return scale, bias
 
     def build_latent_encoder(self):
-        img = Input((self.resolution, self.resolution, self.channels))
-
-        x = Conv2D(64, 3, strides=1, activation='relu',)(img)
-        x = BatchNormalization()(x)
-        x = Conv2D(64, 3, strides=1, activation='relu')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(64, 3, strides=1, activation='relu')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(64, 3, strides=2, activation='relu')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(128, 3, strides=1, activation='relu')(x)
-        x = BatchNormalization()(x)
-        x = Conv2D(128, 3, strides=2, activation='relu')(x)
-
-        x = AveragePooling2D()(x)
-        feature = Flatten()(x)
-        feature = Dense(128, activation='relu')(feature)
-        self.latent_encoder = Model(inputs = img, outputs = feature,name='latent_encoder')
-        fpath = '/content/drive/My Drive/bagan/{}/latent_encoder_{}.h5'.format(self.dataset,
-                                                                               self.resolution)
+        fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(self.dataset,
+                                                                            self.resolution)
+        json_file = open(fname + '.json', 'r')
+        model = json_file.read()
+        json_file.close()
+        self.latent_encoder = model_from_json(model)
         modified = os.path.getmtime(fpath)
         print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
-        self.latent_encoder.load_weights(fpath)
+        self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
 
     def __init__(self, classes, loss_type = 'binary',
@@ -1480,7 +1470,7 @@ class BalancingGAN:
                 self.interval_process(e)
 
 
-                print("D_loss {}, G_adv_loss {} G_mse_loss - {}".format(
+                print("D_loss {}, G_adv_loss {} G_mse_loss {} - {}".format(
                     train_disc_loss, train_gen_loss[0], train_gen_loss[1],
                     datetime.datetime.now() - start_time
                 ))
@@ -1493,7 +1483,7 @@ class BalancingGAN:
             self.trained = True
 
     def plot_feature_distr(self, bg):
-        pca = PCA(n_components=2)
+        tnse = TSNE()
         x, y = bg.dataset_x, bg.dataset_y
         size = np.min(bg.per_class_count)
         real = bg.get_samples_for_class(0, size)
@@ -1512,7 +1502,7 @@ class BalancingGAN:
             x_embeddings = encoder.predict(x)
             if len(x_embeddings.shape) > 2:
                 x_embeddings = x_embeddings.reshape(x_embeddings.shape[0], -1)
-            decomposed_embeddings = pca.fit_transform(x_embeddings)
+            decomposed_embeddings = tnse.fit_transform(x_embeddings)
             fig = plt.figure(figsize=(16, 8))
             for label in np.unique(y):
                 decomposed_embeddings_class = decomposed_embeddings[y == label]
