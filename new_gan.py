@@ -942,7 +942,7 @@ class BalancingGAN:
             loss = [self.g_loss, 'mse'],
         )
 
-        input_images = Input(shape=(rst,rst,channels), name='input_image')
+        input_images = Input(shape=(self.resolution,self.resolution,self.channels), name='input_image')
         input_labels = Input(shape=(1,), name='input_label')
         embeddings = self.attribute_encoder(input_images)
         labels_plus_embeddings = Concatenate()([input_labels, embeddings])
@@ -1027,24 +1027,26 @@ class BalancingGAN:
         kernel_size = 5
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        attribute_code = self.attribute_code(image)
+        # attribute_code = self.attribute_code(image)
 
-        latent = Concatenate()([latent_code, attribute_code])
+        # latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
+        norm_var = self.attribute_net(image)
+
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image)) # output: 8*8*256
+                             norm_var=norm_var) # output: 8*8*256
         de = SelfAttention(256)(de)
         de = _transpose_block(de, 128, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image))
+                             norm_var=norm_var)
         de = _transpose_block(de, 64, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image))
+                             norm_var=norm_var)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
         outputs = Activation('tanh')(final)
