@@ -703,7 +703,7 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
-    attribute_loss_weight = 2
+    attribute_loss_weight = 1
     def _res_block(self,
                   x,
                   units = 64,
@@ -785,17 +785,9 @@ class BalancingGAN:
             outputs = code
         )
 
-    def build_features_from_classifier_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.classifier.layers[-3](image)
-        self.features_from_classifier = Model(
-            inputs = image,
-            output = model_output,
-            name = 'Feature_matching_classifier'
-        )
-    
+
     def attribute_net(self, image):
-        attr_feature = self.latent_encoder(image)
+        attr_feature = self.attribute_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(256, activation = 'relu')(scale)
@@ -924,7 +916,7 @@ class BalancingGAN:
         aux_fake = self.discriminator([fake])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
-        fake_attribute = self.latent_encoder(fake)
+        fake_attribute = self.attribute_encoder(fake)
 
         self.combined = Model(
             inputs=[real_images, negative_samples, latent_code],
@@ -949,6 +941,16 @@ class BalancingGAN:
             metrics=['accuracy'],
             loss = [self.g_loss, 'mse'],
         )
+
+        input_images = Input(shape=(rst,rst,channels), name='input_image')
+        input_labels = Input(shape=(1,), name='input_label')
+        embeddings = self.attribute_encoder(input_images)
+        labels_plus_embeddings = Concatenate()([input_labels, embeddings])
+
+        self.attribute_trainer = Model(inputs=[input_images, input_labels],
+                        outputs=labels_plus_embeddings)
+        self.attribute_trainer.compile(loss=triplet_loss,
+                                        optimizer=Adam(lr=1e-4))
 
 
     def vgg16_features(self, image):
@@ -1204,9 +1206,17 @@ class BalancingGAN:
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
         epoch_gen_loss = []
+        attr_loss = []
 
         for image_batch, label_batch, image_batch2, label_batch2 in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
+            ################## Train Attribute net ##################
+            dummy_gt = np.zeros((len(image_batch), 512 + 1))
+            f = self.generate_latent(range(image_batch.shape[0]))
+            fake_images = self.generator.predict([image_batch, f], verbose=0)
+            x_train = np.concatenate([image_batch, fake_images], axis = 0)
+            y_train = np.concatenate([label_batch, label_batch])
+            attr_loss.append(self.attribute_trainer.train_on_batch([x_train, y_train]))
 
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
@@ -1243,7 +1253,7 @@ class BalancingGAN:
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
-            real_attribute = self.latent_encoder.predict(image_batch)
+            real_attribute = self.attribute_encoder.predict(image_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
                 [image_batch,negative_samples, f],
                 [real_label, real_attribute],
@@ -1254,6 +1264,7 @@ class BalancingGAN:
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
             np.mean(np.array(epoch_gen_loss), axis=0),
+            np.mean(np.array(attr_loss), axis=0)
         )
 
     def shuffle_data(self, data_x, data_y):
@@ -1369,7 +1380,7 @@ class BalancingGAN:
             for e in range(start_e, epochs):
                 start_time = datetime.datetime.now()
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
-                train_disc_loss, train_gen_loss = self._train_one_epoch(bg_train)
+                train_disc_loss, train_gen_loss, attr_loss = self._train_one_epoch(bg_train)
             
                 f = self.generate_latent(range(bg_test.dataset_x.shape[0]))
                 rand_x, rand_y = self.shuffle_data(bg_test.dataset_x, bg_test.dataset_y)
@@ -1407,7 +1418,7 @@ class BalancingGAN:
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(bg_test.dataset_y))
-                real_attribute = self.latent_encoder.predict(bg_test.dataset_x)
+                real_attribute = self.attribute_encoder.predict(bg_test.dataset_x)
                 [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
                     [
                         bg_test.dataset_x,
@@ -1471,8 +1482,9 @@ class BalancingGAN:
                 self.interval_process(e)
 
 
-                print("D_loss {}, G_adv_loss {} G_mse_loss {} - {}".format(
+                print("D_loss {}, G_adv_loss {} G_mse_loss {} Attr_loss {} - {}".format(
                     train_disc_loss, train_gen_loss[0], train_gen_loss[1],
+                    attr_loss,
                     datetime.datetime.now() - start_time
                 ))
 
