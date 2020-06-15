@@ -478,7 +478,6 @@ class BatchGenerator:
             to_keep = np.array(to_keep)
             x = x[to_keep]
             y = y[to_keep]
-            x = np.expand_dims(x, axis=-1)
             to_train_classes = ['No Finding', 'Infiltration', 'Effusion', 'Atelectasis', 'Nodule']
             if self.data_src == self.TEST:
                 to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
