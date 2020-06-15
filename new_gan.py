@@ -1212,11 +1212,11 @@ class BalancingGAN:
         for image_batch, label_batch, image_batch2, label_batch2 in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
             ################## Train Attribute net ##################
-            dummy_gt = np.zeros((len(image_batch), 512 + 1))
             f = self.generate_latent(range(image_batch.shape[0]))
             fake_images = self.generator.predict([image_batch, f], verbose=0)
             x_train = np.concatenate([image_batch, fake_images], axis = 0)
             y_train = np.concatenate([label_batch, label_batch])
+            dummy_gt = np.zeros((len(x_train), 512 + 1))
             attr_loss.append(self.attribute_trainer.train_on_batch([x_train, y_train], dummy_gt))
 
             ################## Train Discriminator ##################
