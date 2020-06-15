@@ -1217,7 +1217,7 @@ class BalancingGAN:
             fake_images = self.generator.predict([image_batch, f], verbose=0)
             x_train = np.concatenate([image_batch, fake_images], axis = 0)
             y_train = np.concatenate([label_batch, label_batch])
-            attr_loss.append(self.attribute_trainer.train_on_batch([x_train, y_train]))
+            attr_loss.append(self.attribute_trainer.train_on_batch([x_train, y_train], dummy_gt))
 
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
