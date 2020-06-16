@@ -75,10 +75,7 @@ def zero_loss(y_true, y_pred):
 
 ### model
 
-def feature_extractor(rst, channels, classes):
-    img = Input((rst, rst, channels))
-    labels = Input((classes,))
-
+def feature_extractor(img, labels, classes):
     x = Conv2D(filters=32, kernel_size=(5, 5), strides=(1, 1), padding='same', kernel_regularizer=l2(weight_decay))(img)
     x = prelu(x)
     x = Conv2D(filters=32, kernel_size=(5, 5), strides=(1, 1), padding='same', kernel_regularizer=l2(weight_decay))(x)
@@ -103,5 +100,5 @@ def feature_extractor(rst, channels, classes):
     #
     main = Dense(classes, activation='softmax', name='main_out', kernel_regularizer=l2(weight_decay))(x)
     side = CenterLossLayer(alpha=0.5, classes=classes,name='centerlosslayer')([x, labels])
-    return Model(inputs = [img, labels], outputs = [main, side])
+    return main, side
 
