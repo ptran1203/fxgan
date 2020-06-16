@@ -15,7 +15,7 @@ from google.colab.patches import cv2_imshow
 from PIL import Image
 
 decomposers = {
-    'pca': PCA()
+    'pca': PCA(),
     'tsne': TSNE()
 }
 

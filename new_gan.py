@@ -46,10 +46,7 @@ import cv2
 from google.colab.patches import cv2_imshow
 from PIL import Image
 
-DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
-DS_DIR_2 = '/content/drive/My Drive/bagan/dataset/multi_chest'
-DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
-CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
+K.common.set_image_dim_ordering('tf')
 
 CATEGORIES_MAP = {
     'No Finding': 0,
