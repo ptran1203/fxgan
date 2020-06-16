@@ -679,19 +679,20 @@ class FeatureNorm(keras.layers.Layer):
 
     def call(self, inputs):
         x, scale, bias = inputs
+        N, C, H, W = x.shape
 
         # x = [batch, height, width, channels]
         axis = [-1] # instance norm
         if self.norm == 'batch':
             axis = [0]
-        axis = [1, 2]
+        axis = [0, 2, 3]
 
         mean = K.mean(x, axis = axis, keepdims = True)
         std = K.std(x, axis = axis, keepdims = True)
         norm = (x - mean) * (1 / (std + self.epsilon))
 
-        broadcast_scale = K.reshape(scale, (-1, 1, 1, 1))
-        broadcast_bias = K.reshape(bias, (-1, 1, 1, 1))
+        broadcast_scale = K.reshape(scale, (-1, C, 1, 1))
+        broadcast_bias = K.reshape(bias, (-1, C, 1, 1))
 
         return norm * broadcast_scale + broadcast_bias
 
