@@ -1,5 +1,4 @@
 
-import csv
 from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
@@ -35,8 +34,6 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 
 import os
 import sys
@@ -84,530 +81,6 @@ def hinge_D_real_loss(y_true, y_pred):
 
 def hinge_D_fake_loss(y_true, y_pred):
     return K.mean(K.relu(1+y_pred))
-
-
-def save_image_array(img_array, fname=None, show=None):
-        # convert 1 channel to 3 channels
-        channels = img_array.shape[-1]
-        resolution = img_array.shape[2]
-        img_rows = img_array.shape[0]
-        img_cols = img_array.shape[1]
-
-        img = np.full([resolution * img_rows, resolution * img_cols, channels], 0.0)
-        for r in range(img_rows):
-            for c in range(img_cols):
-                img[
-                (resolution * r): (resolution * (r + 1)),
-                (resolution * (c % 10)): (resolution * ((c % 10) + 1)),
-                :] = img_array[r, c]
-
-        img = (img * 127.5 + 127.5).astype(np.uint8)
-        if show:
-            try:
-                cv2_imshow(img)
-            except Exception as e:
-                fname = '/content/drive/My Drive/bagan/result/model_{}/img_{}.png'.format(
-                    resolution,
-                    datetime.datetime.now().strftime("%m/%d/%Y-%H%M%S")
-                )
-                print('[show fail] ', str(e))
-        if fname:
-            try:
-                Image.fromarray(img).save(fname)
-            except Exception as e:
-                print('Save image failed', str(e))
-
-
-def show_samples(img_array):
-    shape = img_array.shape
-    img_samples = img_array.reshape(
-        (-1, shape[-4], shape[-3], shape[-2], shape[-1])
-    )
-    save_image_array(img_samples, None, True)
-
-def triple_channels(image):
-    # axis = 2 for single image, 3 for many images
-    return np.repeat(image, 3, axis = -1)
-
-
-def load_classifier(rst=256):
-    json_file = open(CLASSIFIER_DIR + '/{}/model.json'.format(rst), 'r')
-    model = json_file.read()
-    json_file.close()
-    model = model_from_json(model)
-    # load weights into new model
-    model.load_weights(CLASSIFIER_DIR + '/{}/weights.h5'.format(rst))
-    return model
-
-def pickle_save(object, path):
-    try:
-        print('save data to {} successfully'.format(path))
-        with open(path, "wb") as f:
-            return pickle.dump(object, f)
-    except:
-        print('save data to {} failed'.format(path))
-
-
-def pickle_load(path):
-    try:
-        print('load data from {} successfully'.format(path))
-        with open(path, "rb") as f:
-            return pickle.load(f)
-    except Exception as e:
-        print(str(e))
-        return None
-
-def add_padding(img):
-    """
-    Add black padding
-    """
-    w, h, _ = img.shape
-    size = abs(w - h) // 2
-    value= [0, 0, 0]
-    if w < h:
-        return cv2.copyMakeBorder(img, size, size, 0, 0,
-                                    cv2.BORDER_CONSTANT,
-                                    value=value)
-    return cv2.copyMakeBorder(img, 0, 0, size, size,
-                                    cv2.BORDER_CONSTANT,
-                                    value=value)
-
-def save_ds(imgs, rst, opt):
-    path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    pickle_save(imgs, path)
-
-def load_ds(rst, opt):
-    path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    return pickle_load(path)
-
-def get_img(path, rst):
-    img = cv2.imread(path)
-    img = add_padding(img)
-    img = cv2.resize(img, (rst, rst))
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return np.expand_dims(img, axis=0)
-    return img.tolist()
-
-def load_train_data(resolution=52):
-    labels = []
-    imgs = []
-    i = 0
-    res = load_ds(resolution, 'train')
-    if res:
-        return res
-
-    for file in os.listdir(DS_DIR + '/train/NORMAL'):
-        path = DS_DIR + '/train/NORMAL/' + file
-        i += 1
-        if i % 150 == 0:
-            print(len(labels), end=',')
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(0)
-        except:
-            pass
-
-    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
-        path = DS_DIR + '/train/PNEUMONIA/' + file
-        i += 1
-        if i % 150 == 0:
-            print(len(labels), end=',')
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(1)
-        except:
-            pass
-
-    # channel last
-    imgs = np.array(imgs)
-    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
-    res = (imgs, np.array(labels))
-    save_ds(res, resolution, 'train')
-    return res
-
-def load_test_data(resolution = 52):
-    imgs = []
-    labels = []
-    res = load_ds(resolution, 'test')
-    if res:
-        return res
-    for file in os.listdir(DS_DIR + '/test/NORMAL'):
-        path = DS_DIR + '/test/NORMAL/' + file
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(0)
-        except:
-            pass
-
-    for file in os.listdir(DS_DIR + '/test/PNEUMONIA'):
-        path = DS_DIR + '/test/PNEUMONIA/' + file
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(1)
-        except:
-            pass
-    # channel last
-    imgs = np.array(imgs)
-    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
-    res = (imgs, np.array(labels))
-    save_ds(res, resolution, 'test')
-    return res
-
-
-def pred2bin(pred):
-    """
-    Convert probability prediction of sigmoid into binary
-    """
-    for x in pred:
-        if x[0] >= 0.5:
-            x[0] = 1
-        else:
-            x[0] = 0
-    return pred
-
-
-## TRIPLET LOSS ##
-def pairwise_distance(feature, squared=False):
-    """Computes the pairwise distance matrix with numerical stability.
-
-    output[i, j] = || feature[i, :] - feature[j, :] ||_2
-
-    Args:
-      feature: 2-D Tensor of size [number of data, feature dimension].
-      squared: Boolean, whether or not to square the pairwise distances.
-
-    Returns:
-      pairwise_distances: 2-D Tensor of size [number of data, number of data].
-    """
-    pairwise_distances_squared = math_ops.add(
-        math_ops.reduce_sum(math_ops.square(feature), axis=[1], keepdims=True),
-        math_ops.reduce_sum(
-            math_ops.square(array_ops.transpose(feature)),
-            axis=[0],
-            keepdims=True)) - 2.0 * math_ops.matmul(feature,
-                                                    array_ops.transpose(feature))
-
-    # Deal with numerical inaccuracies. Set small negatives to zero.
-    pairwise_distances_squared = math_ops.maximum(pairwise_distances_squared, 0.0)
-    # Get the mask where the zero distances are at.
-    error_mask = math_ops.less_equal(pairwise_distances_squared, 0.0)
-
-    # Optionally take the sqrt.
-    if squared:
-        pairwise_distances = pairwise_distances_squared
-    else:
-        pairwise_distances = math_ops.sqrt(
-            pairwise_distances_squared + math_ops.to_float(error_mask) * 1e-16)
-
-    # Undo conditionally adding 1e-16.
-    pairwise_distances = math_ops.multiply(
-        pairwise_distances, math_ops.to_float(math_ops.logical_not(error_mask)))
-
-    num_data = array_ops.shape(feature)[0]
-    # Explicitly set diagonals to zero.
-    mask_offdiagonals = array_ops.ones_like(pairwise_distances) - array_ops.diag(
-        array_ops.ones([num_data]))
-    pairwise_distances = math_ops.multiply(pairwise_distances, mask_offdiagonals)
-    return pairwise_distances
-
-def masked_maximum(data, mask, dim=1):
-    """Computes the axis wise maximum over chosen elements.
-
-    Args:
-      data: 2-D float `Tensor` of size [n, m].
-      mask: 2-D Boolean `Tensor` of size [n, m].
-      dim: The dimension over which to compute the maximum.
-
-    Returns:
-      masked_maximums: N-D `Tensor`.
-        The maximized dimension is of size 1 after the operation.
-    """
-    axis_minimums = math_ops.reduce_min(data, dim, keepdims=True)
-    masked_maximums = math_ops.reduce_max(
-        math_ops.multiply(data - axis_minimums, mask), dim,
-        keepdims=True) + axis_minimums
-    return masked_maximums
-
-def masked_minimum(data, mask, dim=1):
-    """Computes the axis wise minimum over chosen elements.
-
-    Args:
-      data: 2-D float `Tensor` of size [n, m].
-      mask: 2-D Boolean `Tensor` of size [n, m].
-      dim: The dimension over which to compute the minimum.
-
-    Returns:
-      masked_minimums: N-D `Tensor`.
-        The minimized dimension is of size 1 after the operation.
-    """
-    axis_maximums = math_ops.reduce_max(data, dim, keepdims=True)
-    masked_minimums = math_ops.reduce_min(
-        math_ops.multiply(data - axis_maximums, mask), dim,
-        keepdims=True) + axis_maximums
-    return masked_minimums
-
-def triplet_loss(y_true, y_pred):
-    del y_true
-    margin = 1.
-    labels = y_pred[:, :1]
-
- 
-    labels = tf.cast(labels, dtype='int32')
-
-    embeddings = y_pred[:, 1:]
-
-    ### Code from Tensorflow function [tf.contrib.losses.metric_learning.triplet_semihard_loss] starts here:
-    
-    # Reshape [batch_size] label tensor to a [batch_size, 1] label tensor.
-    # lshape=array_ops.shape(labels)
-    # assert lshape.shape == 1
-    # labels = array_ops.reshape(labels, [lshape[0], 1])
-
-    # Build pairwise squared distance matrix.
-    pdist_matrix = pairwise_distance(embeddings, squared=True)
-    # Build pairwise binary adjacency matrix.
-    adjacency = math_ops.equal(labels, array_ops.transpose(labels))
-    # Invert so we can select negatives only.
-    adjacency_not = math_ops.logical_not(adjacency)
-
-    # global batch_size  
-    batch_size = array_ops.size(labels) # was 'array_ops.size(labels)'
-
-    # Compute the mask.
-    pdist_matrix_tile = array_ops.tile(pdist_matrix, [batch_size, 1])
-    mask = math_ops.logical_and(
-        array_ops.tile(adjacency_not, [batch_size, 1]),
-        math_ops.greater(
-            pdist_matrix_tile, array_ops.reshape(
-                array_ops.transpose(pdist_matrix), [-1, 1])))
-    mask_final = array_ops.reshape(
-        math_ops.greater(
-            math_ops.reduce_sum(
-                math_ops.cast(mask, dtype=dtypes.float32), 1, keepdims=True),
-            0.0), [batch_size, batch_size])
-    mask_final = array_ops.transpose(mask_final)
-
-    adjacency_not = math_ops.cast(adjacency_not, dtype=dtypes.float32)
-    mask = math_ops.cast(mask, dtype=dtypes.float32)
-
-    # negatives_outside: smallest D_an where D_an > D_ap.
-    negatives_outside = array_ops.reshape(
-        masked_minimum(pdist_matrix_tile, mask), [batch_size, batch_size])
-    negatives_outside = array_ops.transpose(negatives_outside)
-
-    # negatives_inside: largest D_an.
-    negatives_inside = array_ops.tile(
-        masked_maximum(pdist_matrix, adjacency_not), [1, batch_size])
-    semi_hard_negatives = array_ops.where(
-        mask_final, negatives_outside, negatives_inside)
-
-    loss_mat = math_ops.add(margin, pdist_matrix - semi_hard_negatives)
-
-    mask_positives = math_ops.cast(
-        adjacency, dtype=dtypes.float32) - array_ops.diag(
-        array_ops.ones([batch_size]))
-
-    # In lifted-struct, the authors multiply 0.5 for upper triangular
-    #   in semihard, they take all positive pairs except the diagonal.
-    num_positives = math_ops.reduce_sum(mask_positives)
-
-    semi_hard_triplet_loss_distance = math_ops.truediv(
-        math_ops.reduce_sum(
-            math_ops.maximum(
-                math_ops.multiply(loss_mat, mask_positives), 0.0)),
-        num_positives,
-        name='triplet_semihard_loss')
-    
-    ### Code from Tensorflow function semi-hard triplet loss ENDS here.
-    return semi_hard_triplet_loss_distance
-
-## END TRIPLET LOSS ##
-
-class BatchGenerator:
-    TRAIN = 1
-    TEST = 0
-    D_SIZE = 400
-    to_train_classes = list(range(1, 80))
-    to_test_classes = list(range(81, 86))
-
-    def __init__(
-        self,
-        data_src,
-        batch_size=5,
-        dataset='MNIST',
-        rst=64,
-        prune_classes=None,
-    ):
-        self.batch_size = batch_size
-        self.data_src = data_src
-
-        if dataset == 'chest':
-            if self.data_src == self.TEST:
-                x, y = load_test_data(rst)
-                self.dataset_x = x
-                self.dataset_y = y
-
-            else:
-                x, y = load_train_data(rst)
-                self.dataset_x = x  
-                self.dataset_y = y
-
-        elif dataset == 'flowers':
-            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/flowers/imgs_labels.pkl')
-            to_train_classes = self.to_train_classes
-            to_test_classes = self.to_test_classes
-
-            if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_test_classes])
-                x, y = x[to_keep], y[to_keep]
-                self.dataset_x = x
-                self.dataset_y = y
-            else:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
-                x, y = x[to_keep], y[to_keep]
-                self.dataset_x = x
-                self.dataset_y = y
-
-
-        else: # multi chest
-            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
-            to_train_classes = self.to_train_classes
-            to_test_classes = self.to_test_classes
-
-            to_keep = [i for i, l in enumerate(y) if '|' not in l]
-            to_keep = np.array(to_keep)
-            x = x[to_keep]
-            y = y[to_keep]
-            if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
-                x, y = x[to_keep], y[to_keep]
-                self.dataset_x = x
-                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
-            else:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
-                x, y = x[to_keep], y[to_keep]
-                self.dataset_x = x
-                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
-
-        # Normalize between -1 and 1
-        self.dataset_x = (self.dataset_x - 127.5) / 127.5
-
-        print(self.dataset_x.shape[0] , self.dataset_y.shape[0])
-        assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
-
-        # Compute per class instance count.
-        classes = np.unique(self.dataset_y)
-        self.classes = classes
-        per_class_count = list()
-        for c in classes:
-            per_class_count.append(np.sum(np.array(self.dataset_y == c)))
-
-        # Prune
-        if prune_classes:
-            for class_to_prune in range(len(prune_classes)):
-                remove_size = prune_classes[class_to_prune]
-                all_ids = list(np.arange(len(self.dataset_x)))
-                mask = [lc == class_to_prune for lc in self.dataset_y]
-                all_ids_c = np.array(all_ids)[mask]
-                np.random.shuffle(all_ids_c)
-                to_delete  = all_ids_c[:remove_size]
-                self.dataset_x = np.delete(self.dataset_x, to_delete, axis=0)
-                self.dataset_y = np.delete(self.dataset_y, to_delete, axis=0)
-                print('Remove {} items in class {}'.format(remove_size, class_to_prune))
-
-        # Recount after pruning
-        per_class_count = list()
-        for c in classes:
-            per_class_count.append(np.sum(np.array(self.dataset_y == c)))
-        self.per_class_count = per_class_count
-
-        # List of labels
-        self.label_table = [str(c) for c in range(len(self.classes))]
-
-        # Preload all the labels.
-        self.labels = self.dataset_y[:]
-
-        # per class ids
-        self.per_class_ids = dict()
-        ids = np.array(range(len(self.dataset_x)))
-        for c in classes:
-            self.per_class_ids[c] = ids[self.labels == c]
-
-
-    def get_samples_for_class(self, c, samples=None):
-        if samples is None:
-            samples = self.batch_size
-        try:
-            np.random.shuffle(self.per_class_ids[c])
-            to_return = self.per_class_ids[c][0:samples]
-            return self.dataset_x[to_return]
-        except:
-            random = np.arange(self.dataset_x.shape[0])
-            np.random.shuffle(random)
-            to_return = random[:samples]
-            return self.dataset_x[to_return]
-
-
-    def get_samples_by_labels(self, labels, samples = None):
-        if samples is None:
-            samples = self.batch_size
-
-        count = Counter(labels)
-        classes = {k: [] for k in count.keys()}
-        for c_id in count.keys():
-            classes[c_id] = np.random.choice(self.per_class_ids[c_id], count[c_id])
-
-        new_arr = []
-        for i, label in enumerate(labels):
-            idx, classes[label] = classes[label][-1], classes[label][:-1]
-            new_arr.append(idx)
-
-        return self.dataset_x[np.array(new_arr)]
-
-
-    def other_labels(self, labels):
-        clone = np.arange(labels.shape[0])
-        clone[:] = labels
-        for i in range(labels.shape[0]):
-            to_get = self.classes[self.classes != labels[i]]
-            clone[i] = to_get[np.random.randint(0, len(self.classes) - 1)]
-        return clone
-
-
-    def get_label_table(self):
-        return self.label_table
-
-    def get_num_classes(self):
-        return len( self.label_table )
-
-    def get_class_probability(self):
-        return self.per_class_count/sum(self.per_class_count)
-
-    ### ACCESS DATA AND SHAPES ###
-    def get_num_samples(self):
-        return self.dataset_x.shape[0]
-
-    def get_image_shape(self):
-        return [self.dataset_x.shape[1], self.dataset_x.shape[2], self.dataset_x.shape[3]]
-
-    def next_batch(self):
-        dataset_x = self.dataset_x
-        labels = self.labels
-
-        indices = np.arange(dataset_x.shape[0])
-        indices2 = np.arange(dataset_x.shape[0])
-
-        np.random.shuffle(indices)
-        np.random.shuffle(indices2)
-
-        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
-            access_pattern = indices[start_idx:start_idx + self.batch_size]
-            access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
-
-            yield (
-                dataset_x[access_pattern, :, :, :], labels[access_pattern],
-                dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
-            )
 
 
 class SelfAttention(Layer):
@@ -698,7 +171,6 @@ class FeatureNorm(keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
-
 
 class BalancingGAN:
     D_RATE = 1
@@ -1295,14 +767,13 @@ class BalancingGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
-        # pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def evaluate_d(self, test_x, test_y):
         y_pre = self.discriminator.predict(test_x)
         if y_pre[0].shape[0] > 1:
             y_pre = np.argmax(y_pre, axis=1)
         else:
-            y_pre = pred2bin(y_pre)
+            y_pre = utils.pred2bin(y_pre)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
@@ -1356,7 +827,7 @@ class BalancingGAN:
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-            show_samples(img_samples)
+            utils.show_samples(img_samples)
 
             # Train
             for e in range(start_e, epochs):
@@ -1452,7 +923,7 @@ class BalancingGAN:
                         ])
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-                    show_samples(img_samples)
+                    utils.show_samples(img_samples)
 
                     # calculate attribute distance
                     self.plot_loss_his()
@@ -1477,7 +948,6 @@ class BalancingGAN:
             self.trained = True
 
     def plot_feature_distr(self, bg):
-        tnse = TSNE()
         x, y = bg.dataset_x, bg.dataset_y
         size = np.min(bg.per_class_count)
         real = bg.get_samples_for_class(0, size)
@@ -1491,23 +961,6 @@ class BalancingGAN:
             fakes = np.concatenate([fakes, fake])
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
-        def _plot_pca(x, y, encoder, name):
-            step = 1
-            x_embeddings = encoder.predict(x)
-            if len(x_embeddings.shape) > 2:
-                x_embeddings = x_embeddings.reshape(x_embeddings.shape[0], -1)
-            decomposed_embeddings = tnse.fit_transform(x_embeddings)
-            fig = plt.figure(figsize=(16, 8))
-            for label in np.unique(y):
-                decomposed_embeddings_class = decomposed_embeddings[y == label]
-                plt.subplot(1,2,2)
-                plt.scatter(decomposed_embeddings_class[::step, 1],
-                            decomposed_embeddings_class[::step, 0],
-                            label=str(label))
-                plt.title(name)
-                plt.legend()
-            plt.show()
-
         # latent_encoder
         imgs = np.concatenate([x, fakes])
         labels = np.concatenate([
@@ -1515,13 +968,13 @@ class BalancingGAN:
             np.full((fakes.shape[0],), 'fake'),
         ])
     
-        _plot_pca(imgs, labels, self.features_from_d_model, 'fake real space')
+        utils.plot_data_space(imgs, labels, self.features_from_d_model, 'fake real space')
         labels = np.concatenate([
             np.full((x.shape[0],), 'real'),
             np.full((fakes.shape[0],), 'fake'),
         ])
         labels = np.concatenate([y, np.concatenate(fake_labels)])
-        _plot_pca(imgs, labels, self.latent_encoder, 'latent encoder')
+        utils.plot_data_space(imgs, labels, self.latent_encoder, 'latent encoder')
 
     def interval_process(self, epoch, interval = 20):
         if epoch % interval != 0:
