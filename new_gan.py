@@ -56,15 +56,15 @@ CLASSIFIER_DIR = '/content/drive/My Drive/chestxray_classifier'
 
 CATEGORIES_MAP = {
     'No Finding': 0,
-    'Atelectasis': 1,
-    'Effusion': 2,
-    'Mass' :3,
-    'Consolidation': 4,
+    'Infiltration': 1,
+    'Atelectasis': 2,
+    'Effusion': 3,
+    'Nodule': 4,
     'Pneumothorax': 5,
-    'Fibrosis': 6,
-    'Infiltration': 7,
+    'Mass' :6,
+    'Fibrosis': 7,
     'Emphysema': 8,
-    'Nodule': 9,
+    'Consolidation': 9, 
     'Pleural_Thickening': 10,
     'Edema': 11,
     'Cardiomegaly': 12,
@@ -470,7 +470,7 @@ class BatchGenerator:
 
 
         else: # multi chest
-            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels.pkl')
+            x, y = pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
@@ -478,14 +478,14 @@ class BatchGenerator:
             to_keep = np.array(to_keep)
             x = x[to_keep]
             y = y[to_keep]
-            to_train_classes = ['No Finding', 'Infiltration', 'Effusion', 'Atelectasis', 'Nodule']
+            to_train_classes = list(range(5))
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                to_keep = np.array([i for i, l in enumerate(y) if i not in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
             else:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
+                to_keep = np.array([i for i, l in enumerate(y) if i in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
