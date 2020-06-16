@@ -35,10 +35,11 @@ class CenterLossLayer(Layer):
     def __init__(self, alpha=0.5, classes = 10, **kwargs):
         super().__init__(**kwargs)
         self.alpha = alpha
+        self.classes = classes
 
     def build(self, input_shape):
         self.centers = self.add_weight(name='centers',
-                                       shape=(classes, 2),
+                                       shape=(self.classes, 2),
                                        initializer='uniform',
                                        trainable=False)
         # self.counter = self.add_weight(name='counter',
