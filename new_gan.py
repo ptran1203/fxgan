@@ -480,12 +480,12 @@ class BatchGenerator:
             y = y[to_keep]
             to_train_classes = list(range(5))
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if i not in to_train_classes])
+                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
             else:
-                to_keep = np.array([i for i, l in enumerate(y) if i in to_train_classes])
+                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
