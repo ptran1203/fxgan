@@ -32,13 +32,13 @@ def prelu(x, name='default'):
 
 class CenterLossLayer(Layer):
 
-    def __init__(self, alpha=0.5, **kwargs):
+    def __init__(self, alpha=0.5, classes = 10, **kwargs):
         super().__init__(**kwargs)
         self.alpha = alpha
 
     def build(self, input_shape):
         self.centers = self.add_weight(name='centers',
-                                       shape=(10, 2),
+                                       shape=(classes, 2),
                                        initializer='uniform',
                                        trainable=False)
         # self.counter = self.add_weight(name='counter',
@@ -101,6 +101,6 @@ def feature_extractor(rst, channels, classes):
     x = prelu(x, name='side_out')
     #
     main = Dense(classes, activation='softmax', name='main_out', kernel_regularizer=l2(weight_decay))(x)
-    side = CenterLossLayer(alpha=0.5, name='centerlosslayer')([x, labels])
+    side = CenterLossLayer(alpha=0.5, classes=classes,name='centerlosslayer')([x, labels])
     return Model(inputs = [img, labels], outputs = [main, side])
 
