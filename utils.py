@@ -204,3 +204,25 @@ def plot_data_space(x, y, encoder, name, opt='pca'):
         plt.title(name)
         plt.legend()
     plt.show()
+
+
+plot_model_history(H):
+    # plot loss
+    plt.figure(figsize=(8,8))
+    for k, loss in H.history.items():
+        if 'loss' in k:
+            plt.plot(H.history[k], label=k)
+
+    plt.legend()
+    plt.title('Training loss')
+    plt.show()
+
+    # accuracy
+    for k, acc in H.history.items():
+        if 'acc' in k:
+            plt.plot(H.history[k], label=k)
+
+    plt.legend()
+    plt.title('Training acc')
+    plt.show()
+
