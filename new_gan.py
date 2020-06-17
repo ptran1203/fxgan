@@ -48,24 +48,6 @@ from PIL import Image
 
 K.common.set_image_dim_ordering('tf')
 
-CATEGORIES_MAP = {
-    'No Finding': 0,
-    'Infiltration': 1,
-    'Atelectasis': 2,
-    'Effusion': 3,
-    'Nodule': 4,
-    'Pneumothorax': 5,
-    'Mass' :6,
-    'Fibrosis': 7,
-    'Emphysema': 8,
-    'Consolidation': 9, 
-    'Pleural_Thickening': 10,
-    'Edema': 11,
-    'Cardiomegaly': 12,
-    'Hernia': 13,
-    'Pneumonia': 14,
-}
-
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
 

@@ -13,6 +13,8 @@ import cv2
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
+DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
+DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
 
 decomposers = {
     'pca': PCA(),
