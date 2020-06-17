@@ -1,5 +1,6 @@
 import utils
 import numpy as np
+from collections import Counter
 
 CATEGORIES_MAP = {
     'No Finding': 0,
