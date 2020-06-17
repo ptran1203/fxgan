@@ -149,7 +149,7 @@ class FeatureNorm(keras.layers.Layer):
 
     def call(self, inputs):
         x, scale, bias = inputs
-        N, C, H, W = x.shape
+        N, H, W, C = x.shape
 
         # x = [batch, height, width, channels]
         axis = [-1] # instance norm
@@ -161,8 +161,8 @@ class FeatureNorm(keras.layers.Layer):
         std = K.std(x, axis = axis, keepdims = True)
         norm = (x - mean) * (1 / (std + self.epsilon))
 
-        broadcast_scale = K.reshape(scale, (-1, C, 1, 1))
-        broadcast_bias = K.reshape(bias, (-1, C, 1, 1))
+        broadcast_scale = K.reshape(scale, (-1, 1, 1, C))
+        broadcast_bias = K.reshape(bias, (-1, 1, 1, C))
 
         return norm * broadcast_scale + broadcast_bias
 
@@ -254,16 +254,14 @@ class BalancingGAN:
         )
 
 
-    def attribute_net(self, image):
+    def attribute_net(self, image, channels):
         attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
-        scale = Dense(256, activation = 'relu')(scale)
-        scale = Dense(1, activation='relu')(scale)
+        scale = Dense(channels)(scale)
 
         bias = Dense(256, activation = 'relu')(attr_feature)
-        bias = Dense(256, activation = 'relu')(bias)
-        bias = Dense(1, activation='relu')(bias)
+        bias = Dense(channels)(bias)
 
         return scale, bias
 
@@ -493,18 +491,16 @@ class BalancingGAN:
         latent = decoder_activation(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        norm_var = self.attribute_net(image)
-
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=norm_var) # output: 8*8*256
+                             norm_var=self.attribute_net(image, 256))
         de = SelfAttention(256)(de)
         de = _transpose_block(de, 128, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=norm_var)
+                             norm_var=self.attribute_net(image, 128))
         de = _transpose_block(de, 64, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=norm_var)
+                             norm_var=self.attribute_net(image, 64))
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
         outputs = Activation('tanh')(final)

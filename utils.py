@@ -208,9 +208,9 @@ def plot_data_space(x, y, encoder, name, opt='pca'):
 
 def plot_model_history(H):
     # plot loss
-    plt.figure(figsize=(16,8))
+    plt.figure(figsize=(8,8))
     for k, loss in H.history.items():
-        if 'loss' in k:
+        if 'loss' in k and 'acc' not in k:
             plt.plot(H.history[k], label=k)
 
     plt.legend()
