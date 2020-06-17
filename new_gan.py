@@ -790,7 +790,7 @@ class BalancingGAN:
                     ]),
                 ]
             ])
-            for crt_c in range(1, 3): # more 3 classes
+            for crt_c in range(1, min(self.nclasses, 3)): # more 3 classes
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
@@ -884,7 +884,7 @@ class BalancingGAN:
                             ]),
                         ]
                     ])
-                    for crt_c in range(1, 3):
+                    for crt_c in range(1, min(self.nclasses, 3)):
                         act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                         f = self.generate_latent(range(10))
                         new_samples = np.array([
@@ -931,7 +931,7 @@ class BalancingGAN:
                                         self.generate_latent(range(size))])
         fake_labels = [np.full((size,), 'fake of 0')]
 
-        for classid in range(1, 5):
+        for classid in range(1, min(self.nclasses, 5)):
             real = bg.get_samples_for_class(classid, size)
             fake = self.generator.predict([real, self.generate_latent(range(size))])
             fakes = np.concatenate([fakes, fake])
