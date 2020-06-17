@@ -42,6 +42,7 @@ import numpy as np
 import datetime
 import pickle
 import cv2
+import utils
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
