@@ -32,14 +32,15 @@ def prelu(x, name='default'):
 
 class CenterLossLayer(Layer):
 
-    def __init__(self, alpha=0.5, classes = 10, **kwargs):
+    def __init__(self, alpha=0.5, classes=10, dims=2, **kwargs):
         super().__init__(**kwargs)
         self.alpha = alpha
         self.classes = classes
+        self.dims = dims
 
     def build(self, input_shape):
         self.centers = self.add_weight(name='centers',
-                                       shape=(self.classes, 2),
+                                       shape=(self.classes, self.dims),
                                        initializer='uniform',
                                        trainable=False)
         # self.counter = self.add_weight(name='counter',
@@ -75,7 +76,7 @@ def zero_loss(y_true, y_pred):
 
 ### model
 
-def feature_extractor(img, labels, classes):
+def feature_extractor(img, labels, classes, dims):
     x = Conv2D(filters=32, kernel_size=(5, 5), strides=(1, 1), padding='same', kernel_regularizer=l2(weight_decay))(img)
     x = prelu(x)
     x = Conv2D(filters=32, kernel_size=(5, 5), strides=(1, 1), padding='same', kernel_regularizer=l2(weight_decay))(x)
@@ -95,10 +96,10 @@ def feature_extractor(img, labels, classes):
     x = MaxPool2D(pool_size=(2, 2), strides=(2, 2), padding='valid')(x)
     #
     x = Flatten()(x)
-    x = Dense(2, kernel_regularizer=l2(weight_decay))(x)
+    x = Dense(dims, kernel_regularizer=l2(weight_decay))(x)
     x = prelu(x, name='side_out')
     #
     main = Dense(classes, activation='softmax', name='main_out', kernel_regularizer=l2(weight_decay))(x)
-    side = CenterLossLayer(alpha=0.5, classes=classes,name='centerlosslayer')([x, labels])
+    side = CenterLossLayer(alpha=0.5, classes=classes, dims=dims, name='centerlosslayer')([x, labels])
     return main, side
 
