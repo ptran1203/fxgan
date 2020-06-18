@@ -132,13 +132,13 @@ class FeatureNorm(keras.layers.Layer):
 
     def call(self, inputs):
         x, scale, bias = inputs
+        # x = [batch, height, width, channels]
         N, H, W, C = x.shape
 
-        # x = [batch, height, width, channels]
-        axis = [-1] # instance norm
+        # instance norm
+        axis = [1, 2]
         if self.norm == 'batch':
-            axis = [0]
-        axis = [0, 1, 2]
+            axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
         std = K.std(x, axis = axis, keepdims = True)
