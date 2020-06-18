@@ -177,12 +177,13 @@ class BalancingGAN:
                 x = FeatureNorm()([x, scale, bias])
             return x
 
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
+        out = norm_layer(x)
+        out = actv(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
         out = norm_layer(out)
         out = actv(out)
 
         out = Conv2D(K.int_shape(x)[-1], kernel_size, strides = 1, padding='same')(out)
-        out = norm_layer(out)
         out = actv(out)
         out = Add()([out, x])
         return out
@@ -413,25 +414,21 @@ class BalancingGAN:
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 5
-        norm_var = self.attribute_net(image, 64)
+        norm_var = self.attribute_net(image, 512)
 
-        de = self._res_block(latent, 64, kernel_size,
-                            norm='in',
+        de = self._res_block(latent, 512, kernel_size,
+                            norm='fn',
                             norm_var=norm_var)
+        de = self._res_block(de, 512, kernel_size,
+                            norm='fn',
+                            norm_var=norm_var)
+
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
         de = SelfAttention(256)(de)
 
-        de = self._res_block(de, 64, kernel_size,
-                                norm=self._norm,
-                                norm_var=norm_var)
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = decoder_activation(de)
-        
-
-        de = self._res_block(de, 64, kernel_size,
-                                norm=self._norm,
-                                norm_var=norm_var)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = decoder_activation(de)
