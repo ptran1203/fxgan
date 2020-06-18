@@ -1,4 +1,3 @@
-The Gan project
 
 ## The GAN project for chest-xray classification
 

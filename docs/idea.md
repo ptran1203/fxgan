@@ -5,7 +5,7 @@ The idea:
 Current works used Feature normalization to normalize the feature distribution of a layer close to the distribution of 'Discriminative feature' extracted from pre-trained metric model.
 - **Formulation**
 
-![equation](images/feature_norm.png)  
+![equation](../images/feature_norm.png)  
 
 
 
