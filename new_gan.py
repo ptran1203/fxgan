@@ -405,9 +405,7 @@ class BalancingGAN:
 
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        attribute_code = self.attribute_encoder(image)
 
-        latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
