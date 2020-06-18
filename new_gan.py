@@ -413,22 +413,25 @@ class BalancingGAN:
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 5
+        norm_var = self.attribute_net(image, 64)
 
-        de = self._res_block(latent, 256, kernel_size,
+        de = self._res_block(latent, 64, kernel_size,
                             norm='in',
-                            norm_var=self.attribute_net(image))
+                            norm_var=norm_var)
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = decoder_activation(de)
-
-        de = self._res_block(de, 128, kernel_size,
-                                norm='in',
-                                norm_var=self.attribute_net(image))
-        de = self._upscale(de, 'conv', 128, kernel_size)
-        de = decoder_activation(de)
+        de = SelfAttention(256)(de)
 
         de = self._res_block(de, 64, kernel_size,
-                                norm='in',
-                                norm_var=self.attribute_net(image))
+                                norm=self._norm,
+                                norm_var=norm_var)
+        de = self._upscale(de, 'conv', 128, kernel_size)
+        de = decoder_activation(de)
+        
+
+        de = self._res_block(de, 64, kernel_size,
+                                norm=self._norm,
+                                norm_var=norm_var)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = decoder_activation(de)
