@@ -125,7 +125,7 @@ class SelfAttention(Layer):
 
 
 class FeatureNorm(keras.layers.Layer):
-    def __init__(self, epsilon = 1e-6, norm = 'batch'):
+    def __init__(self, epsilon = 1e-4, norm = 'batch'):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
         self.norm = norm
@@ -138,7 +138,7 @@ class FeatureNorm(keras.layers.Layer):
         axis = [-1] # instance norm
         if self.norm == 'batch':
             axis = [0]
-        axis = [0, 2, 3]
+        axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
         std = K.std(x, axis = axis, keepdims = True)
