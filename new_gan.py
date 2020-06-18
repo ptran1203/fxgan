@@ -424,16 +424,16 @@ class BalancingGAN:
                             norm_var=norm_var)
 
         de = self._upscale(de, 'conv', 256, kernel_size)
-        de = self._norm(de)
+        de = self._norm()(de)
         de = decoder_activation(de)
         de = SelfAttention(256)(de)
 
         de = self._upscale(de, 'conv', 128, kernel_size)
-        de = self._norm(de)
+        de = self._norm()(de)
         de = decoder_activation(de)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
-        de = self._norm(de)
+        de = self._norm()(de)
         de = decoder_activation(de)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
