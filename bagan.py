@@ -29,7 +29,7 @@ class BalancingGAN:
         plt.xlabel('epoch')
         plt.legend()
         plt.show()
-
+    
     def plot_classifier_acc(self):
         plt.plot(self.classifier_acc, label='classifier_acc')
         plt.ylabel('accuracy')
@@ -46,13 +46,11 @@ class BalancingGAN:
         cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
         cnn.add(BatchNormalization())
         cnn.add(LeakyReLU())
-        cnn.add(Reshape((init_resolution, init_resolution, init_channels)))
-
+        cnn.add(Reshape((init_channels, init_resolution, init_resolution)))
+       
         crt_res = init_resolution
         # upsample
-        i = 0
         while crt_res < resolution/2:
-            i += 1
             cnn.add(Conv2DTranspose(
                 init_channels, kernel_size = 5, strides = 2, padding='same'))
             # cnn.add(BatchNormalization())
@@ -65,11 +63,14 @@ class BalancingGAN:
                     1, kernel_size = 5,
                     strides = 2, padding='same',
                     activation='tanh'))
-
+        # cnn.add(BatchNormalization())
+        # cnn.add(LeakyReLU(alpha=0.02))
+        # cnn.add(Conv2D(1, kernel_size=5, strides = 1, padding='same', activation='tanh'))
+        # cnn.add(Activation('tanh'))
         latent = Input(shape=(latent_size, ))
 
         fake_image_from_latent = cnn(latent)
-        self.generator = Model(inputs=latent, outputs=fake_image_from_latent, name = 'Generator')
+        self.generator = Model(inputs=latent, outputs=fake_image_from_latent)
 
     def _build_common_encoder(self, image, min_latent_res=8):
         resolution = self.resolution
@@ -78,19 +79,18 @@ class BalancingGAN:
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),
-        input_shape=(resolution, resolution,channels)))
+        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),input_shape=(channels, resolution, resolution)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
         size = 128
-        while cnn.output_shape[1] > min_latent_res:
+        while cnn.output_shape[-1] > min_latent_res:
             cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
             # cnn.add(BatchNormalization())
             cnn.add(LeakyReLU(alpha=0.2))
             cnn.add(Dropout(0.3))
             size *= 2
-
+            
 
         cnn.add(Flatten())
 
@@ -101,44 +101,16 @@ class BalancingGAN:
     def build_reconstructor(self, latent_size, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(resolution, resolution,channels))
-        x = image
-        for i in range(depth):
-            out_channel = 2**i * filter_root
-
-            # Residual/Skip connection
-            res = Conv(out_channel, kernel_size=1, padding='same', use_bias=False, name="Identity{}_0".format(i))(x)
-
-            # First Conv Block with Conv, BN and activation
-            conv1 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_1".format(i))(x)
-            if batch_norm:
-                conv1 = BatchNormalization(name="BN{}_1".format(i))(conv1)
-            act1 = Activation(activation, name="Act{}_1".format(i))(conv1)
-
-            # Second Conv block with Conv and BN only
-            conv2 = Conv(out_channel, kernel_size=3, padding='same', name="Conv{}_2".format(i))(act1)
-            if batch_norm:
-                conv2 = BatchNormalization(name="BN{}_2".format(i))(conv2)
-
-            resconnection = Add(name="Add{}_1".format(i))([res, conv2])
-
-            act2 = Activation(activation, name="Act{}_2".format(i))(resconnection)
-
-            # Max pooling
-            if i < depth - 1:
-                # long_connection_store[str(i)] = act2
-                x = MaxPooling(padding='same', name="MaxPooling{}_1".format(i))(act2)
-            else:
-                x = act2
-        features = Flatten()(x)
+        image = Input(shape=(channels, resolution, resolution))
+        features = self._build_common_encoder(image, min_latent_res)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
-        self.reconstructor = Model(inputs=  , outputs=latent)
+        self.reconstructor = Model(inputs=image, outputs=latent)
 
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(resolution, resolution,channels))
+        image = Input(shape=(channels, resolution, resolution))
         features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
@@ -146,7 +118,6 @@ class BalancingGAN:
             self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
         )(features)
         self.discriminator = Model(inputs=image, outputs=aux)
-
 
     def generate_from_latent(self, latent):
         res = self.generator(latent)
@@ -158,9 +129,8 @@ class BalancingGAN:
         return res
 
     def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
-        noise = np.random.normal(0, 0.01, self.latent_size)
         res = np.array([
-            np.random.multivariate_normal(self.means[e], self.covariances[e]) + noise
+            np.random.multivariate_normal(self.means[e], self.covariances[e])
             for e in c
         ])
 
@@ -170,11 +140,11 @@ class BalancingGAN:
         return self.discriminator(image)
 
     def __init__(self, classes, target_class_id,
-                # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
-                # No relevant difference noted
-                dratio_mode="uniform", gratio_mode="uniform",
-                adam_lr=0.00005, latent_size=100,
-                res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
+                 # Set dratio_mode, and gratio_mode to 'rebalance' to bias the sampling toward the minority class
+                 # No relevant difference noted
+                 dratio_mode="uniform", gratio_mode="uniform",
+                 adam_lr=0.00005, latent_size=100,
+                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
         self.classes = classes
@@ -182,10 +152,18 @@ class BalancingGAN:
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
-        self.channels = image_shape[-1]
-        self.resolution = image_shape[0]
+        self.channels = image_shape[0]
+        self.resolution = image_shape[1]
+        if self.resolution != image_shape[2]:
+            print("Error: only squared images currently supported by balancingGAN")
+            exit(1)
 
         self.min_latent_res = min_latent_res
+        self.classifier = load_classifier()
+        self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
+            metrics=['accuracy'])
+        self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
+
         # Initialize learning variables
         self.adam_lr = adam_lr 
         self.adam_beta_1 = 0.5
@@ -199,6 +177,7 @@ class BalancingGAN:
         self.build_generator(latent_size, init_resolution=min_latent_res)
         self.generator.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+            # metrics=['accuracy'],
             loss='sparse_categorical_crossentropy'
         )
 
@@ -227,11 +206,7 @@ class BalancingGAN:
         self.generator.trainable = True
         aux = self.discriminate(fake)
 
-        self.combined = Model(
-            inputs=latent_gen,
-            outputs=aux,
-            name = 'Combined'
-        )
+        self.combined = Model(inputs=latent_gen, outputs=aux)
 
         self.combined.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
@@ -244,36 +219,21 @@ class BalancingGAN:
         self.generator.trainable = True
         self.reconstructor.trainable = True
 
-        img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
+        img_for_reconstructor = Input(shape=(self.channels, self.resolution, self.resolution,))
         img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
-        self.autoenc_0 = Model(
-            inputs=img_for_reconstructor,
-            outputs=img_reconstruct,
-            name = 'autoencoder'
-        )
+        self.autoenc_0 = Model(inputs=img_for_reconstructor, outputs=img_reconstruct)
         self.autoenc_0.compile(
             optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             loss='mean_squared_error'
         )
 
     def _biased_sample_labels(self, samples, target_distribution="uniform"):
-        all_labels = np.full(samples, 0)
-        splited = np.array_split(all_labels, self.nclasses)
-        all_labels = np.concatenate(
-            [
-                np.full(splited[classid].shape[0], classid) \
-                for classid in range(self.nclasses)
-            ]
-        )
-        np.random.shuffle(all_labels)
-        return all_labels
-
         distribution = self.class_uratio
         if target_distribution == "d":
             distribution = self.class_dratio
         elif target_distribution == "g":
             distribution = self.class_gratio
-
+            
         sampled_labels = np.full(samples,0)
         sampled_labels_p = np.random.normal(0, 1, samples)
         for c in list(range(self.nclasses)):
@@ -289,11 +249,11 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        for image_batch, label_batch, *_ in bg_train.next_batch():
+        for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
             ################## Train Discriminator ##################
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))
-
+    
             # sample some labels from p_c, then latent and images
             sampled_labels = self._biased_sample_labels(fake_size, "d")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
@@ -303,7 +263,6 @@ class BalancingGAN:
             X = np.concatenate((image_batch, generated_images))
             aux_y = np.concatenate((label_batch, np.full(len(sampled_labels) , self.nclasses )), axis=0)
 
-            X, aux_y = self.shuffle_data(X, aux_y)
             loss, acc = self.discriminator.train_on_batch(X, aux_y)
             epoch_disc_loss.append(loss)
             epoch_disc_acc.append(acc)
@@ -312,7 +271,6 @@ class BalancingGAN:
             sampled_labels = self._biased_sample_labels(fake_size + crt_batch_size, "g")
             latent_gen = self.generate_latent(sampled_labels, bg_train)
 
-            latent_gen, sampled_labels = self.shuffle_data(latent_gen, sampled_labels)
             loss, acc = self.combined.train_on_batch(latent_gen, sampled_labels)
             epoch_gen_loss.append(loss)
             epoch_gen_acc.append(acc)
@@ -321,21 +279,16 @@ class BalancingGAN:
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
             np.mean(np.array(epoch_gen_loss), axis=0),
-            np.mean(np.array(epoch_disc_acc), axis=0),
+            np.mean(np.array(epoch_dics_acc), axis=0),
             np.mean(np.array(epoch_gen_acc), axis=0),
         )
-
-    def shuffle_data(self, data_x, data_y):
-        rd_idx = np.arange(data_x.shape[0])
-        np.random.shuffle(rd_idx)
-        return data_x[rd_idx], data_y[rd_idx]
 
     def _set_class_ratios(self):
         self.class_dratio = np.full(self.nclasses, 0.0)
         # Set uniform
         target = 1/self.nclasses
         self.class_uratio = np.full(self.nclasses, target)
-
+        
         # Set gratio
         self.class_gratio = np.full(self.nclasses, 0.0)
         for c in range(self.nclasses):
@@ -346,7 +299,7 @@ class BalancingGAN:
             else:
                 print("Error while training bgan, unknown gmode " + self.gratio_mode)
                 exit()
-
+                
         # Set dratio
         self.class_dratio = np.full(self.nclasses, 0.0)
         for c in range(self.nclasses):
@@ -363,7 +316,7 @@ class BalancingGAN:
         if self.gratio_mode == "rebalance":
             self.class_gratio[self.class_gratio < 0] = 0
             self.class_gratio = self.class_gratio / sum(self.class_gratio)
-
+            
         # if very unbalanced, the dratio might be negative for some classes.
         # In this case, we adjust..
         if self.dratio_mode == "rebalance":
@@ -501,27 +454,7 @@ class BalancingGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
-        # pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
-
-    def evaluate_d(self, test_x, test_y):
-        loss, acc  = self.discriminator.evaluate(test_x, test_y)
-        y_pre = self.discriminator.predict(test_x)
-        y_pre = np.argmax(y_pre, axis=1)
-        print('ACC: {}%'.format(acc))
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
-        plt.show()
-
-    def evaluate_g(self, test_x, test_y):
-        loss, acc  = self.combined.evaluate(test_x, test_y)
-        y_pre = self.combined.predict(test_x)
-        y_pre = np.argmax(y_pre, axis=1)
-        print('ACC: {}%'.format(acc))
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
-        plt.show()
+        pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
@@ -568,7 +501,10 @@ class BalancingGAN:
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
-            show_samples(img_samples)
+            shape = img_samples.shape
+            img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+
+            save_image_array(img_samples, None, True)
 
             # Train
             for e in range(start_e, epochs):
@@ -581,18 +517,18 @@ class BalancingGAN:
                 fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
                 sampled_labels = self._biased_sample_labels(nb_test, "d")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
-
+            
                 # sample some labels from p_c and generate images from them
                 generated_images = self.generator.predict(
                     latent_gen, verbose=False)
-
+            
                 X = np.concatenate( (bg_test.dataset_x, generated_images) )
                 aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
-
+            
                 # see if the discriminator can figure itself out...
                 test_disc_loss, test_disc_acc = self.discriminator.evaluate(
                     X, aux_y, verbose=False)
-
+            
                 # make new latent
                 sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
                 latent_gen = self.generate_latent(sampled_labels, bg_test)
@@ -601,17 +537,7 @@ class BalancingGAN:
                     latent_gen,
                     sampled_labels, verbose=False)
 
-                if e % 5 == 0:
-                    print('Evaluate D')
-                    self.evaluate_d(X, aux_y)
-                    print('Evaluate G')
-                    self.evaluate_g(latent_gen, sampled_labels)
-
-
-                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
-                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
-                    datetime.datetime.now() - start_time
-                ))
+                # generate an epoch report on performance
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
@@ -621,6 +547,10 @@ class BalancingGAN:
                 self.train_history['gen_acc'].append(train_gen_acc)
                 self.test_history['disc_acc'].append(test_disc_acc)
                 self.test_history['gen_acc'].append(test_gen_acc)
+                print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
+                    train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
+                    datetime.datetime.now() - start_time
+                ))
                 # self.plot_his()
 
                 # Save sample images
@@ -640,14 +570,29 @@ class BalancingGAN:
                 if e % 10 == 5:
                     self.plot_loss_his()
                     self.plot_acc_his()
-                    # self.backup_point(e)
+                    self.backup_point(e)
                     crt_c = 0
-                    img_samples = self.generate_samples(crt_c, 5, bg_train)
+                    sample_size = 700
+                    labels = np.zeros(sample_size)
+                    img_samples = self.generate_samples(crt_c, sample_size, bg_train)
+                    five_imgs = img_samples[:5]
                     for crt_c in range(1, self.nclasses):
-                        new_samples = self.generate_samples(crt_c, 5, bg_train)
+                        new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
+                        labels = np.concatenate((np.ones(sample_size), labels), axis=0)
+                        five_imgs = np.concatenate((five_imgs, new_samples[:5]), axis=0)
+                    
+                    labels = np_utils.to_categorical(labels, self.nclasses)
+                    img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
+                    _, accuracy = self.classifier.evaluate(img_samples, labels)
 
-                    show_samples(img_samples)
+                    self.classifier_acc.append(accuracy)
+
+                    print('classifier accuracy: {:.2f}%'.format(accuracy*100))
+                    self.plot_classifier_acc()
+                    # shape = img_samples.shape
+                    # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
+                    save_image_array(five_imgs, None, True)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
@@ -681,3 +626,7 @@ class BalancingGAN:
             self.generator.save(generator_fname)
             self.discriminator.save(discriminator_fname)
             self.reconstructor.save(reconstructor_fname)
+
+    def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
+        self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
+        self.discriminator.load_weights(fname_discriminator)
