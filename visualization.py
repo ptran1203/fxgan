@@ -9,7 +9,10 @@ from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-def build_guided_model():
+def build_model():
+    return VGG16(input_shape=(64, 64, 3), weights=None)
+
+def build_guided_model(model):
     """Function returning modified model.
     
     Changes gradient function for all ReLu activations
@@ -24,10 +27,9 @@ def build_guided_model():
 
     g = tf.get_default_graph()
     with g.gradient_override_map({'Relu': 'GuidedBackProp'}):
+        print('Build new model')
         new_model = build_model()
     return new_model
-
-guided_model = build_guided_model()
 
 
 def deprocess_image(x):
@@ -59,9 +61,6 @@ def normalize(x):
     """Utility function to normalize a tensor by its L2 norm"""
     return (x + 1e-10) / (K.sqrt(K.mean(K.square(x))) + 1e-10)
 
-def build_model():
-    return VGG16(input_shape=(64, 64, 3), weights=None)
-
 def guided_backprop(input_model, images, layer_name):
     """Guided Backpropagation method for visualizing input saliency."""
     input_imgs = input_model.input
@@ -73,9 +72,9 @@ def guided_backprop(input_model, images, layer_name):
 
 def grad_cam(input_model, image, cls, layer_name):
     """GradCAM method for visualizing input saliency."""
-    H, W, _ = image.shape
+    N, H, W, _ = image.shape
     y_c = input_model.output[0, cls]
-    conv_output = input_model.get_layer(layer_name).output
+    conv_output =  input_model.get_layer(layer_name).get_output_at(-1)
     grads = K.gradients(y_c, conv_output)[0]
     # Normalize if necessary
     # grads = normalize(grads)
@@ -98,7 +97,7 @@ def grad_cam_batch(input_model, images, classes, layer_name):
     Same as grad_cam but processes multiple images in one run."""
     N ,H, W, C = images.shape
     loss = tf.gather_nd(input_model.output, np.dstack([range(images.shape[0]), classes])[0])
-    layer_output = input_model.get_layer(layer_name).output
+    layer_output = input_model.get_output_at(get_index_by_name(input_model, layer_name))
     grads = K.gradients(loss, layer_output)[0]
     gradient_fn = K.function([input_model.input, K.learning_phase()], [layer_output, grads])
 
@@ -125,9 +124,9 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
     # preprocessed_input = load_image(img_path)
 
     predictions = model.predict(preprocessed_input)
-    top_n = 5
-    top = decode_predictions(predictions, top=top_n)[0]
-    classes = np.argsort(predictions[0])[-top_n:][::-1]
+    # top_n = 5
+    # top = decode_predictions(predictions, top=top_n)[0]
+    # classes = np.argsort(predictions[0])[-top_n:][::-1]
     # print('Model prediction:')
     # for c, p in zip(classes, top):
     #     print('\t{:15s}\t({})\twith probability {:.3f}'.format(p[1], c, p[2]))
@@ -150,7 +149,7 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
     if visualize:
         print(np.min(gradcam), np.max(gradcam))
 
-        plt.figure(figsize=(15, 10))
+        plt.figure(figsize=(8, 8))
         plt.subplot(131)
         plt.title('GradCAM')
         plt.axis('off')
@@ -170,7 +169,6 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
         
     return gradcam, gb, guided_gradcam
 
-# model = build_model()
-
-# gradcam, gb, guided_gradcam = compute_saliency(model, x_val_3[0:1], layer_name='block5_conv3', 
+guided_model = build_guided_model(model)
+# gradcam, gb, guided_gradcam = compute_saliency(resnet_model, triple_channels(x_val)[0:1], layer_name='block5_conv3', 
 #                                                cls=-1, visualize=True, save=False)
