@@ -152,7 +152,6 @@ class FeatureNorm(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
-
 class BalancingGAN:
     D_RATE = 1
     attribute_loss_weight = 1
@@ -240,7 +239,7 @@ class BalancingGAN:
 
 
     def attribute_net(self, image, channels):
-        attr_feature = self.attribute_encoder(image)
+        attr_feature = self.latent_encoder(image)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(channels)(scale)
@@ -330,29 +329,27 @@ class BalancingGAN:
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        real_output_for_d, real_labels = self.discriminator([real_images])
-        fake_output_for_d, fake_labels = self.discriminator([fake_images])
+        real_output_for_d = self.discriminator([real_images])
+        fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_fake = Model(
             inputs = fake_images,
-            outputs = [fake_output_for_d, fake_labels],
+            outputs = fake_output_for_d,
         )
         self.discriminator_fake.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics = ['accuracy'],
-            loss = [self.d_fake_loss, 'sparse_categorical_crossentropy'],
-            loss_weights= [1.0, 1.0]
+            loss = [self.d_fake_loss]
         )
 
         self.discriminator_real = Model(
             inputs = real_images,
-            outputs = [real_output_for_d, real_labels],
+            outputs = real_output_for_d,
         )
         self.discriminator_real.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics = ['accuracy'],
-            loss = [self.d_real_loss, 'sparse_categorical_crossentropy'],
-            loss_weights= [1.0, 1.0]
+            loss = [self.d_real_loss]
         )
 
         # Define combined for training generator.
@@ -366,14 +363,14 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
-        aux_fake, fake_label = self.discriminator([fake])
+        aux_fake = self.discriminator([fake])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
         fake_attribute = self.latent_encoder(fake)
 
         self.combined = Model(
             inputs=[real_images, negative_samples, latent_code],
-            outputs=[aux_fake, fake_label],
+            outputs=[aux_fake, fake_attribute],
             name = 'Combined',
         )
 
@@ -392,7 +389,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss = [self.g_loss, 'sparse_categorical_crossentropy'],
+            loss = [self.g_loss, 'mse'],
             loss_weights= [1.0, 1.0]
         )
 
@@ -613,18 +610,16 @@ class BalancingGAN:
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
 
         if self.loss_type == 'categorical':
-            fake_real = Dense(self.nclasses + 1,
+            aux = Dense(self.nclasses + 1,
                         activation = 'softmax',
-                        name='fake_real')(features)
+                        name='auxiliary')(features)
         else:
-            fake_real = Dense(
-                1, activation = activation,name='fake_real'
+            aux = Dense(
+                1, activation = activation,name='auxiliary'
             )(features)
 
-        aux = Dense(self.nclasses, activation='softmax', name='aux')(features)
-
         self.discriminator = Model(inputs=[image],
-                                   outputs=[fake_real, aux],
+                                   outputs=aux,
                                    name='discriminator')
 
 
@@ -681,8 +676,8 @@ class BalancingGAN:
                     real_label_for_d = label_batch
                     fake_label = np.full(label_batch.shape[0], self.nclasses)
 
-                loss_fake, acc_fake, *rest = self.discriminator_fake.train_on_batch(generated_images, [fake_label, label_batch])
-                loss_real, acc_real, *rest = self.discriminator_real.train_on_batch(image_batch, [real_label_for_d, label_batch])
+                loss_fake, acc_fake, *rest = self.discriminator_fake.train_on_batch(generated_images, fake_label)
+                loss_real, acc_real, *rest = self.discriminator_real.train_on_batch(image_batch, real_label_for_d)
                 loss = 0.5 * (loss_fake + loss_real)
                 acc = 0.5 * (acc_fake + acc_real)
 
@@ -693,8 +688,8 @@ class BalancingGAN:
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
             real_attribute = self.latent_encoder.predict(image_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
-                [image_batch, negative_samples, f],
-                [real_label, label_batch],
+                [image_batch,negative_samples, f],
+                [real_label, real_attribute],
             )
 
             epoch_gen_loss.append([d_loss, l_loss])
@@ -848,12 +843,8 @@ class BalancingGAN:
                 X = [bg_test.dataset_x, generated_images]
                 Y = [fake_label, real_label]
 
-                loss_fake, acc_fake, *rest = self.discriminator_fake.evaluate(generated_images,
-                                                                              [fake_label, bg_test.dataset_y],
-                                                                              verbose=False)
-                loss_real, acc_real, *rest = self.discriminator_real.evaluate(bg_test.dataset_x,
-                                                                              [real_label, bg_test.dataset_y],
-                                                                              verbose=False)
+                loss_fake, acc_fake, *rest = self.discriminator_fake.evaluate(generated_images, fake_label, verbose=False)
+                loss_real, acc_real, *rest = self.discriminator_real.evaluate(bg_test.dataset_x, real_label, verbose=False)
                 test_disc_loss = 0.5 * (loss_fake + loss_real)
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
@@ -865,7 +856,7 @@ class BalancingGAN:
                         negative_samples,
                         f
                     ],
-                    [real_label, bg_test.dataset_y],
+                    [real_label, real_attribute],
                     verbose = 0
                 )
 
@@ -967,30 +958,3 @@ class BalancingGAN:
         if epoch % interval != 0:
             return
         # do bussiness thing
-
-
-#
-#                       _oo0oo_
-#                      o8888888o
-#                      88" . "88
-#                      (| -_- |)
-#                      0\  =  /0
-#                    ___/`---'\___
-#                  .' \\|     |// '.
-#                 / \\|||  :  |||// \
-#                / _||||| -:- |||||- \
-#               |   | \\\  -  /// |   |
-#               | \_|  ''\---/''  |_/ |
-#               \  .-\__  '-'  ___/-. /
-#             ___'. .'  /--.--\  `. .'___
-#          ."" '<  `.___\_<|>_/___.' >' "".
-#         | | :  `- \`.;`\ _ /`;.`/ - ` : | |
-#         \  \ `_.   \_ __\ /__ _/   .-` /  /
-#     =====`-.____`.___ \_____/___.-`___.-'=====
-#                       `=---='
-#
-#
-#     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#
-#               Độ ta không độ code
-#
