@@ -375,13 +375,13 @@ class BalancingGAN:
         )
 
         # triplet function
-        # margin = 1.0
-        # pos_code = self.latent_encoder(real_images)
-        # d_pos = K.mean(K.square(anchor_code - pos_code))
-        # d_neg = K.mean(K.square(anchor_code - self.latent_encoder(negative_samples)))
-        # triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
+        margin = 1.0
+        pos_code = self.latent_encoder(real_images)
+        d_pos = K.sum(K.square(fake_attribute - pos_code))
+        d_neg = K.sum(K.square(fake_attribute - self.latent_encoder(negative_samples)))
+        triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
-        # self.combined.add_loss(self.attribute_loss_weight * triplet)
+        self.combined.add_loss(self.attribute_loss_weight * triplet)
 
         self.combined.compile(
             optimizer=Adam(
@@ -390,6 +390,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss = [self.g_loss, 'mse'],
+            loss_weights= [1, 0]
         )
 
 
@@ -405,9 +406,7 @@ class BalancingGAN:
 
         init_channels = 512
         latent_code = Input(shape=(128,), name = 'latent_code')
-        attribute_code = self.attribute_encoder(image)
 
-        latent = Concatenate()([latent_code, attribute_code])
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
