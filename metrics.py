@@ -12,7 +12,6 @@ def auc_score(y_true, y_pred, verbose=1, plot=0):
     
     if verbose:
         print('AUC score: \n')
-        print(scores)
         for i in range(len(scores)):
             print(scores[i])
             print('{}: {}'.format(INVERT_CATEGORIES_MAP[i], scores[i])) 
