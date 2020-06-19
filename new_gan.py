@@ -392,7 +392,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss = [self.g_loss, 'mse'],
+            loss = [self.g_loss, 'sparse_categorical_crossentropy'],
             loss_weights= [1.0, 1.0]
         )
 
