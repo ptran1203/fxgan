@@ -12,7 +12,7 @@ from tensorflow.python.framework import ops
 def build_model():
     return VGG16(input_shape=(64, 64, 3), weights=None)
 
-def build_guided_model(model):
+def build_guided_model():
     """Function returning modified model.
     
     Changes gradient function for all ReLu activations
@@ -169,6 +169,6 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
         
     return gradcam, gb, guided_gradcam
 
-guided_model = build_guided_model(model)
+guided_model = build_guided_model()
 # gradcam, gb, guided_gradcam = compute_saliency(resnet_model, triple_channels(x_val)[0:1], layer_name='block5_conv3', 
 #                                                cls=-1, visualize=True, save=False)
