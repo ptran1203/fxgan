@@ -289,7 +289,7 @@ class BalancingGAN:
         epoch_disc_acc = []
         epoch_gen_acc = []
 
-        for image_batch, label_batch in bg_train.next_batch():
+        for image_batch, label_batch, *_ in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
             ################## Train Discriminator ##################
             fake_size = int(np.ceil(crt_batch_size * 1.0/self.nclasses))

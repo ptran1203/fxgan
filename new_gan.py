@@ -152,6 +152,7 @@ class FeatureNorm(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
+
 class BalancingGAN:
     D_RATE = 1
     attribute_loss_weight = 1
