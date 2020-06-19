@@ -9,6 +9,24 @@ from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
+def build_guided_model():
+    """Function returning modified model.
+    
+    Changes gradient function for all ReLu activations
+    according to Guided Backpropagation.
+    """
+    if "GuidedBackProp" not in ops._gradient_registry._registry:
+        @ops.RegisterGradient("GuidedBackProp")
+        def _GuidedBackProp(op, grad):
+            dtype = op.inputs[0].dtype
+            return grad * tf.cast(grad > 0., dtype) * \
+                   tf.cast(op.inputs[0] > 0., dtype)
+
+    g = tf.get_default_graph()
+    with g.gradient_override_map({'Relu': 'GuidedBackProp'}):
+        new_model = build_model()
+    return new_model
+
 guided_model = build_guided_model()
 
 
@@ -40,24 +58,6 @@ def deprocess_image(x):
 def normalize(x):
     """Utility function to normalize a tensor by its L2 norm"""
     return (x + 1e-10) / (K.sqrt(K.mean(K.square(x))) + 1e-10)
-
-def build_guided_model():
-    """Function returning modified model.
-    
-    Changes gradient function for all ReLu activations
-    according to Guided Backpropagation.
-    """
-    if "GuidedBackProp" not in ops._gradient_registry._registry:
-        @ops.RegisterGradient("GuidedBackProp")
-        def _GuidedBackProp(op, grad):
-            dtype = op.inputs[0].dtype
-            return grad * tf.cast(grad > 0., dtype) * \
-                   tf.cast(op.inputs[0] > 0., dtype)
-
-    g = tf.get_default_graph()
-    with g.gradient_override_map({'Relu': 'GuidedBackProp'}):
-        new_model = build_model()
-    return new_model
 
 def build_model():
     return VGG16(input_shape=(64, 64, 3), weights=None)
