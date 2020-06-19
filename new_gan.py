@@ -267,7 +267,7 @@ class BalancingGAN:
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
                 g_lr = 0.000005, norm = 'batch',
                 resnet=False, beta_1 = 0.5,
-                dataset = 'chest'):
+                dataset = 'chest', attention=True):
         self.classes = classes
         self.dataset = dataset
         self.nclasses = len(classes)
@@ -277,6 +277,7 @@ class BalancingGAN:
         self.resolution = image_shape[0]
         self.g_lr = g_lr
         self.resnet = resnet
+        self.attention = attention
 
         self.norm = norm
         self.loss_type = loss_type
@@ -425,7 +426,9 @@ class BalancingGAN:
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = self._norm()(de)
         de = decoder_activation(de)
-        de = SelfAttention(256)(de)
+
+        if self.attention:
+            de = SelfAttention(256)(de)
 
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = self._norm()(de)
@@ -479,7 +482,9 @@ class BalancingGAN:
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(image, 256))
-        de = SelfAttention(256)(de)
+        if self.attention:
+            de = SelfAttention(256)(de)
+
         de = _transpose_block(de, 128, decoder_activation,
                              kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(image, 128))
@@ -577,7 +582,8 @@ class BalancingGAN:
         cnn.add(Dropout(0.3))
         # 16 * 16 * 128
 
-        cnn.add(SelfAttention(128))
+        if self.attention:
+            cnn.add(SelfAttention(128))
 
         cnn.add(Conv2D(256, kernel_size, padding='same', strides=(2, 2)))
         self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
