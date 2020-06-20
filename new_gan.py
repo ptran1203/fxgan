@@ -267,7 +267,7 @@ class BalancingGAN:
         print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
         self.latent_encoder.load_weights(fname + '.h5')
-        # self.latent_encoder.trainable = True
+        self.latent_encoder.trainable = False
 
     def latent_code(self, images):
         """
@@ -391,7 +391,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = True
+        self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
         aux_fake = self.discriminator([fake])
