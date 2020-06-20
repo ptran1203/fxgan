@@ -231,26 +231,5 @@ def plot_model_history(H):
         plt.title('Training acc')
         plt.show()
 
-
-def visualize_class_activation_map(model, image):
-    width, height, _ = image.shape
-
-    # Reshape to the network input shape (3, w, h).
-    img = np.array([np.transpose(np.float32(image), (2, 0, 1))])
-
-    # Get the 512 input weights to the softmax.
-    class_weights = model.layers[-1].get_weights()[0]
-
-    final_conv_layer = model.layers[-2]
-
-    get_output = K.function([model.layers[0].input], \
-                            [final_conv_layer.output, 
-                            model.layers[-1].output])
-    [conv_outputs, predictions] = get_output([img])
-    conv_outputs = conv_outputs[0, :, :, :]
-
-    #Create the class activation map.
-    cam = np.zeros(dtype = np.float32, shape = conv_outputs.shape[1:3])
-    target_class = 1
-    for i, w in enumerate(class_weights[:, target_class]):
-            cam += w * conv_outputs[i, :, :]
+def group_k_images(image_list):
+    return np.array(image_list)

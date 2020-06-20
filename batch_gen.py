@@ -180,14 +180,22 @@ class BatchGenerator:
         indices2 = np.arange(dataset_x.shape[0])
 
         np.random.shuffle(indices)
-        np.random.shuffle(indices2)
+        # np.random.shuffle(indices2)
 
         for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
             access_pattern = indices[start_idx:start_idx + self.batch_size]
-            access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
+            # access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
 
             yield (
                 dataset_x[access_pattern, :, :, :], labels[access_pattern],
-                dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
+                # dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
+
+    def ramdom_kshot_images(self, k_shot, labels):
+        imgs = []
+        for label in labels:
+            np.random.shuffle(self.per_class_ids[label])
+            ids = self.per_class_ids[label][:k_shot]
+            imgs.append(self.dataset_x[ids])
+        return np.array(imgs)
 
