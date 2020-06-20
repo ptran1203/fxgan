@@ -234,16 +234,20 @@ class BalancingGAN:
 
         self.attribute_encoder = Model(
             inputs = image,
-            outputs = code
+            outputs = code,
+            name='attribute_encoder',
         )
 
 
     def attribute_net(self, images, channels):
         attr_features = []
         for i in range(self.k_shot):
-            attr_features.append(self.latent_encoder(images[:, i,]))
+            attr_features.append(self.latent_encoder(
+                Lambda(lambda x: x[:, i,])(images)
+            ))
         
-        attr_feature = K.mean(Concatenate()(attr_features), keepdims=True)
+        attr_feature = Average()(attr_features)
+
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(channels)(scale)
 
@@ -279,7 +283,7 @@ class BalancingGAN:
         """
         # return mean per single k_shot images
         return np.array([
-            np.mean(self.latent_code(i)) for i in k_shot_images
+            np.mean(self.latent_code(i), axis=0,keepdims=True) for i in k_shot_images
             ])
 
 
@@ -359,6 +363,7 @@ class BalancingGAN:
         self.discriminator_fake = Model(
             inputs = fake_images,
             outputs = fake_output_for_d,
+            name='D_fake',
         )
         self.discriminator_fake.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
@@ -369,6 +374,7 @@ class BalancingGAN:
         self.discriminator_real = Model(
             inputs = real_images,
             outputs = real_output_for_d,
+            name='D_real',
         )
         self.discriminator_real.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
