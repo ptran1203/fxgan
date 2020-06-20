@@ -262,7 +262,8 @@ class BalancingGAN:
         json_file = open(fname + '.json', 'r')
         model = json_file.read()
         json_file.close()
-        self.latent_encoder = model_from_json(model)
+        self.latent_encoder = model_from_jso
+        n(model)
         modified = os.path.getmtime(fname + '.json')
         print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
@@ -417,9 +418,13 @@ class BalancingGAN:
 
         # triplet function
         margin = 1.0
-        d_pos = K.sum(K.square(fake_attribute - pos_code))
-        d_neg = K.sum(K.square(fake_attribute - self.latent_encoder(negative_samples)))
-        triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
+        d_pos = K.sum(K.square(fake_attribute - pos_code), axis=1)
+        d_neg = K.sum(K.square(
+                fake_attribute -
+                self.latent_encoder(negative_samples)
+                ), axis=1)
+
+        triplet = K.maximum(d_pos - d_neg + margin, 0.0)
 
         self.combined.add_loss(self.attribute_loss_weight * triplet)
 
