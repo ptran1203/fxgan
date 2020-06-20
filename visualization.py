@@ -30,29 +30,7 @@ def build_guided_model(model):
 
 
 def deprocess_image(x):
-    return x
-    """Same normalization as in:
-    https://github.com/fchollet/keras/blob/master/examples/conv_filter_visualization.py
-    """
     return (x * 127.5 + 127.5) / 255
-    x = x.copy()
-    if np.ndim(x) > 3:
-        x = np.squeeze(x)
-    # normalize tensor: center on 0., ensure std is 0.1
-    x -= x.mean()
-    x /= (x.std() + 1e-5)
-    x *= 0.1
-
-    # clip to [0, 1]
-    x += 0.5
-    x = np.clip(x, 0, 1)
-
-    # convert to RGB array
-    x *= 255
-    if K.image_dim_ordering() == 'th':
-        x = x.transpose((1, 2, 0))
-    x = np.clip(x, 0, 255).astype('uint8')
-    return x
 
 
 def normalize(x):
@@ -138,7 +116,7 @@ def compute_saliency(model, guided_model, preprocessed_input, layer_name='block5
         cv2.imwrite('guided_gradcam.jpg', deprocess_image(guided_gradcam[0]))
     
     if visualize:
-        plt.figure(figsize=(8, 8))
+        plt.figure(figsize=(6, 6))
         plt.subplot(131)
         plt.title('GradCAM')
         plt.axis('off')
