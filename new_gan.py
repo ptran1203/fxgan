@@ -283,7 +283,7 @@ class BalancingGAN:
         """
         # return mean per single k_shot images
         return np.array([
-            np.mean(self.latent_code(i), axis=0,keepdims=True) for i in k_shot_images
+            np.mean(self.latent_code(i), axis=0) for i in k_shot_images
             ])
 
 
