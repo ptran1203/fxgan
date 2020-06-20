@@ -890,8 +890,12 @@ class BalancingGAN:
                 X = [test_batch_x, generated_images]
                 Y = [fake_label, real_label]
 
-                loss_fake, acc_fake, *rest = self.discriminator_fake.evaluate(generated_images, fake_label, verbose=False)
-                loss_real, acc_real, *rest = self.discriminator_real.evaluate(test_batch_x, real_label, verbose=False)
+                loss_fake, acc_fake, *rest = \
+                        self.discriminator_fake.evaluate([generated_images, k_shot_test_batch],
+                                                        fake_label, verbose=False)
+                loss_real, acc_real, *rest = \
+                        self.discriminator_real.evaluate([test_batch_x, k_shot_test_batch],
+                                                        real_label, verbose=False)
                 test_disc_loss = 0.5 * (loss_fake + loss_real)
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
