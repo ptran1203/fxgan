@@ -174,7 +174,7 @@ class BalancingGAN:
             elif norm == 'in':
                 x = InstanceNormalization()(x)
             else:
-                x = FeatureNorm()([x, scale, bias])
+                x = FeatureNorm(norm=self.norm)([x, scale, bias])
             return x
 
         out = norm_layer(x)
@@ -353,15 +353,16 @@ class BalancingGAN:
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        attr_images = Input(shape=(self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        real_output_for_d = self.discriminator([real_images])
-        fake_output_for_d = self.discriminator([fake_images])
+        real_output_for_d = self.discriminator([real_images, attr_images])
+        fake_output_for_d = self.discriminator([fake_images, attr_images])
 
         self.discriminator_fake = Model(
-            inputs = fake_images,
+            inputs = [fake_images, attr_images],
             outputs = fake_output_for_d,
             name='D_fake',
         )
@@ -372,7 +373,7 @@ class BalancingGAN:
         )
 
         self.discriminator_real = Model(
-            inputs = real_images,
+            inputs = [real_images, attr_images],
             outputs = real_output_for_d,
             name='D_real',
         )
@@ -394,7 +395,7 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
-        aux_fake = self.discriminator([fake])
+        aux_fake = self.discriminator([fake, real_images_for_G])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
         fake_attribute = self.latent_encoder(fake)
@@ -407,7 +408,6 @@ class BalancingGAN:
             ))
         
         pos_code = Average()(attr_features)
-        ##
 
         self.combined = Model(
             inputs=[real_images_for_G, negative_samples, latent_code],
@@ -494,7 +494,7 @@ class BalancingGAN:
                 elif norm == 'in':
                     x = InstanceNormalization()(x)
                 else:
-                    x = FeatureNorm()([x, scale, bias])
+                    x = FeatureNorm(norm=self.norm)([x, scale, bias])
                 return x
 
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
@@ -598,45 +598,34 @@ class BalancingGAN:
         plot_d(train_d, test_d)
 
 
-    def _discriminator_feature(self, image):
+    def _discriminator_feature(self, image, attr_image):
         resolution = self.resolution
         channels = self.channels
 
-        # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
-        cnn = Sequential()
         kernel_size = 5
+        x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
 
-        cnn.add(Conv2D(64, kernel_size, strides=2, padding='same'))
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
-        # 32 * 32 * 64
-
-        # cnn.add(keras.layers.ZeroPadding2D(padding=((0,1),(0,1))))
-
-        cnn.add(Conv2D(128, kernel_size, padding='same', strides=(2, 2)))
-        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
-        # 16 * 16 * 128
-
+        x = Conv2D(128, kernel_size, strides=2, padding='same')(image)
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
+    
         if self.attention:
-            cnn.add(SelfAttention(128))
+            x = SelfAttention(128)(x)
 
-        cnn.add(Conv2D(256, kernel_size, padding='same', strides=(2, 2)))
-        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
-        # 8 * 8 * 256
+        x = Conv2D(256, kernel_size, strides=2, padding='same')(image)
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
 
-        cnn.add(Conv2D(512, kernel_size, padding='same', strides=(2, 2)))
-        self.loss_type == 'wasserstein_loss' and cnn.add(self._norm())
-        cnn.add(LeakyReLU(alpha=0.2))
-        cnn.add(Dropout(0.3))
+        x = Conv2D(512, kernel_size, strides=2, padding='same')(image)
+        if self.norm == 'fn':
+            scale, bias = self.attribute_net(attr_image, 512)
+            x = FeatureNorm(norm=self.norm)([x, scale, bias])
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
 
-        cnn.add(Flatten())
-
-        features = cnn(image)
-        return features
+        return Flatten()(x)
 
 
     def build_discriminator(self):
@@ -644,11 +633,9 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
+        attr_image = Input(shape=(resolution, resolution, channels))
 
-        features = self._discriminator_feature(image)
-        # semantic_features = self.latent_encoder(image)
-
-        # combined_feature = Concatenate()([features, semantic_features])
+        features = self._discriminator_feature(image, attr_image)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
 
@@ -661,7 +648,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=[image],
+        self.discriminator = Model(inputs=[image, attr_image],
                                    outputs=aux,
                                    name='discriminator')
 
@@ -720,8 +707,13 @@ class BalancingGAN:
                     real_label_for_d = label_batch
                     fake_label = np.full(crt_batch_size, self.nclasses)
 
-                loss_fake, acc_fake, *rest = self.discriminator_fake.train_on_batch(generated_images, fake_label)
-                loss_real, acc_real, *rest = self.discriminator_real.train_on_batch(image_batch, real_label_for_d)
+                attr_images = bg_train.get_samples_by_labels(label_batch)
+                loss_fake, acc_fake, *rest = \
+                        self.discriminator_fake.train_on_batch([generated_images, attr_images],
+                                                                fake_label)
+                loss_real, acc_real, *rest = \
+                        self.discriminator_real.train_on_batch([image_batch, attr_images],
+                                                                real_label_for_d)
                 loss = 0.5 * (loss_fake + loss_real)
                 acc = 0.5 * (acc_fake + acc_real)
 
