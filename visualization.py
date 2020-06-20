@@ -9,10 +9,7 @@ from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-def build_model():
-    return VGG16(input_shape=(64, 64, 3), weights=None)
-
-def build_guided_model():
+def build_guided_model(model):
     """Function returning modified model.
     
     Changes gradient function for all ReLu activations
@@ -28,15 +25,16 @@ def build_guided_model():
     g = tf.get_default_graph()
     with g.gradient_override_map({'Relu': 'GuidedBackProp'}):
         print('Build new model')
-        new_model = build_model()
+        new_model = model
     return new_model
 
 
 def deprocess_image(x):
+    return x
     """Same normalization as in:
     https://github.com/fchollet/keras/blob/master/examples/conv_filter_visualization.py
     """
-    return x * 127.5 + 127.5
+    return (x * 127.5 + 127.5) / 255
     x = x.copy()
     if np.ndim(x) > 3:
         x = np.squeeze(x)
@@ -64,7 +62,7 @@ def normalize(x):
 def guided_backprop(input_model, images, layer_name):
     """Guided Backpropagation method for visualizing input saliency."""
     input_imgs = input_model.input
-    layer_output = input_model.get_layer(layer_name).output
+    layer_output = input_model.get_layer(layer_name).get_output_at(-1)
     grads = K.gradients(layer_output, input_imgs)[0]
     backprop_fn = K.function([input_imgs, K.learning_phase()], [grads])
     grads_val = backprop_fn([images, 0])[0]
@@ -116,7 +114,7 @@ def grad_cam_batch(input_model, images, classes, layer_name):
     
     return new_cams
 
-def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-1, visualize=True, save=True):
+def compute_saliency(model, guided_model, preprocessed_input, layer_name='block5_conv3', cls=-1, visualize=True, save=True):
     """Compute saliency using all three approaches.
         -layer_name: layer to compute gradients;
         -cls: class number to localize (-1 for most probable class).
@@ -124,17 +122,10 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
     # preprocessed_input = load_image(img_path)
 
     predictions = model.predict(preprocessed_input)
-    # top_n = 5
-    # top = decode_predictions(predictions, top=top_n)[0]
-    # classes = np.argsort(predictions[0])[-top_n:][::-1]
-    # print('Model prediction:')
-    # for c, p in zip(classes, top):
-    #     print('\t{:15s}\t({})\twith probability {:.3f}'.format(p[1], c, p[2]))
+
     if cls == -1:
         cls = np.argmax(predictions)
-    class_name = decode_predictions(np.eye(1, 1000, cls))[0][0][1]
-    # print("Explanation for '{}'".format(class_name))
-    
+    class_name = decode_predictions(np.eye(1, 1000, cls))[0][0][1]    
     gradcam = grad_cam(model, preprocessed_input, cls, layer_name)
     gb = guided_backprop(guided_model, preprocessed_input, layer_name)
     guided_gradcam = gb * gradcam[..., np.newaxis]
@@ -153,22 +144,21 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
         plt.subplot(131)
         plt.title('GradCAM')
         plt.axis('off')
-        plt.imshow(preprocessed_input[0])
-        plt.imshow(gradcam, cmap='jet', alpha=0.5)
+        plt.imshow(deprocess_image(preprocessed_input[0]))
+        plt.imshow(gradcam, cmap='jet', alpha=0.3)
 
-        plt.subplot(132)
-        plt.title('Guided Backprop')
-        plt.axis('off')
-        plt.imshow(np.flip(deprocess_image(gb[0]), -1))
+        # plt.subplot(132)
+        # plt.title('Guided Backprop')
+        # plt.axis('off')
+        # plt.imshow(np.flip((gb[0]), -1))
         
-        plt.subplot(133)
-        plt.title('Guided GradCAM')
-        plt.axis('off')
-        plt.imshow(np.flip(deprocess_image(guided_gradcam[0]), -1))
-        plt.show()
+        # plt.subplot(133)
+        # plt.title('Guided GradCAM')
+        # plt.axis('off')
+        # plt.imshow(np.flip((guided_gradcam[0]), -1))
+        # plt.show()
         
     return gradcam, gb, guided_gradcam
 
-guided_model = build_guided_model()
 # gradcam, gb, guided_gradcam = compute_saliency(resnet_model, triple_channels(x_val)[0:1], layer_name='block5_conv3', 
 #                                                cls=-1, visualize=True, save=False)
