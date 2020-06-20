@@ -457,7 +457,7 @@ class BalancingGAN:
                             norm_var=norm_var)
 
         de = self._upscale(de, 'conv', 256, kernel_size)
-        de = self._norm()(de)s
+        de = self._norm()(de)
         de = decoder_activation(de)
 
         if self.attention:
