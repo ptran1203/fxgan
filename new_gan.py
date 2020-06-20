@@ -267,7 +267,7 @@ class BalancingGAN:
         print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
         self.latent_encoder.load_weights(fname + '.h5')
-        self.latent_encoder.trainable = False
+        # self.latent_encoder.trainable = True
 
     def latent_code(self, images):
         """
@@ -391,7 +391,7 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = False
+        self.latent_encoder.trainable = True
         self.attribute_encoder.trainable = True
 
         aux_fake = self.discriminator([fake])
@@ -406,13 +406,13 @@ class BalancingGAN:
         )
 
         # triplet function
-        # margin = 1.0
-        # pos_code = self.latent_encoder(real_images)
-        # d_pos = K.sum(K.square(fake_attribute - pos_code))
-        # d_neg = K.sum(K.square(fake_attribute - self.latent_encoder(negative_samples)))
-        # triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
+        margin = 1.0
+        pos_code = self.latent_encoder(real_images)
+        d_pos = K.sum(K.square(fake_attribute - pos_code))
+        d_neg = K.sum(K.square(fake_attribute - self.latent_encoder(negative_samples)))
+        triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
 
-        # self.combined.add_loss(self.attribute_loss_weight * triplet)
+        self.combined.add_loss(self.attribute_loss_weight * triplet)
 
         self.combined.compile(
             optimizer=Adam(
@@ -421,7 +421,7 @@ class BalancingGAN:
             ),
             metrics=['accuracy'],
             loss = [self.g_loss, 'mse'],
-            loss_weights= [1.0, 1.0]
+            loss_weights= [1.0, 0]
         )
 
     def build_resnet_generator(self):
@@ -448,7 +448,7 @@ class BalancingGAN:
                             norm_var=norm_var)
 
         de = self._upscale(de, 'conv', 256, kernel_size)
-        de = self._norm()(de)
+        de = self._norm()(de)s
         de = decoder_activation(de)
 
         if self.attention:
