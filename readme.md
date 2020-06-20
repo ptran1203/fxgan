@@ -1,6 +1,7 @@
 
 ## The GAN project for chest-xray classification
 
+- To run the experiment please check the file **try_gan.ipynb**
 
 ### History table
 | commit hash | comment |
