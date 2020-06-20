@@ -353,7 +353,7 @@ class BalancingGAN:
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        attr_images = Input(shape=(self.resolution, self.resolution, self.channels))
+        attr_images = Input(shape=(self.k_shot, self.resolution, self.resolution, self.channels))
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -633,7 +633,7 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
-        attr_image = Input(shape=(resolution, resolution, channels))
+        attr_image = Input(shape=(self.k_shot, resolution, resolution, channels))
 
         features = self._discriminator_feature(image, attr_image)
 
@@ -707,7 +707,7 @@ class BalancingGAN:
                     real_label_for_d = label_batch
                     fake_label = np.full(crt_batch_size, self.nclasses)
 
-                attr_images = bg_train.get_samples_by_labels(label_batch)
+                attr_images = bg_train.ramdom_kshot_images(self.k_shot, label_batch)
                 loss_fake, acc_fake, *rest = \
                         self.discriminator_fake.train_on_batch([generated_images, attr_images],
                                                                 fake_label)
