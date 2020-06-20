@@ -854,7 +854,7 @@ class BalancingGAN:
                 np.random.shuffle(random_ids)
                 random_ids = random_ids[:test_size]
                 test_batch_x = bg_test.dataset_x[random_ids]
-                test_batch_y = bg_test.dataset_x[random_ids]
+                test_batch_y = bg_test.dataset_y[random_ids]
                 k_shot_test_batch = bg_test.ramdom_kshot_images(self.k_shot, test_batch_y)
                 f = self.generate_latent(range(test_size))
 
