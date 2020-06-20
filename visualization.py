@@ -138,8 +138,6 @@ def compute_saliency(model, guided_model, preprocessed_input, layer_name='block5
         cv2.imwrite('guided_gradcam.jpg', deprocess_image(guided_gradcam[0]))
     
     if visualize:
-        print(np.min(gradcam), np.max(gradcam))
-
         plt.figure(figsize=(8, 8))
         plt.subplot(131)
         plt.title('GradCAM')
