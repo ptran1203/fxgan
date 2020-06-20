@@ -399,6 +399,16 @@ class BalancingGAN:
         negative_samples = Input((self.resolution,self.resolution,self.channels))
         fake_attribute = self.latent_encoder(fake)
 
+        ## real attr
+        attr_features = []
+        for i in range(self.k_shot):
+            attr_features.append(self.latent_encoder(
+                Lambda(lambda x: x[:, i,])(real_images_for_G)
+            ))
+        
+        pos_code = Average()(attr_features)
+        ##
+
         self.combined = Model(
             inputs=[real_images_for_G, negative_samples, latent_code],
             outputs=[aux_fake, fake_attribute],
@@ -407,7 +417,6 @@ class BalancingGAN:
 
         # triplet function
         margin = 1.0
-        pos_code = self.latent_encoder(real_images)
         d_pos = K.sum(K.square(fake_attribute - pos_code))
         d_neg = K.sum(K.square(fake_attribute - self.latent_encoder(negative_samples)))
         triplet = K.mean(K.maximum(d_pos - d_neg + margin, 0.0))
