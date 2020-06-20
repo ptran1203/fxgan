@@ -156,16 +156,16 @@ def compute_saliency(model, preprocessed_input, layer_name='block5_conv3', cls=-
         plt.imshow(preprocessed_input[0])
         plt.imshow(gradcam, cmap='jet', alpha=0.5)
 
-        # plt.subplot(132)
-        # plt.title('Guided Backprop')
-        # plt.axis('off')
-        # plt.imshow(np.flip(deprocess_image(gb[0]), -1))
+        plt.subplot(132)
+        plt.title('Guided Backprop')
+        plt.axis('off')
+        plt.imshow(np.flip(deprocess_image(gb[0]), -1))
         
-        # plt.subplot(133)
-        # plt.title('Guided GradCAM')
-        # plt.axis('off')
-        # plt.imshow(np.flip(deprocess_image(guided_gradcam[0]), -1))
-        # plt.show()
+        plt.subplot(133)
+        plt.title('Guided GradCAM')
+        plt.axis('off')
+        plt.imshow(np.flip(deprocess_image(guided_gradcam[0]), -1))
+        plt.show()
         
     return gradcam, gb, guided_gradcam
 
