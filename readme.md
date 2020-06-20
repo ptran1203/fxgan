@@ -5,9 +5,10 @@
 ### History table
 | commit hash | comment |
 |--|--|
-| [97f1dba8dc6f8f69acac35bdcc6588add513035f](https://github.com/ptran1203/gan_project/commit/97f1dba8dc6f8f69acac35bdcc6588add513035f) | remove bagan_old ||
-[1cee698d28210cd18bf6914a752857611d5ef548](https://github.com/ptran1203/gan_project/commit/1cee698d28210cd18bf6914a752857611d5ef548) | Use auxiliary label |
-| [a1e2254378c8bae92bf89f658be629c6cc28fa9e](https://github.com/ptran1203/gan_project/commit/a1e2254378c8bae92bf89f658be629c6cc28fa9e) | Use triplet loss (newest)|
+| [97f1d](../../commit/97f1dba8dc6f8f69acac35bdcc6588add513035f) | remove bagan_old |
+| [1cee6](../../commit/1cee698d28210cd18bf6914a752857611d5ef548) | Use auxiliary label |
+| [a1e22](../../commit/a1e2254378c8bae92bf89f658be629c6cc28fa9e) | Use triplet loss (newest)|
+| [8f627](../../commit/8f6274d2d6f87ed87986de66ee92fbc411ae7330) | Before use K_shot |
 
 
 ### Chest-xray 14 dataset

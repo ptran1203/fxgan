@@ -238,9 +238,12 @@ class BalancingGAN:
         )
 
 
-    def attribute_net(self, image, channels):
-        attr_feature = self.latent_encoder(image)
-
+    def attribute_net(self, images, channels):
+        attr_features = []
+        for i in range(self.k_shot):
+            attr_features.append(self.latent_encoder(images[:, i,]))
+        
+        attr_feature = K.mean(Concatenate()(attr_features))
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(channels)(scale)
 
@@ -480,7 +483,7 @@ class BalancingGAN:
             # out = Dropout(0.3)(out)
             return out
 
-        image = Input(shape=(self.resolution, self.resolution, self.channels), name = 'G_input')
+        images = Input(shape=(self.k_shot, self.resolution, self.resolution, self.channels), name = 'G_input')
         decoder_activation = Activation('relu')
         kernel_size = 5
         init_channels = 512
@@ -495,16 +498,16 @@ class BalancingGAN:
 
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image, 256))
+                             norm_var=self.attribute_net(images, 256))
         if self.attention:
             de = SelfAttention(256)(de)
 
         de = _transpose_block(de, 128, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image, 128))
+                             norm_var=self.attribute_net(images, 128))
         de = _transpose_block(de, 64, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(image, 64))
+                             norm_var=self.attribute_net(images, 64))
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
         outputs = Activation('tanh')(final)
