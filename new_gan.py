@@ -243,7 +243,7 @@ class BalancingGAN:
         for i in range(self.k_shot):
             attr_features.append(self.latent_encoder(images[:, i,]))
         
-        attr_feature = K.mean(Concatenate()(attr_features))
+        attr_feature = K.mean(Concatenate()(attr_features), keepdims=True)
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(channels)(scale)
 
@@ -459,7 +459,7 @@ class BalancingGAN:
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
-            inputs = [image, latent_code],
+            inputs = [images, latent_code],
             outputs = outputs,
             name='resnet_gen'
         )
@@ -513,7 +513,7 @@ class BalancingGAN:
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
-            inputs = [image, latent_code],
+            inputs = [images, latent_code],
             outputs = outputs,
             name='dc_gen'
         )
