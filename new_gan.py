@@ -971,16 +971,17 @@ class BalancingGAN:
 
             self.trained = True
 
-    def plot_feature_distr(self, bg):
+    def plot_feature_distr(self, bg, size=200):
         x, y = bg.dataset_x, bg.dataset_y
-        size = np.min(bg.per_class_count)
-        real = bg.get_samples_for_class(0, size)
+        real = bg.ramdom_kshot_images(self.k_shot,
+                                    np.full(size, 0))
         fakes = self.generator.predict([real,
                                         self.generate_latent(range(size))])
         fake_labels = [np.full((size,), 'fake of 0')]
 
         for classid in range(1, min(self.nclasses, 5)):
-            real = bg.get_samples_for_class(classid, size)
+            real = bg.ramdom_kshot_images(self.k_shot,
+                                    np.full(size, classid))
             fake = self.generator.predict([real, self.generate_latent(range(size))])
             fakes = np.concatenate([fakes, fake])
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
