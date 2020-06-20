@@ -262,8 +262,7 @@ class BalancingGAN:
         json_file = open(fname + '.json', 'r')
         model = json_file.read()
         json_file.close()
-        self.latent_encoder = model_from_jso
-        n(model)
+        self.latent_encoder = model_from_json(model)
         modified = os.path.getmtime(fname + '.json')
         print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
