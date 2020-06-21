@@ -137,7 +137,7 @@ class FeatureNorm(keras.layers.Layer):
 
         # instance norm
         axis = [1, 2]
-        if 'batch' in self.norm:
+        if 'batch' == 'batch': # HARD CODE: only use batch
             axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
