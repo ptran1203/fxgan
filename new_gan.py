@@ -125,7 +125,7 @@ class SelfAttention(Layer):
 
 
 class FeatureNorm(keras.layers.Layer):
-    def __init__(self, epsilon = 1e-4, norm = 'fn-batch'):
+    def __init__(self, epsilon = 1e-4, norm = 'batchnorm'):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
         self.norm = norm
@@ -137,7 +137,7 @@ class FeatureNorm(keras.layers.Layer):
 
         # instance norm
         axis = [1, 2]
-        if 'batch' in self.norm:
+        if 'batchnorm' in self.norm:
             axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
@@ -607,14 +607,14 @@ class BalancingGAN:
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
-        x = Conv2D(128, kernel_size, strides=2, padding='same')(image)
+        x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
     
         if self.attention:
             x = SelfAttention(128)(x)
 
-        x = Conv2D(256, kernel_size, strides=2, padding='same')(image)
+        x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
         if 'D' in self.norm and 'fn' in self.norm:
             print('[INFO] Use feature norm in Discriminator')
             scale, bias = self.attribute_net(attr_image, 256)
@@ -622,7 +622,7 @@ class BalancingGAN:
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
-        x = Conv2D(512, kernel_size, strides=2, padding='same')(image)
+        x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
