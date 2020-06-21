@@ -1005,7 +1005,7 @@ class BalancingGAN:
 
             self.trained = True
 
-    def plot_feature_distr(self, bg, size=200):
+    def plot_feature_distr(self, bg, size=500):
         x, y = bg.dataset_x, bg.dataset_y
         real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, 0))
@@ -1021,14 +1021,14 @@ class BalancingGAN:
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
         # latent_encoder
-        imgs = np.concatenate([fakes, x])
+        imgs = np.concatenate([x, fakes])
         labels = np.concatenate([
-            np.full((fakes.shape[0],), 'fake'),
             np.full((x.shape[0],), 'real'),
+            np.full((fakes.shape[0],), 'fake'),
         ])
+
     
         utils.plot_data_space(imgs, labels, self.features_from_d_model, 'fake real space')
-
         labels = np.concatenate([y, np.concatenate(fake_labels)])
         utils.plot_data_space(imgs, labels, self.latent_encoder, 'latent encoder')
 
