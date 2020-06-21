@@ -156,7 +156,7 @@ class FeatureNorm(keras.layers.Layer):
 class BalancingGAN:
     D_RATE = 1
     attribute_loss_weight = 1
-    def _triple_tensor(x):
+    def _triple_tensor(self, x):
         return Concatenate()([x,x,x])
 
     def _res_block(self,
@@ -425,7 +425,7 @@ class BalancingGAN:
         d_pos = K.sum(K.square(fake_attribute - pos_code), axis=1)
         d_neg = K.sum(K.square(
                 fake_attribute -
-                self.latent_encoder(negative_samples)
+                self.latent_encoder(self._triple_tensor(negative_samples))
                 ), axis=1)
 
         triplet = K.maximum(d_pos - d_neg + margin, 0.0)
