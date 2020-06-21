@@ -156,6 +156,9 @@ class FeatureNorm(keras.layers.Layer):
 class BalancingGAN:
     D_RATE = 1
     attribute_loss_weight = 1
+    def _triple_tensor(x):
+        return Concatenate()([x,x,x])
+
     def _res_block(self,
                   x,
                   units = 64,
@@ -271,19 +274,20 @@ class BalancingGAN:
         self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
 
-    def latent_code(self, images):
+    def latent_code(self, images, prediction=True):
         """
         Get prediction from latent encoder (Attribute code)
         """
-        return self.latent_encoder.predict(images)
+        if prediction:
+            return self.latent_encoder.predict(images)
+        return self.latent_encoder(images)
 
-    def latent_codes(self, k_shot_images):
+    def latent_codes(self, k_shot_images, prediction=True):
         """
         Predict for k_shot images
         shape = (batch_size, K_shot, H, W, C)
         return: array with shape (batch_size, latent_code_size)
         """
-        # return mean per single k_shot images
         return np.array([
             np.mean(self.latent_code(i), axis=0) for i in k_shot_images
             ])
@@ -353,7 +357,8 @@ class BalancingGAN:
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        attr_images = Input(shape=(self.k_shot, self.resolution, self.resolution, self.channels))
+        # Use VGG16 model -> channels = 3
+        attr_images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3))
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -384,7 +389,7 @@ class BalancingGAN:
         )
 
         # Define combined for training generator.
-        real_images_for_G = Input((self.k_shot, self.resolution, self.resolution, self.channels))
+        real_images_for_G = Input((self.k_shot, self.resolution, self.resolution, 3))
         fake = self.generator([
             real_images_for_G, latent_code
         ])
@@ -398,7 +403,7 @@ class BalancingGAN:
         aux_fake = self.discriminator([fake, real_images_for_G])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
-        fake_attribute = self.latent_encoder(fake)
+        fake_attribute = self.latent_encoder(self._triple_tensor(fake))
 
         ## real attr
         attr_features = []
@@ -438,7 +443,7 @@ class BalancingGAN:
         )
 
     def build_resnet_generator(self):
-        images = Input(shape=(self.k_shot, self.resolution, self.resolution, self.channels),
+        images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
                         name = 'G_input')
         decoder_activation = Activation('relu')
 
@@ -503,7 +508,7 @@ class BalancingGAN:
             # out = Dropout(0.3)(out)
             return out
 
-        images = Input(shape=(self.k_shot, self.resolution, self.resolution, self.channels), name = 'G_input')
+        images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3), name = 'G_input')
         decoder_activation = Activation('relu')
         kernel_size = 5
         init_channels = 512
@@ -650,7 +655,7 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
-        attr_image = Input(shape=(self.k_shot, resolution, resolution, channels))
+        attr_image = Input(shape=(self.k_shot, resolution, resolution, 3))
 
         features = self._discriminator_feature(image, attr_image)
 
