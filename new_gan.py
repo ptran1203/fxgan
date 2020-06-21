@@ -137,8 +137,8 @@ class FeatureNorm(keras.layers.Layer):
 
         # instance norm
         axis = [1, 2]
-        # if 'batch' in self.norm:
-            # axis = [0, 1, 2]
+        if 'batch' in self.norm:
+            axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
         std = K.std(x, axis = axis, keepdims = True)
@@ -174,7 +174,7 @@ class BalancingGAN:
             elif norm == 'in':
                 x = InstanceNormalization()(x)
             else:
-                x = FeatureNorm(norm=self.norm)([x, scale, bias])
+                x = FeatureNorm()([x, scale, bias])
             return x
 
         out = norm_layer(x)
@@ -494,7 +494,7 @@ class BalancingGAN:
                 elif norm == 'in':
                     x = InstanceNormalization()(x)
                 else:
-                    x = FeatureNorm(norm=self.norm)([x, scale, bias])
+                    x = FeatureNorm()([x, scale, bias])
                 return x
 
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
@@ -618,7 +618,7 @@ class BalancingGAN:
         if 'D' in self.norm and 'fn' in self.norm:
             print('[INFO] Use feature norm in Discriminator')
             scale, bias = self.attribute_net(attr_image, 256)
-            x = FeatureNorm(norm=self.norm)([x, scale, bias])
+            x = FeatureNorm()([x, scale, bias])
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
