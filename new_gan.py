@@ -1016,7 +1016,7 @@ class BalancingGAN:
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
         # latent_encoder
-        imgs = np.concatenate([x, fakes])
+        imgs = np.concatenate([fakes, x])
         labels = np.concatenate([
             np.full((fakes.shape[0],), 'fake'),
             np.full((x.shape[0],), 'real'),
