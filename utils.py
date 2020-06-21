@@ -192,6 +192,9 @@ def pred2bin(pred):
 
 def plot_data_space(x, y, encoder, name, opt='pca'):
     step = 1
+    if encoder.input_shape[-1] == 3:
+        x = triple_channels(x)
+
     x_embeddings = encoder.predict(x)
     if len(x_embeddings.shape) > 2:
         x_embeddings = x_embeddings.reshape(x_embeddings.shape[0], -1)
