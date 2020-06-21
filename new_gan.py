@@ -308,23 +308,21 @@ class BalancingGAN:
 
         self.norm = norm
         self.loss_type = loss_type
+        self._show_settings()
+
         if loss_type == 'binary':
-            print('LOSS TYPE: BinaryCrossentropy')
             self.g_loss = keras.losses.BinaryCrossentropy()
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
         elif loss_type == 'categorical':
-            print('LOSS TYPE: sparse_categorical_crossentropy')
             self.g_loss = 'sparse_categorical_crossentropy'
             self.d_fake_loss = 'sparse_categorical_crossentropy'
             self.d_real_loss = 'sparse_categorical_crossentropy'
         elif loss_type == 'hinge':
-            print('LOSS TYPE: Hinge')
             self.g_loss = hinge_G_loss
             self.d_fake_loss = hinge_D_fake_loss
             self.d_real_loss = hinge_D_real_loss
         else:
-            print('LOSS TYPE: wasserstein')
             self.g_loss = wasserstein_loss
             self.d_fake_loss = wasserstein_loss
             self.d_real_loss = wasserstein_loss
@@ -597,6 +595,23 @@ class BalancingGAN:
         plot_g(train_g, test_g)
         plot_d(train_d, test_d)
 
+    def _show_settings(self):
+        print('\n=================== GAN Setting ==================\n')
+        print('- Dataset: {}'.format(self.dataset))
+        print('- Num of classes: {}'.format(self.nclasses))
+        print('- Generator type: {}'.format('Resnet' if self.resnet else 'DCGAN'))
+        print('- Self-Attention: {}'.format(self.attention))
+        print('- K-shot: {}'.format(self.k_shot))
+        print('- Adverasial loss: {}'.format(self.loss_type))
+        if 'batch' in self.norm:
+            norm_type = 'Batch norm'
+        else:
+            norm_type = 'Instance norm'
+        print('- Normalization: {}'.format(norm_type))
+        fn_norm = 'fn' in self.norm
+        print('- Use feature normaliztion: {}'.format(fn_norm))
+        print('\n==================================================\n')
+
 
     def _discriminator_feature(self, image, attr_image):
         resolution = self.resolution
@@ -616,7 +631,6 @@ class BalancingGAN:
 
         x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
         if 'D' in self.norm and 'fn' in self.norm:
-            print('[INFO] Use feature norm in Discriminator')
             scale, bias = self.attribute_net(attr_image, 256)
             x = FeatureNorm()([x, scale, bias])
         x = LeakyReLU()(x)
