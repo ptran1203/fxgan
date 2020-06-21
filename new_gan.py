@@ -196,6 +196,7 @@ class BalancingGAN:
             else:
                 # use upsamling layer
                 # nearest  or   bilinear
+                x = Conv2D(units, kernel_size, strides=1, padding='same')(x)
                 x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
                 return x
 
