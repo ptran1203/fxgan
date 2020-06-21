@@ -125,7 +125,7 @@ class SelfAttention(Layer):
 
 
 class FeatureNorm(keras.layers.Layer):
-    def __init__(self, epsilon = 1e-4, norm = 'batchnorm'):
+    def __init__(self, epsilon = 1e-4, norm = 'bn'):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
         self.norm = norm
@@ -137,7 +137,8 @@ class FeatureNorm(keras.layers.Layer):
 
         # instance norm
         axis = [1, 2]
-        if 'batchnorm' in self.norm:
+        if 'bn' in self.norm:
+            print('Use Batch norm for FeatureNorm layer')
             axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
@@ -410,7 +411,7 @@ class BalancingGAN:
 
         self.combined = Model(
             inputs=[real_images_for_G, negative_samples, latent_code],
-            outputs=[aux_fake, fake_attribute],
+            outputs=[aux_fake],
             name = 'Combined',
         )
 
@@ -422,9 +423,9 @@ class BalancingGAN:
                 self.latent_encoder(negative_samples)
                 ), axis=1)
 
-        triplet = K.maximum(d_pos - d_neg + margin, 0.0)
+        triplet = self.attribute_loss_weight * K.maximum(d_pos - d_neg + margin, 0.0)
 
-        self.combined.add_loss(self.attribute_loss_weight * triplet)
+        self.combined.add_loss(triplet)
 
         self.combined.compile(
             optimizer=Adam(
@@ -432,9 +433,11 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss = [self.g_loss, 'mse'],
-            loss_weights= [1.0, 0]
+            loss = [self.g_loss],
         )
+
+        self.combined.metrics_tensors.append(triplet)
+        self.combined.metrics_names.append("triplet_loss")
 
     def build_resnet_generator(self):
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, self.channels),
@@ -737,10 +740,9 @@ class BalancingGAN:
             ################## Train Generator ##################
             f = self.generate_latent(range(crt_batch_size))
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
-            real_attribute = self.latent_codes(k_shot_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
                 [k_shot_batch, negative_samples, f],
-                [real_label, real_attribute],
+                [real_label],
             )
 
             epoch_gen_loss.append([d_loss, l_loss])
@@ -779,17 +781,21 @@ class BalancingGAN:
 
         # Load last bck
         try:
+            print('GAN weight initialized, train from epoch ', epoch)
             self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
             self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
             return epoch
 
         # Return epoch
         except Exception as e:  # Reload error, restart from scratch (the first time we train we pass from here)
-            print(str(e))
+            print('Reload error, restart from scratch')
             return 0
 
     def backup_point(self, epoch):
         # Bck
+        if epoch == 0:
+            return
+
         print('Save weights at epochs : ', epoch)
         generator_fname = "{}/bck_generator.h5".format(self.res_dir)
         discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
@@ -915,14 +921,13 @@ class BalancingGAN:
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(test_batch_y))
-                real_attribute = self.latent_codes(k_shot_test_batch)
                 [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
                     [
                         k_shot_test_batch,
                         negative_samples,
                         f
                     ],
-                    [real_label, real_attribute],
+                    [real_label],
                     verbose = 0
                 )
 
@@ -983,7 +988,7 @@ class BalancingGAN:
                 self.interval_process(e)
 
 
-                print("D_loss {}, G_adv_loss {} G_mse_loss {} - {}".format(
+                print("- D_loss {}, G_adv_loss {} G_triplet_loss {} - {}".format(
                     train_disc_loss, train_gen_loss[0], train_gen_loss[1],
                     datetime.datetime.now() - start_time
                 ))
@@ -1013,15 +1018,11 @@ class BalancingGAN:
         # latent_encoder
         imgs = np.concatenate([x, fakes])
         labels = np.concatenate([
-            np.full((x.shape[0],), 'real'),
             np.full((fakes.shape[0],), 'fake'),
+            np.full((x.shape[0],), 'real'),
         ])
     
         utils.plot_data_space(imgs, labels, self.features_from_d_model, 'fake real space')
-        labels = np.concatenate([
-            np.full((x.shape[0],), 'real'),
-            np.full((fakes.shape[0],), 'fake'),
-        ])
         labels = np.concatenate([y, np.concatenate(fake_labels)])
         utils.plot_data_space(imgs, labels, self.latent_encoder, 'latent encoder')
 

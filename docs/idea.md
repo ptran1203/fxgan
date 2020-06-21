@@ -14,4 +14,5 @@ variance and epsilon is a small constant. In conventional normalization layers, 
 scale γ and bias α terms are learned model parameters, while for conditional
 normalization layers, they are learned as a function of some image Y
 
+- 
 - Spatially-adaptive normalization ...
