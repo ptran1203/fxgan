@@ -431,6 +431,10 @@ class BalancingGAN:
         triplet = K.maximum(d_pos - d_neg + margin, 0.0)
 
         self.combined.add_loss(self.attribute_loss_weight * triplet)
+        self.combined.add_loss(K.mean(K.square(
+            self.features_from_d_model(fake) - \
+                self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:1])(real_images_for_G))
+        )))
 
         self.combined.compile(
             optimizer=Adam(
