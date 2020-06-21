@@ -125,7 +125,7 @@ class SelfAttention(Layer):
 
 
 class FeatureNorm(keras.layers.Layer):
-    def __init__(self, epsilon = 1e-4, norm = 'batch'):
+    def __init__(self, epsilon = 1e-4, norm = 'fn-batch'):
         super(FeatureNorm, self).__init__()
         self.epsilon = epsilon
         self.norm = norm
@@ -137,7 +137,7 @@ class FeatureNorm(keras.layers.Layer):
 
         # instance norm
         axis = [1, 2]
-        if self.norm == 'batch':
+        if 'batch' in self.norm:
             axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
@@ -183,7 +183,7 @@ class BalancingGAN:
         out = norm_layer(out)
         out = actv(out)
 
-        out = Conv2D(K.int_shape(x)[-1], kernel_size, strides = 1, padding='same')(out)
+        out = Conv2D(K.int_shape(xzxcx)[-1], kernel_size, strides = 1, padding='same')(out)
         out = actv(out)
         out = Add()([out, x])
         return out
@@ -615,13 +615,13 @@ class BalancingGAN:
             x = SelfAttention(128)(x)
 
         x = Conv2D(256, kernel_size, strides=2, padding='same')(image)
+        if 'D' in self.norm and 'fn' in self.norm:
+            scale, bias = self.attribute_net(attr_image, 256)
+            x = FeatureNorm(norm=self.norm)([x, scale, bias])
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
         x = Conv2D(512, kernel_size, strides=2, padding='same')(image)
-        if self.norm == 'fn':
-            scale, bias = self.attribute_net(attr_image, 512)
-            x = FeatureNorm(norm=self.norm)([x, scale, bias])
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
@@ -671,8 +671,7 @@ class BalancingGAN:
         )
 
     def _norm(self):
-        return BatchNormalization() if self.norm == 'batch' else InstanceNormalization()
-
+        return BatchNormalization() if 'batch' in self.norm else InstanceNormalization()
 
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
