@@ -208,7 +208,12 @@ def plot_data_space(x, y, encoder, name, opt='pca'):
     plt.show()
 
 
-def plot_model_history(H):
+def plot_model_history(H, opt = 0):
+    """
+    opt = 0: plot both
+    opt = 1: plot loss
+    opt = 2: plot acc
+    """
     # plot loss
     plt.figure(figsize=(8,8))
     for k, loss in H.history.items():
