@@ -175,7 +175,7 @@ class BalancingGAN:
             elif norm == 'in':
                 x = InstanceNormalization()(x)
             else:
-                x = FeatureNorm()([x, scale, bias])
+                x = FeatureNorm(norm=self.norm)([x, scale, bias])
             return x
 
         out = norm_layer(x)
@@ -496,7 +496,7 @@ class BalancingGAN:
                 elif norm == 'in':
                     x = InstanceNormalization()(x)
                 else:
-                    x = FeatureNorm()([x, scale, bias])
+                    x = FeatureNorm(norm=self.norm)([x, scale, bias])
                 return x
 
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
@@ -636,7 +636,7 @@ class BalancingGAN:
         x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
         if 'D' in self.norm and 'fn' in self.norm:
             scale, bias = self.attribute_net(attr_image, 256)
-            x = FeatureNorm()([x, scale, bias])
+            x = FeatureNorm(norm=self.norm)([x, scale, bias])
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
