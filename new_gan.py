@@ -848,7 +848,8 @@ class BalancingGAN:
     
             img_samples = np.array([
                 [
-                    act_img_samples[:, 0,],
+                    # batch, k_shot, h, w, c
+                    act_img_samples[:, 0,:,:, 0],
                     self.generator.predict([
                         act_img_samples,
                         f,
@@ -861,7 +862,7 @@ class BalancingGAN:
                                                             np.full(10, crt_c))
                 new_samples = np.array([
                     [
-                        act_img_samples[:, 0,],
+                        act_img_samples[:, 0,:,:, 0],
                         self.generator.predict([
                             act_img_samples,
                             f,
@@ -956,7 +957,7 @@ class BalancingGAN:
                     f = self.generate_latent(range(10))
                     img_samples = np.array([
                         [
-                            act_img_samples[:, 0,],
+                            act_img_samples[:, 0,:,:, 0],
                             self.generator.predict([
                                 act_img_samples,
                                 f,
@@ -971,7 +972,7 @@ class BalancingGAN:
                         f = self.generate_latent(range(10))
                         new_samples = np.array([
                             [
-                                act_img_samples[:, 0,],
+                                act_img_samples[:, 0,:,:, 0],
                                 self.generator.predict([
                                     act_img_samples,
                                     f,
