@@ -436,7 +436,7 @@ class BalancingGAN:
             loss = [self.g_loss],
         )
 
-        self.combined.metrics_tensors.append(triplet)
+        self.combined.metrics.append(triplet)
         self.combined.metrics_names.append("triplet_loss")
 
     def build_resnet_generator(self):
