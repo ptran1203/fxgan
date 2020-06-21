@@ -183,7 +183,7 @@ class BalancingGAN:
         out = norm_layer(out)
         out = actv(out)
 
-        out = Conv2D(K.int_shape(xzxcx)[-1], kernel_size, strides = 1, padding='same')(out)
+        out = Conv2D(K.int_shape(x)[-1], kernel_size, strides = 1, padding='same')(out)
         out = actv(out)
         out = Add()([out, x])
         return out
