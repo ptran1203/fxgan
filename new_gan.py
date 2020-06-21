@@ -616,6 +616,7 @@ class BalancingGAN:
 
         x = Conv2D(256, kernel_size, strides=2, padding='same')(image)
         if 'D' in self.norm and 'fn' in self.norm:
+            print('[INFO] Use feature norm in Discriminator')
             scale, bias = self.attribute_net(attr_image, 256)
             x = FeatureNorm(norm=self.norm)([x, scale, bias])
         x = LeakyReLU()(x)
