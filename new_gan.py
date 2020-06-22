@@ -411,8 +411,6 @@ class BalancingGAN:
             attr_features.append(self.latent_encoder(
                 Lambda(lambda x: x[:, i,])(real_images_for_G)
             ))
-        
-        pos_code = Average()(attr_features)
 
         self.combined = Model(
             inputs=[real_images_for_G, negative_samples, latent_code],
@@ -422,7 +420,10 @@ class BalancingGAN:
 
         # triplet function
         margin = 1.0
-        d_pos = K.sum(K.square(fake_attribute - pos_code), axis=1)
+        d_pos = Average()([
+            K.sum(K.square(fake_attribute - attr_feature), axis=1) \
+                for attr_feature in attr_features
+        ])
         d_neg = K.sum(K.square(
                 fake_attribute -
                 self.latent_encoder(self._triple_tensor(negative_samples))
@@ -430,11 +431,20 @@ class BalancingGAN:
 
         triplet = K.maximum(d_pos - d_neg + margin, 0.0)
 
+
+        # Feature matching from D net
+        fm_features = [
+            # Only use 1 channel
+            self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:1])(real_images_for_G)) \
+                for i in range(self.k_shot)
+        ]
+        fm_D = Average()([
+            K.mean(K.square(fake_attribute - fm_feature)) \
+                for fm_feature in fm_features
+        ])
+
         self.combined.add_loss(self.attribute_loss_weight * triplet)
-        self.combined.add_loss(K.mean(K.square(
-            self.features_from_d_model(fake) - \
-                self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:1])(real_images_for_G))
-        )))
+        self.combined.add_loss(fm_D)
 
         self.combined.compile(
             optimizer=Adam(
