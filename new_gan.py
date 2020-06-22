@@ -438,8 +438,10 @@ class BalancingGAN:
             self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:1])(real_images_for_G)) \
                 for i in range(self.k_shot)
         ]
+
+        fake_fm = self.features_from_d_model(fake)
         fm_D = Average()([
-            K.mean(K.square(fake_attribute - fm_feature)) \
+            K.mean(K.square(fake_fm - fm_feature)) \
                 for fm_feature in fm_features
         ])
 
