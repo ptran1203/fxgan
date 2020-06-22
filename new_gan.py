@@ -441,12 +441,12 @@ class BalancingGAN:
 
         fake_fm = self.features_from_d_model(fake)
         fm_D = Average()([
-            K.mean(K.square(fake_fm - fm_feature)) \
+            K.square(fake_fm - fm_feature) \
                 for fm_feature in fm_features
         ])
 
         self.combined.add_loss(self.attribute_loss_weight * triplet)
-        self.combined.add_loss(fm_D)
+        self.combined.add_loss(K.mean(fm_D))
 
         self.combined.compile(
             optimizer=Adam(

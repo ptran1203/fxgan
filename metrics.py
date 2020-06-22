@@ -9,7 +9,7 @@ def auc_score(y_true, y_pred, verbose=1, plot=0):
         scores = roc_auc_score(_y_true, y_pred, average=None)
     else:
         scores = roc_auc_score(y_true, y_pred, average=None)
-    
+
     if verbose:
         print('AUC score: \n')
         for i in range(len(scores)):
