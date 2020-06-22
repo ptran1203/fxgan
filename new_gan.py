@@ -464,7 +464,7 @@ class BalancingGAN:
                         name = 'G_input')
         decoder_activation = Activation('relu')
 
-        init_channels = 512
+        init_channels = 256
         latent_code = Input(shape=(128,), name = 'latent_code')
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
@@ -473,12 +473,12 @@ class BalancingGAN:
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 5
-        norm_var = self.attribute_net(images, 512)
+        norm_var = self.attribute_net(images, 256)
 
-        de = self._res_block(latent, 512, kernel_size,
+        de = self._res_block(latent, 256, kernel_size,
                             norm='fn',
                             norm_var=norm_var)
-        de = self._res_block(de, 512, kernel_size,
+        de = self._res_block(de, 256, kernel_size,
                             norm='fn',
                             norm_var=norm_var)
 
