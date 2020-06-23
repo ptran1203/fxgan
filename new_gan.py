@@ -510,14 +510,13 @@ class BalancingGAN:
     def build_resnet_generator(self):
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
                         name = 'G_input')
-        decoder_activation = Activation('relu')
 
         init_channels = 256
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
-        latent = decoder_activation(latent)
+        latent = Activation('relu')(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 5
@@ -532,7 +531,7 @@ class BalancingGAN:
 
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = self._norm()(de)
-        de = decoder_activation(de)
+        de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
         if self.attention:
@@ -540,12 +539,12 @@ class BalancingGAN:
 
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = self._norm()(de)
-        de = decoder_activation(de)
+        de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = self._norm()(de)
-        de = decoder_activation(de)
+        de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
@@ -587,27 +586,26 @@ class BalancingGAN:
         
         latent_from_i = Average()(attr_features) # vector 128
 
-        decoder_activation = Activation('relu')
         kernel_size = 5
         init_channels = 256
 
         latent = Dense(4 * 4 * init_channels)(latent_from_i)
         latent = self._norm()(latent)
-        latent = decoder_activation(latent)
+        latent = Activation('relu')(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        de = _transpose_block(latent, 256, decoder_activation,
+        de = _transpose_block(latent, 256, Activation('relu'),
                              kernel_size, norm=self.norm,
                              )
 
         if self.attention:
             de = SelfAttention(256)(de)
 
-        de = _transpose_block(de, 128, decoder_activation,
+        de = _transpose_block(de, 128, Activation('relu'),
                              kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(images, 128))
 
-        de = _transpose_block(de, 64, decoder_activation,
+        de = _transpose_block(de, 64, Activation('relu'),
                              kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(images, 64))
 
