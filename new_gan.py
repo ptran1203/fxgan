@@ -280,7 +280,7 @@ class BalancingGAN:
             return
 
         print("Computing feature distribution")
-        if not self.covariances:
+        if not hasattr(self, 'covariances'):
             self.covariances = []
             self.means = []
         else:
