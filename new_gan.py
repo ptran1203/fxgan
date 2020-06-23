@@ -324,7 +324,9 @@ class BalancingGAN:
                 g_lr = 0.000005, norm = 'batch',
                 resnet=False, beta_1 = 0.5,
                 dataset = 'chest', attention=True,
-                k_shot=5, sampling='normal'):
+                k_shot=5, sampling='normal',
+                advance_losses={'triplet': 0.1},
+                ):
         self.classes = classes
         self.dataset = dataset
         self.nclasses = len(classes)
@@ -473,8 +475,24 @@ class BalancingGAN:
                 for fm_feature in fm_features
         ])
 
-        self.combined.add_loss(self.attribute_loss_weight * triplet)
-        self.combined.add_loss(K.mean(fm_D))
+        # Recontruction loss
+        real_imgs = [
+            Lambda(lambda x: x[:,i,:,:,:1])(real_images_for_G) \
+                for i in range(self.k_shot)
+        ]
+        recontruction_loss = Average()([
+            K.square(fake - real_img) \
+                for real_img in real_imgs
+        ])
+
+        if 'triplet' in advance_losses:
+            self.combined.add_loss(advance_losses['triplet'] * triplet)
+        if 'l2_feat' in advance_losses:
+            self.combined.add_loss(advance_losses['l2_feat'] * d_pos)
+        if 'fm_D' in advance_losses:
+            self.combined.add_loss(advance_losses['fm_D'] * K.mean(fm_D))
+        if 'recon' in advance_losses:
+            self.combined.add_loss(advance_losses['recon'] * recontruction_loss)
 
         self.combined.compile(
             optimizer=Adam(
@@ -492,7 +510,7 @@ class BalancingGAN:
         decoder_activation = Activation('relu')
 
         init_channels = 256
-        latent_code = Input(shape=(128,), name = 'latent_code')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
@@ -556,7 +574,7 @@ class BalancingGAN:
         decoder_activation = Activation('relu')
         kernel_size = 5
         init_channels = 512
-        latent_code = Input(shape=(128,), name = 'latent_code')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         # attribute_code = self.attribute_code(image)
 
         # latent = Concatenate()([latent_code, attribute_code])
@@ -717,7 +735,6 @@ class BalancingGAN:
         self.discriminator = Model(inputs=[image, attr_image],
                                    outputs=aux,
                                    name='discriminator')
-
 
 
     def generate_latent(self, c, size = 1):
