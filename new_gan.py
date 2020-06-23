@@ -272,7 +272,7 @@ class BalancingGAN:
         json_file.close()
         self.latent_encoder = model_from_json(model)
         modified = os.path.getmtime(fname + '.json')
-        logger.info('Latent model modified at: ',
+        print('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
         self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
@@ -694,7 +694,7 @@ class BalancingGAN:
         logger.info('- Normalization: {}'.format(norm_type))
         fn_norm = 'fn' in self.norm
         logger.info('- Use feature normaliztion: {}'.format(fn_norm))
-        logger.info('- Advance losses: ', self.advance_losses)
+        print('- Advance losses: ', self.advance_losses)
         print('\n==================================================\n')
 
 
