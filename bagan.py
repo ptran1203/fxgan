@@ -402,6 +402,7 @@ class BalancingGAN:
             np.save(mfname, self.means)
             print("BAGAN: saved multivariate")
 
+
     def _get_lst_bck_name(self, element):
         # Find last bck name
         files = [

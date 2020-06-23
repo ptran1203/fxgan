@@ -275,6 +275,25 @@ class BalancingGAN:
         self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
 
+    def compute_multivariate(self, bg_train):
+        if self.sampling == 'normal':
+            return
+
+        print("Computing feature distribution")
+        self.covariances = []
+        self.means = []
+
+        for c in range(self.nclasses):
+            imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
+            latent = self.latent_encoder.predict(imgs)
+            
+            self.covariances.append(np.cov(np.transpose(latent)))
+            self.means.append(np.mean(latent, axis=0))
+
+        self.covariances = np.array(self.covariances)
+        self.means = np.array(self.means)
+
+
     def latent_code(self, images, prediction=True):
         """
         Get prediction from latent encoder (Attribute code)
@@ -300,7 +319,7 @@ class BalancingGAN:
                 g_lr = 0.000005, norm = 'batch',
                 resnet=False, beta_1 = 0.5,
                 dataset = 'chest', attention=True,
-                k_shot=5):
+                k_shot=5, sampling='normal'):
         self.classes = classes
         self.dataset = dataset
         self.nclasses = len(classes)
@@ -312,6 +331,9 @@ class BalancingGAN:
         self.resnet = resnet
         self.attention = attention
         self.k_shot = k_shot
+        # normal: sampling from normal distribution
+        # code: sampling from latent code distribution (computed by classifier)
+        self.sampling = sampling
 
         self.norm = norm
         self.loss_type = loss_type
@@ -694,6 +716,12 @@ class BalancingGAN:
 
 
     def generate_latent(self, c, size = 1):
+        if self.sampling == 'code':
+            return np.array([
+                np.random.multivariate_normal(self.means[e], self.covariances[e])
+                for e in c
+            ])
+
         return np.array([
             np.random.normal(0, 1, self.latent_size)
             for i in c
@@ -853,6 +881,7 @@ class BalancingGAN:
 
             # Initialization
             print("init gan")
+            self.compute_multivariate(bg_train)
             start_e = self.init_gan()
             # self.init_autoenc(bg_train)
             print("gan initialized, start_e: ", start_e)
