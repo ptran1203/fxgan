@@ -285,6 +285,7 @@ class BalancingGAN:
 
         for c in range(self.nclasses):
             imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
+            imgs = utils.triple_channels(imgs)
             latent = self.latent_encoder.predict(imgs)
             
             self.covariances.append(np.cov(np.transpose(latent)))
@@ -749,7 +750,7 @@ class BalancingGAN:
 
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
-            f = self.generate_latent(range(crt_batch_size))
+            f = self.generate_latent(label_batch)
             k_shot_batch = bg_train.ramdom_kshot_images(self.k_shot, label_batch)
             for i in range(self.D_RATE):
                 generated_images = self.generator.predict(
@@ -786,7 +787,7 @@ class BalancingGAN:
             epoch_disc_loss.append(loss)
 
             ################## Train Generator ##################
-            f = self.generate_latent(range(crt_batch_size))
+            f = self.generate_latent(label_batch)
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
             real_attribute = self.latent_codes(k_shot_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
@@ -890,7 +891,7 @@ class BalancingGAN:
             # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
             act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
                                                         np.full(10, crt_c))
-            f = self.generate_latent(range(10))
+            f = self.generate_latent([crt_c] * 10)
     
             img_samples = np.array([
                 [
@@ -932,7 +933,7 @@ class BalancingGAN:
                 test_batch_x = bg_test.dataset_x[random_ids]
                 test_batch_y = bg_test.dataset_y[random_ids]
                 k_shot_test_batch = bg_test.ramdom_kshot_images(self.k_shot, test_batch_y)
-                f = self.generate_latent(range(test_size))
+                f = self.generate_latent(test_batch_y)
 
                 generated_images = self.generator.predict(
                     [
@@ -999,7 +1000,7 @@ class BalancingGAN:
                     act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
                                                                    np.full(10, crt_c))
 
-                    f = self.generate_latent(range(10))
+                    f = self.generate_latent([crt_c] * 10)
                     img_samples = np.array([
                         [
                             act_img_samples[:, 0,:,:,:1],
@@ -1014,7 +1015,7 @@ class BalancingGAN:
                         # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                         act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
                                                                    np.full(10, crt_c))
-                        f = self.generate_latent(range(10))
+                        f = self.generate_latent([crt_c] * 10)
                         new_samples = np.array([
                             [
                                 act_img_samples[:, 0,:,:,:1],
@@ -1056,13 +1057,13 @@ class BalancingGAN:
         real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, 0))
         fakes = self.generator.predict([real,
-                                        self.generate_latent(range(size))])
+                                        self.generate_latent([0] * size)])
         fake_labels = [np.full((size,), 'fake of 0')]
 
         for classid in range(1, min(self.nclasses, 5)):
             real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, classid))
-            fake = self.generator.predict([real, self.generate_latent(range(size))])
+            fake = self.generator.predict([real, self.generate_latent([classid] * size)])
             fakes = np.concatenate([fakes, fake])
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
