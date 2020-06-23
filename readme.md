@@ -10,7 +10,7 @@
 | [1cee6](../../commit/1cee698d28210cd18bf6914a752857611d5ef548) | Use auxiliary label |
 | [a1e22](../../commit/a1e2254378c8bae92bf89f658be629c6cc28fa9e) | Use triplet loss (newest)|
 | [8f627](../../commit/8f6274d2d6f87ed87986de66ee92fbc411ae7330) | Before use K_shot |
-
+| [f7005](../../commit/f700526fd86de862683150f7302ae8f0f900388f) | Before remove dc generator| 
 
 ### Chest-xray 14 dataset
 

@@ -382,11 +382,11 @@ class BalancingGAN:
         self.build_discriminator()
         self.build_features_from_d_model()
         if self.resnet:
-            print('INFO: Use resnet generator')
+            logger.info('Use resnet generator')
             self.build_resnet_generator()
         else:
-            print('INFO: Use DCGAN generator')
-            self.build_dc_generator()
+            logger.info('Use encode-decode generator')
+            self.build_encode_decode_G()
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -533,6 +533,7 @@ class BalancingGAN:
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = self._norm()(de)
         de = decoder_activation(de)
+        de = Dropout(0.3)(de)
 
         if self.attention:
             de = SelfAttention(256)(de)
@@ -540,10 +541,12 @@ class BalancingGAN:
         de = self._upscale(de, 'conv', 128, kernel_size)
         de = self._norm()(de)
         de = decoder_activation(de)
+        de = Dropout(0.3)(de)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
         de = self._norm()(de)
         de = decoder_activation(de)
+        de = Dropout(0.3)(de)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
         outputs = Activation('tanh')(final)
@@ -554,14 +557,14 @@ class BalancingGAN:
             name='resnet_gen'
         )
 
-    def build_dc_generator(self):
+    def build_encode_decode_G(self):
         def _transpose_block(x, units, activation, kernel_size=3, norm='batch', norm_var = [0,0]):
             scale, bias = norm_var
             def _norm_layer(x):
-                if norm == 'batch':
+                if 'batch' in norm:
                     x = BatchNormalization()(x)
 
-                elif norm == 'in':
+                elif 'in' in norm:
                     x = InstanceNormalization()(x)
                 else:
                     x = FeatureNorm(norm=self.norm)([x, scale, bias])
@@ -570,31 +573,40 @@ class BalancingGAN:
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
             out = _norm_layer(out)
             out = activation(out)
-            # out = Dropout(0.3)(out)
+            out = Dropout(0.3)(out)
             return out
 
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3), name = 'G_input')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
+
+        attr_features = []
+        for i in range(self.k_shot):
+            attr_features.append(self.latent_encoder(
+                Lambda(lambda x: x[:, i,])(images)
+            ))
+        
+        latent_from_i = Average()(attr_features) # vector 128
+
         decoder_activation = Activation('relu')
         kernel_size = 5
-        init_channels = 512
-        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
-        # attribute_code = self.attribute_code(image)
+        init_channels = 256
 
-        # latent = Concatenate()([latent_code, attribute_code])
-        latent = Dense(4 * 4 * init_channels)(latent_code)
+        latent = Dense(4 * 4 * init_channels)(latent_from_i)
         latent = self._norm()(latent)
         latent = decoder_activation(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
         de = _transpose_block(latent, 256, decoder_activation,
                              kernel_size, norm=self.norm,
-                             norm_var=self.attribute_net(images, 256))
+                             )
+
         if self.attention:
             de = SelfAttention(256)(de)
 
         de = _transpose_block(de, 128, decoder_activation,
                              kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(images, 128))
+
         de = _transpose_block(de, 64, decoder_activation,
                              kernel_size, norm=self.norm,
                              norm_var=self.attribute_net(images, 64))
