@@ -34,6 +34,7 @@ import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 import os
 import sys
@@ -43,6 +44,7 @@ import datetime
 import pickle
 import cv2
 import utils
+import logger
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
@@ -138,7 +140,7 @@ class FeatureNorm(keras.layers.Layer):
         # instance norm
         axis = [1, 2]
         if 'bn' in self.norm:
-            print('Use Batch norm for FeatureNorm layer')
+            logger.info('Use Batch norm for FeatureNorm layer')
             axis = [0, 1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
@@ -270,7 +272,7 @@ class BalancingGAN:
         json_file.close()
         self.latent_encoder = model_from_json(model)
         modified = os.path.getmtime(fname + '.json')
-        print('Latent model modified at: ',
+        logger.info('Latent model modified at: ',
             datetime.datetime.fromtimestamp(modified).strftime('%Y-%m-%d %H:%M:%S'))
         self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
@@ -341,6 +343,7 @@ class BalancingGAN:
         # normal: sampling from normal distribution
         # code: sampling from latent code distribution (computed by classifier)
         self.sampling = sampling
+        self.advance_losses = advance_losses
 
         self.norm = norm
         self.loss_type = loss_type
@@ -666,19 +669,20 @@ class BalancingGAN:
 
     def _show_settings(self):
         print('\n=================== GAN Setting ==================\n')
-        print('- Dataset: {}'.format(self.dataset))
-        print('- Num of classes: {}'.format(self.nclasses))
-        print('- Generator type: {}'.format('Resnet' if self.resnet else 'DCGAN'))
-        print('- Self-Attention: {}'.format(self.attention))
-        print('- K-shot: {}'.format(self.k_shot))
-        print('- Adverasial loss: {}'.format(self.loss_type))
+        logger.info('- Dataset: {}'.format(self.dataset))
+        logger.info('- Num of classes: {}'.format(self.nclasses))
+        logger.info('- Generator type: {}'.format('Resnet' if self.resnet else 'DCGAN'))
+        logger.info('- Self-Attention: {}'.format(self.attention))
+        logger.info('- K-shot: {}'.format(self.k_shot))
+        logger.info('- Adverasial loss: {}'.format(self.loss_type))
         if 'batch' in self.norm:
             norm_type = 'Batch norm'
         else:
             norm_type = 'Instance norm'
-        print('- Normalization: {}'.format(norm_type))
+        logger.info('- Normalization: {}'.format(norm_type))
         fn_norm = 'fn' in self.norm
-        print('- Use feature normaliztion: {}'.format(fn_norm))
+        logger.info('- Use feature normaliztion: {}'.format(fn_norm))
+        logger.info('- Advance losses: ', self.advance_losses)
         print('\n==================================================\n')
 
 
