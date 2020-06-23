@@ -275,16 +275,20 @@ class BalancingGAN:
         self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
 
-    def compute_multivariate(self, bg_train):
+    def compute_multivariate(self, bg):
         if self.sampling == 'normal':
             return
 
         print("Computing feature distribution")
-        self.covariances = []
-        self.means = []
+        if not self.covariances:
+            self.covariances = []
+            self.means = []
+        else:
+            self.covariances = list(self.covariances)
+            self.means = list(self.means)
 
-        for c in range(self.nclasses):
-            imgs = bg_train.dataset_x[bg_train.per_class_ids[c]]
+        for c in np.unique(bg.dataset_y):
+            imgs = bg.dataset_x[bg.per_class_ids[c]]
             imgs = utils.triple_channels(imgs)
             latent = self.latent_encoder.predict(imgs)
             
@@ -883,6 +887,7 @@ class BalancingGAN:
             # Initialization
             print("init gan")
             self.compute_multivariate(bg_train)
+            self.compute_multivariate(bg_test)
             start_e = self.init_gan()
             # self.init_autoenc(bg_train)
             print("gan initialized, start_e: ", start_e)
