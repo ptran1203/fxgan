@@ -934,8 +934,8 @@ class BalancingGAN:
             f = self.generate_latent([crt_c] * 10)
             img_samples = np.array([
                 [
-                    act_img_samples[:, 0,:,:,:1], # batch, k_shot, h, w, c
-                    act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
+                    act_img_samples[:, 0,:,:,:self.channels], # batch, k_shot, h, w, c
+                    act_img_samples[:, 1,:,:,:self.channels], # TODO only work when k_shot >= 2
                     self.generator.predict([
                         act_img_samples,
                         f,
@@ -948,8 +948,8 @@ class BalancingGAN:
                                                             np.full(10, crt_c))
                 new_samples = np.array([
                     [
-                        act_img_samples[:, 0,:,:,:1],
-                        act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
+                        act_img_samples[:, 0,:,:,:self.channels],
+                        act_img_samples[:, 1,:,:,:self.channels], # TODO only work when k_shot >= 2
                         self.generator.predict([
                             act_img_samples,
                             f,
@@ -1044,8 +1044,8 @@ class BalancingGAN:
                     f = self.generate_latent([crt_c] * 10)
                     img_samples = np.array([
                         [
-                            act_img_samples[:, 0,:,:,:1],
-                            act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
+                            act_img_samples[:, 0,:,:,:self.channels],
+                            act_img_samples[:, 1,:,:,:self.channels], # TODO only work when k_shot >= 2
                             self.generator.predict([
                                 act_img_samples,
                                 f,
@@ -1060,8 +1060,8 @@ class BalancingGAN:
                         f = self.generate_latent([crt_c] * 10)
                         new_samples = np.array([
                             [
-                                act_img_samples[:, 0,:,:,:1],
-                                act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
+                                act_img_samples[:, 0,:,:,:self.channels],
+                                act_img_samples[:, 1,:,:,:self.channels], # TODO only work when k_shot >= 2
                                 self.generator.predict([
                                     act_img_samples,
                                     f,
