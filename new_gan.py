@@ -522,6 +522,7 @@ class BalancingGAN:
         kernel_size = 5
         norm_var = self.attribute_net(images, 256)
 
+        # using feature normalization
         de = self._res_block(latent, 256, kernel_size,
                             norm='fn',
                             norm_var=norm_var)
@@ -562,7 +563,6 @@ class BalancingGAN:
             def _norm_layer(x):
                 if 'batch' in norm:
                     x = BatchNormalization()(x)
-
                 elif 'in' in norm:
                     x = InstanceNormalization()(x)
                 else:
@@ -585,6 +585,7 @@ class BalancingGAN:
             ))
         
         latent_from_i = Average()(attr_features) # vector 128
+        # concatenate attribute feature and latent code
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
         kernel_size = 5
@@ -682,7 +683,7 @@ class BalancingGAN:
         print('\n=================== GAN Setting ==================\n')
         logger.info('- Dataset: {}'.format(self.dataset))
         logger.info('- Num of classes: {}'.format(self.nclasses))
-        logger.info('- Generator type: {}'.format('Resnet' if self.resnet else 'DCGAN'))
+        logger.info('- Generator type: {}'.format('Resnet' if self.resnet else 'encode_decode'))
         logger.info('- Self-Attention: {}'.format(self.attention))
         logger.info('- K-shot: {}'.format(self.k_shot))
         logger.info('- Adverasial loss: {}'.format(self.loss_type))

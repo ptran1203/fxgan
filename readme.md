@@ -1,6 +1,6 @@
 
 ## The GAN project for chest-xray classification
-
+- This repository is implemented based on https://github.com/IBM/BAGAN
 - To run the experiment please check the file **try_gan.ipynb**
 
 ### History table
