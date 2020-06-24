@@ -585,6 +585,7 @@ class BalancingGAN:
             ))
         
         latent_from_i = Average()(attr_features) # vector 128
+        latent_from_i = Concatenate()([latent_from_i, latent_code])
 
         kernel_size = 5
         init_channels = 256
@@ -928,10 +929,10 @@ class BalancingGAN:
             act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
                                                         np.full(10, crt_c))
             f = self.generate_latent([crt_c] * 10)
-    
             img_samples = np.array([
                 [
-                    act_img_samples[:, 0,:,:,:1],
+                    act_img_samples[:, 0,:,:,:1], # batch, k_shot, h, w, c
+                    act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
                     self.generator.predict([
                         act_img_samples,
                         f,
@@ -945,6 +946,7 @@ class BalancingGAN:
                 new_samples = np.array([
                     [
                         act_img_samples[:, 0,:,:,:1],
+                        act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
                         self.generator.predict([
                             act_img_samples,
                             f,
@@ -1040,6 +1042,7 @@ class BalancingGAN:
                     img_samples = np.array([
                         [
                             act_img_samples[:, 0,:,:,:1],
+                            act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
                             self.generator.predict([
                                 act_img_samples,
                                 f,
@@ -1055,6 +1058,7 @@ class BalancingGAN:
                         new_samples = np.array([
                             [
                                 act_img_samples[:, 0,:,:,:1],
+                                act_img_samples[:, 1,:,:,:1], # TODO only work when k_shot >= 2
                                 self.generator.predict([
                                     act_img_samples,
                                     f,
