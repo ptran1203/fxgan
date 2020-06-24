@@ -470,7 +470,7 @@ class BalancingGAN:
         # Feature matching from D net
         fm_features = [
             # Only use 1 channel
-            self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:1])(real_images_for_G)) \
+            self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:self.channels])(real_images_for_G)) \
                 for i in range(self.k_shot)
         ]
 
@@ -482,7 +482,7 @@ class BalancingGAN:
 
         # Recontruction loss
         real_imgs = [
-            Lambda(lambda x: x[:,i,:,:,:1])(real_images_for_G) \
+            Lambda(lambda x: x[:,i,:,:,:self.channels])(real_images_for_G) \
                 for i in range(self.k_shot)
         ]
         recontruction_loss = Average()([
