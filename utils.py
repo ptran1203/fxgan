@@ -62,6 +62,9 @@ def show_samples(img_array):
 
 def triple_channels(image):
     # axis = 2 for single image, 3 for many images
+    if image.shape[-1] == 3:
+        return image
+
     return np.repeat(image, 3, axis = -1)
 
 def pickle_save(object, path):

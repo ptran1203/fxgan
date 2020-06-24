@@ -159,6 +159,8 @@ class BalancingGAN:
     D_RATE = 1
     attribute_loss_weight = 1
     def _triple_tensor(self, x):
+        if x.shape[-1] == 3:
+            return x
         return Concatenate()([x,x,x])
 
     def _res_block(self,
