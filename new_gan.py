@@ -312,14 +312,23 @@ class BalancingGAN:
 
 
     def classify_by_metric(self, bg, images, metric='l2'):
-        supports = [bg.get_samples_for_class(i, 1) \
-                        for i in self.classes]
-        sp_vectors = [self.latent_encoder.predict(triple_channels(s_img)) \
-                        for s_img in supports]
-        vector = self.latent_encoder.predict(triple_channels(images))
-        distances = [np.mean(np.square(vector - svec)) for svec in sp_vectors]
-        pred = np.argmin(np.array(distances))
+        # currently do one-shot classification
+        supports = np.array([bg.get_samples_for_class(i, 1) \
+                        for i in self.classes])
+        sp_vectors = np.array([self.latent_encoder.predict(triple_channels(s_img)) \
+                        for s_img in supports])
+
+        vectors = self.latent_encoder.predict(triple_channels(images))
+        distances = np.array([np.mean(np.square(vector - sp_vector)) \
+                            for vector in vectors \
+                            for sp_vector in sp_vectors]).reshape(-1,self.nclasses)
+        pred = np.argmin(np.array(distances), axis=1)
         return pred
+
+    def evaluate_by_metric(self, bg, images, labels, metric='l2'):
+        pred = self.classify_by_metric(bg, images, metric)
+        acc = (pred == labels).mean()
+        return acc
 
 
     def compute_multivariate(self, bg):
