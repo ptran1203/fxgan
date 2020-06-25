@@ -890,21 +890,17 @@ class BalancingGAN:
     def init_gan(self):
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
-
         new_e, discriminator_fname = self._get_lst_bck_name("discriminator")
-        if new_e != epoch:  # Reload error, restart from scratch
-            return 0
 
         # Load last bck
         try:
-            print('GAN weight initialized, train from epoch ', epoch)
             self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
             self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
+            print('GAN weight initialized, train from epoch ', epoch)
             return epoch
 
-        # Return epoch
-        except Exception as e:  # Reload error, restart from scratch (the first time we train we pass from here)
-            print('Reload error, restart from scratch ', str(e))
+        except Exception as e:
+            logger.warn('Reload error, restart from scratch ' + str(e))
             return 0
 
     def backup_point(self, epoch):

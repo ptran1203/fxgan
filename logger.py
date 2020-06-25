@@ -1,4 +1,8 @@
+
 class colors:
+    """
+    Better for your eyes
+    """
     blue = '\033[94m'
     green = '\033[92m'
     yellow = '\033[93m'
