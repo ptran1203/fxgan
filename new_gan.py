@@ -210,6 +210,23 @@ class BalancingGAN:
                 return x
 
 
+    def show_samples_for_class(self,bg,classid):
+        """
+        Show K-samples + 10 - k generated image based on K
+        """
+        samples = 10 - self.k_shot
+        support_images = bg.ramdom_kshot_images(self.k_shot,
+                                                [classid])
+        support_images = np.repeat(support_images,
+                                    samples,
+                                    axis=0)
+        latent = self.generate_latent([classid] * samples)
+        generated_images = self.generator.predict([support_images, latent])
+        final = np.concatenate([support_images[0],
+                                triple_channels(generated_images)], axis=0)
+        utils.show_samples(final)
+
+
     def build_attribute_encoder(self):
         """
         Mapping image to latent code
@@ -1141,9 +1158,9 @@ class BalancingGAN:
         ])
 
     
-        utils.plot_data_space(imgs, labels, self.features_from_d_model, 'fake real space')
+        utils.scatter_plot(imgs, labels, self.features_from_d_model, 'fake real space')
         labels = np.concatenate([y, np.concatenate(fake_labels)])
-        utils.plot_data_space(imgs, labels, self.latent_encoder, 'latent encoder')
+        utils.scatter_plot(imgs, labels, self.latent_encoder, 'latent encoder')
 
     def interval_process(self, epoch, interval = 20):
         if epoch % interval != 0:

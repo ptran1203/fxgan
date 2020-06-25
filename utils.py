@@ -1,6 +1,9 @@
 
 from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from sklearn.preprocessing import StandardScaler
+
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import keras.backend as K
@@ -193,7 +196,36 @@ def pred2bin(pred):
             x[0] = 0
     return pred
 
-def plot_data_space(x, y, encoder, name, opt='pca'):
+def visualize_scatter_with_images(X_2d_data, images, figsize=(10,10), image_zoom=0.5):
+    fig, ax = plt.subplots(figsize=figsize)
+    artists = []
+    for xy, i in zip(X_2d_data, images):
+        x0, y0 = xy
+        img = OffsetImage(i, zoom=image_zoom)
+        ab = AnnotationBbox(img, (x0, y0), xycoords='data', frameon=False)
+        artists.append(ax.add_artist(ab))
+    ax.update_datalim(X_2d_data)
+    ax.autoscale()
+    plt.show()
+
+def visualize_scatter(data_2d, label_ids, figsize=(8,8)):
+    plt.figure(figsize=figsize)
+    plt.grid()
+    
+    nb_classes = len(np.unique(label_ids))
+    
+    for i,label_id in enumerate(np.unique(label_ids)):
+        plt.scatter(data_2d[np.where(label_ids == label_id), 0],
+                    data_2d[np.where(label_ids == label_id), 1],
+                    marker='o',
+                    color= plt.cm.Set1(i / float(nb_classes)),
+                    linewidth='1',
+                    alpha=0.8,
+                    label=label_id)
+    plt.legend(loc='best')
+    plt.show()
+
+def scatter_plot(x, y, encoder, plot_img=None, name='chart', opt='pca'):
     step = 1
     if encoder.input_shape[-1] != x.shape[-1]:
         x = triple_channels(x)
@@ -201,17 +233,10 @@ def plot_data_space(x, y, encoder, name, opt='pca'):
     x_embeddings = encoder.predict(x)
     if len(x_embeddings.shape) > 2:
         x_embeddings = x_embeddings.reshape(x_embeddings.shape[0], -1)
-    decomposed_embeddings = decomposers[opt].fit_transform(x_embeddings)
-    fig = plt.figure(figsize=(16, 8))
-    for label in np.unique(y):
-        decomposed_embeddings_class = decomposed_embeddings[y == label]
-        plt.subplot(1,2,2)
-        plt.scatter(decomposed_embeddings_class[::step, 1],
-                    decomposed_embeddings_class[::step, 0],
-                    label=str(label))
-        plt.title(name)
-        plt.legend()
-    plt.show()
+    decomposed_embeddings = TSNE(n_components=2, perplexity=40.0).fit_transform(x_embeddings)
+    if plot_img:
+        visualize_scatter_with_images(decomposed_embeddings,x)
+    visualize_scatter(decomposed_embeddings, y)
 
 
 def plot_model_history(H, opt = 0):
