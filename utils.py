@@ -225,7 +225,7 @@ def visualize_scatter(data_2d, label_ids, figsize=(8,8)):
     plt.legend(loc='best')
     plt.show()
 
-def scatter_plot(x, y, encoder, plot_img=None, name='chart', opt='pca'):
+def scatter_plot(x, y, encoder, name='chart', opt='pca', plot_img=None):
     step = 1
     if encoder.input_shape[-1] != x.shape[-1]:
         x = triple_channels(x)
