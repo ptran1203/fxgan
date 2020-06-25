@@ -235,7 +235,7 @@ def scatter_plot(x, y, encoder, plot_img=None, name='chart', opt='pca'):
         x_embeddings = x_embeddings.reshape(x_embeddings.shape[0], -1)
     decomposed_embeddings = TSNE(n_components=2, perplexity=40.0).fit_transform(x_embeddings)
     if plot_img:
-        visualize_scatter_with_images(decomposed_embeddings,x)
+        return visualize_scatter_with_images(decomposed_embeddings,x)
     visualize_scatter(decomposed_embeddings, y)
 
 
