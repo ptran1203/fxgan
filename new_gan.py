@@ -279,6 +279,32 @@ class BalancingGAN:
         self.latent_encoder.load_weights(fname + '.h5')
         self.latent_encoder.trainable = False
 
+
+    def generate_images_for_class(self, bg, classid, samples=10, repeat=False):
+        latent = self.generate_latent([classid] * samples)
+        if not repeat:
+            images = bg.ramdom_kshot_images(self.k_shot,
+                                            np.full(samples, classid))
+        else:
+            images = bg.ramdom_kshot_images(self.k_shot,
+                                            np.full(1, classid))
+            images = np.repeat(images, samples,axis=0)
+
+        generated_images = self.generator.predict([images, latent])
+        return generated_images
+
+
+    def classify_by_metric(self, bg, images, metric='l2'):
+        supports = [bg.get_samples_for_class(i, 1) \
+                        for i in self.classes]
+        sp_vectors = [self.latent_encoder.predict(triple_channels(s_img)) \
+                        for s_img in supports]
+        vector = self.latent_encoder.predict(triple_channels(images))
+        distances = [np.mean(np.square(vector - svec)) for svec in sp_vectors]
+        pred = np.argmin(np.array(distances))
+        return pred
+
+
     def compute_multivariate(self, bg):
         if self.sampling == 'normal':
             return
@@ -295,7 +321,7 @@ class BalancingGAN:
             imgs = bg.dataset_x[bg.per_class_ids[c]]
             imgs = utils.triple_channels(imgs)
             latent = self.latent_encoder.predict(imgs)
-            
+
             self.covariances.append(np.cov(np.transpose(latent)))
             self.means.append(np.mean(latent, axis=0))
 
@@ -592,6 +618,7 @@ class BalancingGAN:
 
         kernel_size = 5
         init_channels = 256
+        norm = 'fn' if 'fn' in self.norm else self.norm
 
         latent = Dense(4 * 4 * init_channels)(latent_from_i)
         latent = self._norm()(latent)
@@ -599,18 +626,18 @@ class BalancingGAN:
         latent = Reshape((4, 4, init_channels))(latent)
 
         de = _transpose_block(latent, 256, Activation('relu'),
-                             kernel_size, norm=self.norm,
-                             )
+                             kernel_size, norm=norm,
+                             norm_var=self.attribute_net(images, 256))
 
         if self.attention:
             de = SelfAttention(256)(de)
 
         de = _transpose_block(de, 128, Activation('relu'),
-                             kernel_size, norm=self.norm,
+                             kernel_size, norm=norm,
                              norm_var=self.attribute_net(images, 128))
 
         de = _transpose_block(de, 64, Activation('relu'),
-                             kernel_size, norm=self.norm,
+                             kernel_size, norm=norm,
                              norm_var=self.attribute_net(images, 64))
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
