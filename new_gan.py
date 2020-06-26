@@ -349,7 +349,7 @@ class BalancingGAN:
             imgs = bg.dataset_x[bg.per_class_ids[c]]
             imgs = utils.triple_channels(imgs)
             latent = self.latent_encoder.predict(imgs)
-
+            
             self.covariances.append(np.cov(np.transpose(latent)))
             self.means.append(np.mean(latent, axis=0))
 
@@ -1149,12 +1149,12 @@ class BalancingGAN:
     def plot_feature_distr(self, bg, size=500):
         x, y = bg.dataset_x, bg.dataset_y
         real = bg.ramdom_kshot_images(self.k_shot,
-                                    np.full(size, 0))
+                                    np.full(size, bg.classes[0]))
         fakes = self.generator.predict([real,
                                         self.generate_latent([0] * size)])
         fake_labels = [np.full((size,), 'fake of 0')]
 
-        for classid in range(1, min(self.nclasses, 5)):
+        for classid in bg.classes[1:5]:
             real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, classid))
             fake = self.generator.predict([real, self.generate_latent([classid] * size)])
@@ -1168,7 +1168,6 @@ class BalancingGAN:
             np.full((fakes.shape[0],), 'fake'),
         ])
 
-    
         utils.scatter_plot(imgs, labels, self.features_from_d_model, 'fake real space')
         labels = np.concatenate([y, np.concatenate(fake_labels)])
         utils.scatter_plot(imgs, labels, self.latent_encoder, 'latent encoder')
