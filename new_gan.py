@@ -157,12 +157,18 @@ class FeatureNorm(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
+
 class BalancingGAN:
     D_RATE = 1
     def _triple_tensor(self, x):
         if x.shape[-1] == 3:
             return x
         return Concatenate()([x,x,x])
+
+    def _apply_feature_norm(self, x, image):
+        scale, bias = self.attribute_net(image, K.int_shape(x)[-1])
+        return FeatureNorm(norm=self.norm)([x, scale, bias])
+
 
     def _res_block(self,
                   x,
@@ -184,8 +190,7 @@ class BalancingGAN:
             else:
                 if img is None:
                     raise ValueError('Attribute image is None')
-                scale, bias = self.attribute_net(img, K.int_shape(x)[-1])
-                x = FeatureNorm(norm=self.norm)([x, scale, bias])
+                x = self._apply_feature_norm(x, img)
             return x
 
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
@@ -605,7 +610,7 @@ class BalancingGAN:
                             attr_image=images)
 
         de = self._upscale(de, 'conv', 256, kernel_size)
-        de = self._norm()(de)
+        de = self._apply_feature_norm(de, images)
         de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
@@ -613,12 +618,12 @@ class BalancingGAN:
             de = SelfAttention(256)(de)
 
         de = self._upscale(de, 'conv', 128, kernel_size)
-        de = self._norm()(de)
+        de = self._apply_feature_norm(de, images)
         de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
-        de = self._norm()(de)
+        de = self._apply_feature_norm(de, images)
         de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
