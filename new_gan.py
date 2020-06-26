@@ -643,7 +643,7 @@ class BalancingGAN:
         
         latent_from_i = Average()(attr_features) # vector 128
         latent_from_i = Dense(256, activation='relu')(latent_from_i)
-        latent_from_i = Dense(self.latent_size, activation='tanh')(latent_from_i)
+        latent_from_i = Dense(self.latent_size)(latent_from_i)
         # concatenate attribute feature and latent code
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
