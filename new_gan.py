@@ -170,33 +170,37 @@ class BalancingGAN:
                   kernel_size = 3,
                   activation = 'leaky_relu',
                   norm = 'batch',
-                  norm_var = [0,0]):
-        scale, bias = norm_var
-        if activation == 'leaky_relu':
-            actv = LeakyReLU()
-        else:
-            actv = Activation(activation)
+                  attr_image=None):
+        def actv(activation):
+            if activation == 'leaky_relu':
+                return LeakyReLU()
+            return Activation(activation)
 
-        def norm_layer(x):
+        def norm_layer(x, img):
             if norm == 'batch':
                 x = BatchNormalization()(x)
             elif norm == 'in':
                 x = InstanceNormalization()(x)
             else:
+                if img is None:
+                    raise ValueError('Attribute image is None')
+                scale, bias = self.attribute_net(img, K.int_shape(x)[-1])
                 x = FeatureNorm(norm=self.norm)([x, scale, bias])
             return x
 
-        out = norm_layer(x)
-        out = actv(out)
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
-        out = norm_layer(out)
-        out = actv(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
+        out = norm_layer(out, attr_image)
+        out = actv(activation)(out)
 
-        out = Conv2D(K.int_shape(x)[-1], kernel_size, strides = 1, padding='same')(out)
-        out = norm_layer(out)
-        out = actv(out)
-        out = Add()([out, x])
-        return out
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
+        out = norm_layer(out, attr_image)
+        out = actv(activation)(out)
+
+        x = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
+        x = norm_layer(x, attr_image)
+        x = actv(activation)(x)
+
+        return Add()([out, x])
 
     def _upscale(self, x, interpolation='conv', units=64, kernel_size=5):
             if interpolation == 'conv':
@@ -591,15 +595,14 @@ class BalancingGAN:
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 5
-        norm_var = self.attribute_net(images, 256)
 
         # using feature normalization
         de = self._res_block(latent, 256, kernel_size,
                             norm='fn',
-                            norm_var=norm_var)
+                            attr_image=images)
         de = self._res_block(de, 256, kernel_size,
                             norm='fn',
-                            norm_var=norm_var)
+                            attr_image=images)
 
         de = self._upscale(de, 'conv', 256, kernel_size)
         de = self._norm()(de)
