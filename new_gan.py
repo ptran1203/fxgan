@@ -159,7 +159,6 @@ class FeatureNorm(keras.layers.Layer):
 
 class BalancingGAN:
     D_RATE = 1
-    attribute_loss_weight = 1
     def _triple_tensor(self, x):
         if x.shape[-1] == 3:
             return x
@@ -453,8 +452,8 @@ class BalancingGAN:
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        real_output_for_d = self.discriminator([real_images, attr_images])
-        fake_output_for_d = self.discriminator([fake_images, attr_images])
+        real_output_for_d = self.discriminator([real_images])
+        fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_fake = Model(
             inputs = [fake_images, attr_images],
@@ -490,7 +489,7 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
-        aux_fake = self.discriminator([fake, real_images_for_G])
+        aux_fake = self.discriminator([fake])
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
         fake_attribute = self.latent_encoder(self._triple_tensor(fake))
@@ -641,11 +640,11 @@ class BalancingGAN:
                 Lambda(lambda x: x[:, i,])(images)
             ))
         
-        latent_from_i = Average()(attr_features) # vector 128
-        latent_from_i = Dense(256, activation='relu')(latent_from_i)
-        latent_from_i = Dense(self.latent_size)(latent_from_i)
+        # latent_from_i = Average()(attr_features) # vector 128
         # concatenate attribute feature and latent code
-        latent_from_i = Concatenate()([latent_from_i, latent_code])
+        latent_from_i = Concatenate()([attr_features, latent_code])
+
+        print(latent_from_i.shape)
 
         kernel_size = 5
         init_channels = 256
@@ -758,7 +757,7 @@ class BalancingGAN:
         print('\n==================================================\n')
 
 
-    def _discriminator_feature(self, image, attr_image):
+    def _discriminator_feature(self, image):
         resolution = self.resolution
         channels = self.channels
 
@@ -775,9 +774,9 @@ class BalancingGAN:
             x = SelfAttention(128)(x)
 
         x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
-        if 'D' in self.norm and 'fn' in self.norm:
-            scale, bias = self.attribute_net(attr_image, 256)
-            x = FeatureNorm(norm=self.norm)([x, scale, bias])
+        # if 'D' in self.norm and 'fn' in self.norm:
+        #     scale, bias = self.attribute_net(attr_image, 256)
+        #     x = FeatureNorm(norm=self.norm)([x, scale, bias])
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
 
@@ -793,9 +792,9 @@ class BalancingGAN:
         channels = self.channels
 
         image = Input(shape=(resolution, resolution, channels))
-        attr_image = Input(shape=(self.k_shot, resolution, resolution, 3))
+        # attr_image = Input(shape=(self.k_shot, resolution, resolution, 3))
 
-        features = self._discriminator_feature(image, attr_image)
+        features = self._discriminator_feature(image)
 
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
 
@@ -808,7 +807,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=[image, attr_image],
+        self.discriminator = Model(inputs=[image],
                                    outputs=aux,
                                    name='discriminator')
 
@@ -827,11 +826,9 @@ class BalancingGAN:
 
 
     def build_features_from_d_model(self):
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
-        model_output = self.discriminator.layers[-2](image)
         self.features_from_d_model = Model(
-            inputs = image,
-            output = model_output,
+            inputs = self.discriminator.inputs,
+            output = self.discriminator.layers[-3].get_output_at(-1),
             name = 'Feature_matching'
         )
 
