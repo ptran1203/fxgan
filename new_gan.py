@@ -284,6 +284,7 @@ class BalancingGAN:
 
         return scale, bias
 
+
     def build_latent_encoder(self):
         fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(self.dataset,
                                                                             self.resolution)
@@ -310,6 +311,20 @@ class BalancingGAN:
 
         generated_images = self.generator.predict([images, latent])
         return generated_images
+
+    def generate_augmented_data(self, bg, size=1000):
+        random = np.arange(bg.dataset_y.shape[0])
+        np.random.shuffle(random)
+        labels = bg.dataset_y[random][:size]
+        labels = np.repeat(labels, 3, axis=0)
+        latent = self.generate_latent(labels)
+        generated = self.generator.predict([bg.ramdom_kshot_images(self.k_shot, labels), latent])
+        discriminated = self.discriminator.predict(generated)
+        d_sorted = discriminated.argsort(axis=0).reshape(-1)
+        # sort by realism
+        generated = generated[d_sorted]
+        labels = labels[d_sorted]
+        return generated, labels
 
 
     def classify_by_metric(self, bg, images, metric='l2'):
