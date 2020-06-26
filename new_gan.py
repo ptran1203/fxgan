@@ -137,11 +137,13 @@ class FeatureNorm(keras.layers.Layer):
         # x = [batch, height, width, channels]
         N, H, W, C = x.shape
 
-        # instance norm
-        axis = [1, 2]
         if 'bn' in self.norm:
             logger.info('Use Batch norm for FeatureNorm layer')
             axis = [0, 1, 2]
+        else:
+            # instance norm
+            logger.info('Use Instance norm for FeatureNorm layer')
+            axis = [1, 2]
 
         mean = K.mean(x, axis = axis, keepdims = True)
         std = K.std(x, axis = axis, keepdims = True)
@@ -324,6 +326,7 @@ class BalancingGAN:
                             for sp_vector in sp_vectors]).reshape(-1,self.nclasses)
         pred = np.argmin(np.array(distances), axis=1)
         return pred
+
 
     def evaluate_by_metric(self, bg, images, labels, metric='l2'):
         pred = self.classify_by_metric(bg, images, metric)
@@ -639,6 +642,8 @@ class BalancingGAN:
             ))
         
         latent_from_i = Average()(attr_features) # vector 128
+        latent_from_i = Dense(256, activation='relu')(latent_from_i)
+        latent_from_i = Dense(self.latent_size, activation='tanh')(latent_from_i)
         # concatenate attribute feature and latent code
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
