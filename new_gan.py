@@ -679,7 +679,6 @@ class BalancingGAN:
 
     def build_encode_decode_G(self):
         def _transpose_block(x, units, activation, kernel_size=3, norm='batch',image=None):
-            scale, bias = norm_var
             def _norm_layer(x):
                 if 'batch' in norm:
                     x = BatchNormalization()(x)
