@@ -543,41 +543,42 @@ class BalancingGAN:
                 print('GAN train epoch: {}/{}'.format(e+1, epochs))
                 train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc = self._train_one_epoch(bg_train)
 
-                # Test: # generate a new batch of noise
-                nb_test = bg_test.get_num_samples()
-                fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
-                sampled_labels = self._biased_sample_labels(nb_test, "d")
-                latent_gen = self.generate_latent(sampled_labels, bg_test)
-            
-                # sample some labels from p_c and generate images from them
-                generated_images = self.generator.predict(
-                    latent_gen, verbose=False)
-            
-                X = np.concatenate( (bg_test.dataset_x, generated_images) )
-                aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
-            
-                # see if the discriminator can figure itself out...
-                test_disc_loss, test_disc_acc = self.discriminator.evaluate(
-                    X, aux_y, verbose=False)
-            
-                # make new latent
-                sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
-                latent_gen = self.generate_latent(sampled_labels, bg_test)
+                if False:
+                    # Test: # generate a new batch of noise
+                    nb_test = bg_test.get_num_samples()
+                    fake_size = int(np.ceil(nb_test * 1.0/self.nclasses))
+                    sampled_labels = self._biased_sample_labels(nb_test, "d")
+                    latent_gen = self.generate_latent(sampled_labels, bg_test)
+                
+                    # sample some labels from p_c and generate images from them
+                    generated_images = self.generator.predict(
+                        latent_gen, verbose=False)
+                
+                    X = np.concatenate( (bg_test.dataset_x, generated_images) )
+                    aux_y = np.concatenate((bg_test.dataset_y, np.full(len(sampled_labels), self.nclasses )), axis=0)
+                
+                    # see if the discriminator can figure itself out...
+                    test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                        X, aux_y, verbose=False)
+                
+                    # make new latent
+                    sampled_labels = self._biased_sample_labels(fake_size + nb_test, "g")
+                    latent_gen = self.generate_latent(sampled_labels, bg_test)
 
-                test_gen_loss, test_gen_acc = self.combined.evaluate(
-                    latent_gen,
-                    sampled_labels, verbose=False)
+                    test_gen_loss, test_gen_acc = self.combined.evaluate(
+                        latent_gen,
+                        sampled_labels, verbose=False)
 
                 # generate an epoch report on performance
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
-                self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append(test_gen_loss)
+                # self.test_history['disc_loss'].append(test_disc_loss)
+                # self.test_history['gen_loss'].append(test_gen_loss)
                 # accuracy
                 self.train_history['disc_acc'].append(train_disc_acc)
                 self.train_history['gen_acc'].append(train_gen_acc)
-                self.test_history['disc_acc'].append(test_disc_acc)
-                self.test_history['gen_acc'].append(test_gen_acc)
+                # self.test_history['disc_acc'].append(test_disc_acc)
+                # self.test_history['gen_acc'].append(test_gen_acc)
                 print("D_loss {}, G_loss {}, D_acc {}, G_acc {} - {}".format(
                     train_disc_loss, train_gen_loss, train_disc_acc, train_gen_acc,
                     datetime.datetime.now() - start_time
