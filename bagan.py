@@ -313,7 +313,7 @@ class BalancingGAN:
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
             np.mean(np.array(epoch_gen_loss), axis=0),
-            np.mean(np.array(epoch_dics_acc), axis=0),
+            np.mean(np.array(epoch_disc_acc), axis=0),
             np.mean(np.array(epoch_gen_acc), axis=0),
         )
 
