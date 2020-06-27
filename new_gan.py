@@ -1,8 +1,8 @@
 
 from collections import defaultdict, Counter
-import keras.backend as K
+import tensorflow.keras.backend as K
 import tensorflow as tf
-import keras
+import tensorflow.keras as keras
 
 from tensorflow.keras.layers.advanced_activations import LeakyReLU
 from tensorflow.keras.layers.convolutional import (
