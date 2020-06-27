@@ -161,7 +161,7 @@ def down_sample(x, scale_factor_h, scale_factor_w) :
     _, h, w, _ = x.get_shape().as_list()
     new_size = [h // scale_factor_h, w // scale_factor_w]
 
-    return K.resize_images(x, scale_factor_h, scale_factor_w)
+    return K.resize_images(x, scale_factor_h, scale_factor_w, 'channels_last')
 
 class Spade(keras.layers.Layer):
     def __init__(self, channels):
