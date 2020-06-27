@@ -4,15 +4,15 @@ import keras.backend as K
 import tensorflow as tf
 import keras
 
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.convolutional import (
+from tensorflow.keras.layers.advanced_activations import LeakyReLU
+from tensorflow.keras.layers.convolutional import (
     UpSampling2D, Convolution2D,
     Conv2D, Conv2DTranspose
 )
-from keras.models import Sequential, Model, model_from_json
-from keras.optimizers import Adam
-from keras.losses import mean_squared_error, cosine_similarity, KLDivergence
-from keras.layers import (
+from tensorflow.keras.models import Sequential, Model, model_from_json
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import mean_squared_error, cosine_similarity, KLDivergence
+from tensorflow.keras.layers import (
     Input, Dense, Reshape,
     Flatten, Embedding, Dropout,
     BatchNormalization, Activation,
@@ -21,15 +21,15 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D,
     RepeatVector,GlobalAveragePooling2D,
 )
-from keras_contrib.losses import DSSIMObjective
-from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+from tensorflow.keras_contrib.losses import DSSIMObjective
+from tensorflow.keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
 from tensorflow.python.ops import array_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.framework import dtypes
 
-from keras.applications.vgg16 import VGG16
+from tensorflow.keras.applications.vgg16 import VGG16
 
-from keras.utils import np_utils
+from tensorflow.keras.utils import np_utils
 import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix

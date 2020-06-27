@@ -1,14 +1,14 @@
-from keras.models import Model
-from keras.layers import Input, Dense, Flatten, BatchNormalization
-from keras.layers import Conv2D, MaxPool2D
-from keras import optimizers
-from keras import losses
-from keras.engine.topology import Layer
-from keras.utils import to_categorical
-from keras.regularizers import l2
-from keras.layers.advanced_activations import PReLU
-from keras import initializers
-from keras import backend as K
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, Flatten, BatchNormalization
+from tensorflow.keras.layers import Conv2D, MaxPool2D
+from tensorflow.keras import optimizers
+from tensorflow.keras import losses
+from tensorflow.keras.engine.topology import Layer
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers.advanced_activations import PReLU
+from tensorflow.keras import initializers
+from tensorflow.keras import backend as K
 import numpy as np
 
 ### parameters

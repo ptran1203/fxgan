@@ -2,9 +2,9 @@ import os
 import numpy as np
 import cv2
 from matplotlib import pyplot as plt
-from keras import backend as K
-from keras.preprocessing import image
-from keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
+from tensorflow.keras import backend as K
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input, decode_predictions
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
