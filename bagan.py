@@ -183,7 +183,8 @@ class BalancingGAN:
                  # No relevant difference noted
                  dratio_mode="uniform", gratio_mode="uniform",
                  adam_lr=0.00005, latent_size=100,
-                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8):
+                 res_dir = "./res-tmp", image_shape=[3,32,32], min_latent_res=8,
+                 autoenc_epochs=100):
         self.gratio_mode = gratio_mode
         self.dratio_mode = dratio_mode
         self.classes = classes
@@ -193,6 +194,7 @@ class BalancingGAN:
         self.res_dir = res_dir
         self.channels = image_shape[-1]
         self.resolution = image_shape[1]
+        self.autoenc_epochs =autoenc_epochs
 
         self.min_latent_res = min_latent_res
 
@@ -387,7 +389,6 @@ class BalancingGAN:
         else:
             print("BAGAN: training autoencoder")
             autoenc_train_loss = []
-            self.autoenc_epochs = 100
             for e in range(self.autoenc_epochs):
                 print('Autoencoder train epoch: {}/{}'.format(e+1, self.autoenc_epochs))
                 autoenc_train_loss_crt = []
