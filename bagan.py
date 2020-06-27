@@ -149,10 +149,6 @@ class BalancingGAN:
         self.resolution = image_shape[1]
 
         self.min_latent_res = min_latent_res
-        self.classifier = load_classifier()
-        self.classifier.compile(optimizer='adam', loss='binary_crossentropy',
-            metrics=['accuracy'])
-        self.classifier_acc = pickle_load(CLASSIFIER_DIR + '/acc_array.pkl') or []
 
         # Initialize learning variables
         self.adam_lr = adam_lr 
@@ -574,7 +570,6 @@ class BalancingGAN:
                     
                     labels = np_utils.to_categorical(labels, self.nclasses)
                     img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
-                    _, accuracy = self.classifier.evaluate(img_samples, labels)
 
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
