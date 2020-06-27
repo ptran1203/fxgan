@@ -161,7 +161,7 @@ def down_sample(x, scale_factor_h, scale_factor_w) :
     _, h, w, _ = x.get_shape().as_list()
     new_size = [h // scale_factor_h, w // scale_factor_w]
 
-    return tf.image.resize_nearest_neighbor(x, size=new_size)
+    return K.resize_images(x, scale_factor_h, scale_factor_w)
 
 class Spade(keras.layers.Layer):
     def __init__(self, channels):
@@ -737,7 +737,7 @@ class BalancingGAN:
         self.generator = Model(
             inputs = [images, latent_code],
             outputs = outputs,
-            name='dc_gen'
+            name='dc_gen',
         )
 
 
