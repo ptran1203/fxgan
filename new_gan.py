@@ -11,7 +11,7 @@ from keras.layers.convolutional import (
 )
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
-from keras.losses import mean_squared_error, cosine_similarity, KLDivergence
+from keras.losses import mean_squared_error
 from keras.layers import (
     Input, Dense, Reshape,
     Flatten, Embedding, Dropout,
@@ -48,8 +48,6 @@ import logger
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
-
-K.common.set_image_dim_ordering('tf')
 
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)

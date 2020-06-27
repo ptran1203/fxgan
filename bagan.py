@@ -3,7 +3,7 @@
 from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
-import tensorflow.keras as keras
+import keras
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import (
