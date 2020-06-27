@@ -29,13 +29,6 @@ class BalancingGAN:
         plt.xlabel('epoch')
         plt.legend()
         plt.show()
-    
-    def plot_classifier_acc(self):
-        plt.plot(self.classifier_acc, label='classifier_acc')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch(x5)')
-        plt.legend()
-        plt.show()
 
     def build_generator(self, latent_size, init_resolution=8):
         resolution = self.resolution
@@ -154,9 +147,6 @@ class BalancingGAN:
         self.res_dir = res_dir
         self.channels = image_shape[0]
         self.resolution = image_shape[1]
-        if self.resolution != image_shape[2]:
-            print("Error: only squared images currently supported by balancingGAN")
-            exit(1)
 
         self.min_latent_res = min_latent_res
         self.classifier = load_classifier()
@@ -455,7 +445,6 @@ class BalancingGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
-        pickle_save(self.classifier_acc, CLASSIFIER_DIR + '/acc_array.pkl')
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
@@ -587,10 +576,6 @@ class BalancingGAN:
                     img_samples = np.transpose(img_samples, axes=(0, 2, 3, 1))
                     _, accuracy = self.classifier.evaluate(img_samples, labels)
 
-                    self.classifier_acc.append(accuracy)
-
-                    print('classifier accuracy: {:.2f}%'.format(accuracy*100))
-                    self.plot_classifier_acc()
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
                     save_image_array(five_imgs, None, True)
