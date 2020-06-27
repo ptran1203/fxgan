@@ -1,5 +1,56 @@
 
 
+from collections import defaultdict, Counter
+import keras.backend as K
+import tensorflow as tf
+import keras
+
+from keras.layers.advanced_activations import LeakyReLU
+from keras.layers.convolutional import (
+    UpSampling2D, Convolution2D,
+    Conv2D, Conv2DTranspose
+)
+from keras.models import Sequential, Model, model_from_json
+from keras.optimizers import Adam
+from keras.losses import mean_squared_error, cosine_similarity, KLDivergence
+from keras.layers import (
+    Input, Dense, Reshape,
+    Flatten, Embedding, Dropout,
+    BatchNormalization, Activation,
+    Lambda,Layer, Add, Concatenate,
+    Average,GaussianNoise,
+    MaxPooling2D, AveragePooling2D,
+    RepeatVector,GlobalAveragePooling2D,
+)
+from keras_contrib.losses import DSSIMObjective
+from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
+from tensorflow.python.ops import array_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.framework import dtypes
+
+from keras.applications.vgg16 import VGG16
+
+from keras.utils import np_utils
+import sklearn.metrics as metrics
+from sklearn.model_selection import train_test_split
+from mlxtend.plotting import plot_confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import os
+import sys
+import re
+import numpy as np
+import datetime
+import pickle
+import cv2
+import utils
+import logger
+
+from google.colab.patches import cv2_imshow
+from PIL import Image
+
+K.common.set_image_dim_ordering('tf')
 
 class BalancingGAN:
     def plot_loss_his(self):
@@ -39,14 +90,13 @@ class BalancingGAN:
         cnn.add(Dense(init_channels * init_resolution * init_resolution, input_dim=latent_size))
         cnn.add(BatchNormalization())
         cnn.add(LeakyReLU())
-        cnn.add(Reshape((init_channels, init_resolution, init_resolution)))
+        cnn.add(Reshape((init_resolution, init_resolution, init_channels)))
        
         crt_res = init_resolution
         # upsample
         while crt_res < resolution/2:
             cnn.add(Conv2DTranspose(
                 init_channels, kernel_size = 5, strides = 2, padding='same'))
-            # cnn.add(BatchNormalization())
             cnn.add(LeakyReLU(alpha=0.02))
             init_channels //= 2
             crt_res = crt_res * 2
@@ -72,7 +122,7 @@ class BalancingGAN:
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2),input_shape=(channels, resolution, resolution)))
+        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
@@ -94,7 +144,7 @@ class BalancingGAN:
     def build_reconstructor(self, latent_size, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(channels, resolution, resolution))
+        image = Input(shape=(resolution, resolution, channels))
         features = self._build_common_encoder(image, min_latent_res)
         # Reconstructor specific
         latent = Dense(latent_size, activation='linear')(features)
@@ -103,7 +153,7 @@ class BalancingGAN:
     def build_discriminator(self, min_latent_res=8):
         resolution = self.resolution
         channels = self.channels
-        image = Input(shape=(channels, resolution, resolution))
+        image = Input(shape=(resolution, resolution, channels))
         features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
@@ -145,7 +195,7 @@ class BalancingGAN:
         self.nclasses = len(classes)
         self.latent_size = latent_size
         self.res_dir = res_dir
-        self.channels = image_shape[0]
+        self.channels = image_shape[-1]
         self.resolution = image_shape[1]
 
         self.min_latent_res = min_latent_res
