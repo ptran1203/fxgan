@@ -704,9 +704,9 @@ class BalancingGAN:
                 Lambda(lambda x: x[:, i,])(images)
             ))
 
-        # latent_from_i = Average()(attr_features) # vector 128
+        latent_from_i = Average()(attr_features) # vector 128
         # concatenate attribute feature and latent code
-        latent_from_i = Concatenate()([attr_features, latent_code])
+        latent_from_i = Concatenate()([latent_from_i, latent_code])
 
         kernel_size = 5
         init_channels = 256
