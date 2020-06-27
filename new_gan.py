@@ -157,6 +157,47 @@ class FeatureNorm(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
+def down_sample(x, scale_factor_h, scale_factor_w) :
+    _, h, w, _ = x.get_shape().as_list()
+    new_size = [h // scale_factor_h, w // scale_factor_w]
+
+    return tf.image.resize_nearest_neighbor(x, size=new_size)
+
+class Spade(keras.layers.Layer):
+    def __init__(self, channels):
+        super(Spade, self).__init__()
+        self.channels = channels
+
+    def call(self, inputs):
+        x, image = inputs
+        # x = [batch, height, width, channels]
+        x_n, x_h, x_w, x_c = x.shape
+        _, i_h, i_w, _ = image.shape
+
+        factor_h = i_h // x_h  # 256 // 4 = 64
+        factor_w = i_w // x_w
+
+        image_down = down_sample(image, factor_h, factor_w)
+
+        image_down = Conv2D(128, kernel_size=5, strides=1,
+                            padding='same',
+                            activation='relu')(image_down)
+        
+        image_gamma = Conv2D(self.channels, kernel_size=5,
+                            strides=1, padding='same')(image_down)
+        image_beta = Conv2D(self.channels, kernel_size=5,
+                            strides=1, padding='same')(image_down)
+
+        axis = [0, 1, 2] # batch
+        mean = K.mean(x, axis = axis, keepdims = True)
+        std = K.std(x, axis = axis, keepdims = True)
+        norm = (x - mean) * (1 / (std + self.epsilon))
+
+        return norm * image_beta + image_gamma
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
+
 
 class BalancingGAN:
     D_RATE = 1
@@ -637,7 +678,7 @@ class BalancingGAN:
         )
 
     def build_encode_decode_G(self):
-        def _transpose_block(x, units, activation, kernel_size=3, norm='batch', norm_var = [0,0]):
+        def _transpose_block(x, units, activation, kernel_size=3, norm='batch', image):
             scale, bias = norm_var
             def _norm_layer(x):
                 if 'batch' in norm:
@@ -645,7 +686,7 @@ class BalancingGAN:
                 elif 'in' in norm:
                     x = InstanceNormalization()(x)
                 else:
-                    x = FeatureNorm(norm=self.norm)([x, scale, bias])
+                    x = Spade(units)([x, image])
                 return x
 
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
@@ -656,18 +697,16 @@ class BalancingGAN:
 
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3), name = 'G_input')
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
-
+        image = Lambda(lambda x: x[:, 0,])(images)
         attr_features = []
         for i in range(self.k_shot):
             attr_features.append(self.latent_encoder(
                 Lambda(lambda x: x[:, i,])(images)
             ))
-        
+
         # latent_from_i = Average()(attr_features) # vector 128
         # concatenate attribute feature and latent code
         latent_from_i = Concatenate()([attr_features, latent_code])
-
-        print(latent_from_i.shape)
 
         kernel_size = 5
         init_channels = 256
@@ -680,18 +719,18 @@ class BalancingGAN:
 
         de = _transpose_block(latent, 256, Activation('relu'),
                              kernel_size, norm=norm,
-                             norm_var=self.attribute_net(images, 256))
+                             image=image)
 
         if self.attention:
             de = SelfAttention(256)(de)
 
         de = _transpose_block(de, 128, Activation('relu'),
                              kernel_size, norm=norm,
-                             norm_var=self.attribute_net(images, 128))
+                             image=image)
 
         de = _transpose_block(de, 64, Activation('relu'),
                              kernel_size, norm=norm,
-                             norm_var=self.attribute_net(images, 64))
+                             image=image)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
         outputs = Activation('tanh')(final)
