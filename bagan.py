@@ -535,7 +535,7 @@ class BalancingGAN:
             shape = img_samples.shape
             img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
 
-            save_image_array(img_samples, None, True)
+            utils.show_samples(img_samples)
 
             # Train
             for e in range(start_e, epochs):
@@ -591,11 +591,7 @@ class BalancingGAN:
                         for c in range(0,self.nclasses)
                     ])
 
-                    save_image_array(
-                        img_samples,
-                        '{}/plot_class_{}_epoch_{}.png'.format(self.res_dir, self.target_class_id, e),
-                        show=True
-                    )
+                    utils.show_samples(img_samples)
 
                 # Generate whole evaluation plot (real img, autoencoded img, fake img)
                 if e % 10 == 5:
@@ -618,7 +614,7 @@ class BalancingGAN:
 
                     # shape = img_samples.shape
                     # img_samples = img_samples.reshape((-1, shape[-4], shape[-3], shape[-2], shape[-1]))
-                    save_image_array(five_imgs, None, True)
+                    utils.show_samples(five_imgs)
             self.trained = True
 
     def generate_samples(self, c, samples, bg = None):
