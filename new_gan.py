@@ -161,24 +161,23 @@ def down_sample(x, scale_factor_h, scale_factor_w) :
     _, h, w, _ = x.get_shape().as_list()
     new_size = [h // scale_factor_h, w // scale_factor_w]
 
-    return K.resize_images(x, scale_factor_h, scale_factor_w, 'channels_last')
-
+    return tf.image.resize_nearest_neighbor(x, size=new_size)
 class Spade(keras.layers.Layer):
     def __init__(self, channels):
-        super(Spade, self).__init__()
+        super(Spadev1, self).__init__()
         self.channels = channels
+        self.epsilon = 1e-4
 
     def call(self, inputs):
         x, image = inputs
         # x = [batch, height, width, channels]
-        x_n, x_h, x_w, x_c = x.shape
-        _, i_h, i_w, _ = image.shape
+        x_n, x_h, x_w, x_c = K.int_shape(x)
+        _, i_h, i_w, _ = K.int_shape(image)
 
         factor_h = i_h // x_h  # 256 // 4 = 64
         factor_w = i_w // x_w
 
-        image_down = down_sample(image, factor_h, factor_w)
-
+        image_down = Lambda(lambda x: down_sample(x, factor_h, factor_w))(image)
         image_down = Conv2D(128, kernel_size=5, strides=1,
                             padding='same',
                             activation='relu')(image_down)
@@ -188,12 +187,12 @@ class Spade(keras.layers.Layer):
         image_beta = Conv2D(self.channels, kernel_size=5,
                             strides=1, padding='same')(image_down)
 
-        axis = [0, 1, 2] # batch
-        mean = K.mean(x, axis = axis, keepdims = True)
-        std = K.std(x, axis = axis, keepdims = True)
-        norm = (x - mean) * (1 / (std + self.epsilon))
+        # axis = [0, 1, 2] # batch
+        # mean = K.mean(x, axis = axis, keepdims = True)
+        # std = K.std(x, axis = axis, keepdims = True)
+        # norm = (x - mean) * (1 / (std + self.epsilon))
 
-        return norm * image_beta + image_gamma
+        return x * (1 + image_beta) + image_gamma
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
@@ -1029,8 +1028,6 @@ class BalancingGAN:
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
-            self.autoenc_epochs = 100
-
             # Initialization
             print("init gan")
             self.compute_multivariate(bg_train)

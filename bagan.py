@@ -491,8 +491,6 @@ class BalancingGAN:
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
-            self.autoenc_epochs = 100
-
             # Class actual ratio
             self.class_aratio = bg_train.get_class_probability()
 
