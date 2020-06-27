@@ -106,10 +106,7 @@ class BalancingGAN:
                     1, kernel_size = 5,
                     strides = 2, padding='same',
                     activation='tanh'))
-        # cnn.add(BatchNormalization())
-        # cnn.add(LeakyReLU(alpha=0.02))
-        # cnn.add(Conv2D(1, kernel_size=5, strides = 1, padding='same', activation='tanh'))
-        # cnn.add(Activation('tanh'))
+
         latent = Input(shape=(latent_size, ))
 
         fake_image_from_latent = cnn(latent)
@@ -122,18 +119,17 @@ class BalancingGAN:
         # build a relatively standard conv net, with LeakyReLUs as suggested in ACGAN
         cnn = Sequential()
 
-        cnn.add(Conv2D(32, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(Conv2D(128, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
+            
+        cnn.add(Conv2D(256, (5, 5), padding='same', strides=(2, 2)))
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
-        size = 128
-        while cnn.output_shape[-1] > min_latent_res:
-            cnn.add(Conv2D(size, (5, 5), padding='same', strides=(2, 2)))
-            # cnn.add(BatchNormalization())
-            cnn.add(LeakyReLU(alpha=0.2))
-            cnn.add(Dropout(0.3))
-            size *= 2
-            
+        cnn.add(Conv2D(512, (5, 5), padding='same', strides=(2, 2)))
+        cnn.add(LeakyReLU(alpha=0.2))
+        cnn.add(Dropout(0.3))
 
         cnn.add(Flatten())
 
@@ -255,7 +251,7 @@ class BalancingGAN:
         self.generator.trainable = True
         self.reconstructor.trainable = True
 
-        img_for_reconstructor = Input(shape=(self.channels, self.resolution, self.resolution,))
+        img_for_reconstructor = Input(shape=(self.resolution, self.resolution,self.channels))
         img_reconstruct = self.generator(self.reconstructor(img_for_reconstructor))
         self.autoenc_0 = Model(inputs=img_for_reconstructor, outputs=img_reconstruct)
         self.autoenc_0.compile(
