@@ -164,7 +164,7 @@ def down_sample(x, scale_factor_h, scale_factor_w) :
     return tf.image.resize_nearest_neighbor(x, size=new_size)
 class Spade(keras.layers.Layer):
     def __init__(self, channels):
-        super(Spadev1, self).__init__()
+        super(Spade, self).__init__()
         self.channels = channels
         self.epsilon = 1e-4
 
