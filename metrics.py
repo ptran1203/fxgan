@@ -1,5 +1,5 @@
 import sklearn.metrics as sk_metrics
-from tensorflow.keras.utils import to_categorical
+from keras.utils import to_categorical
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP
 
 def _safe_get(idx):
