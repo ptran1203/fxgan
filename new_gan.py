@@ -4,7 +4,7 @@ import tensorflow.keras.backend as K
 import tensorflow as tf
 import tensorflow.keras as keras
 
-from tensorflow.keras.layers.advanced_activations import LeakyReLU
+# from keras.layers.advanced_activations import LeakyReLU
 from tensorflow.keras.layers.convolutional import (
     UpSampling2D, Convolution2D,
     Conv2D, Conv2DTranspose
@@ -20,6 +20,7 @@ from tensorflow.keras.layers import (
     Average,GaussianNoise,
     MaxPooling2D, AveragePooling2D,
     RepeatVector,GlobalAveragePooling2D,
+    LeakyReLU,
 )
 from tensorflow.keras_contrib.losses import DSSIMObjective
 from tensorflow.keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
