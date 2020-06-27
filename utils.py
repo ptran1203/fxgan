@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-import tensorflow.keras.backend as K
+import keras.backend as K
 import os
 import re
 import numpy as np

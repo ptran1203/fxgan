@@ -1,7 +1,7 @@
 
 
 from collections import defaultdict, Counter
-import tensorflow.keras.backend as K
+import keras.backend as K
 import tensorflow as tf
 import tensorflow.keras as keras
 

@@ -2,7 +2,7 @@
 from collections import defaultdict, Counter
 import keras.backend as K
 import tensorflow as tf
-import tensorflow.keras as keras
+import keras
 
 from keras.layers.advanced_activations import LeakyReLU
 from keras.layers.convolutional import (
@@ -20,8 +20,6 @@ from keras.layers import (
     Average,GaussianNoise,
     MaxPooling2D, AveragePooling2D,
     RepeatVector,GlobalAveragePooling2D,
-    LeakyReLU,UpSampling2D, Convolution2D,
-    Conv2D, Conv2DTranspose
 )
 from keras_contrib.losses import DSSIMObjective
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
