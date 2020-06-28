@@ -258,21 +258,38 @@ class BalancingGAN:
                 return x
 
 
-    def show_samples_for_class(self,bg,classid):
+    def show_samples_for_class(self,bg,classid, mode='00'):
         """
         Show K-samples + 10 - k generated image based on K
+        mode params: including 2 digit numbers (string) xy
+                     x = 0 => difference image
+                     y = 0 => difference latent
+                     and 1 mean the same image/latent
         """
+        mode_x, mode_y = int(mode[0]), int(mode[1])
+
         samples = 10 - self.k_shot
-        support_images = bg.ramdom_kshot_images(self.k_shot,
-                                                [classid])
-        support_images = np.repeat(support_images,
-                                    samples,
-                                    axis=0)
-        latent = self.generate_latent([classid] * samples)
+        if mode_x == 0:
+            print("difference images")
+            support_images = bg.ramdom_kshot_images(self.k_shot,
+                                                    [classid] * samples)
+        else:
+            print("same images")
+            support_images = bg.ramdom_kshot_images(self.k_shot,
+                                                    [classid])
+            support_images = np.repeat(support_images,
+                                        samples,
+                                        axis=0)
+        if mode_y == 0:
+            print("difference latent")
+            latent = self.generate_latent([classid] * samples)
+        else:
+            print("same latent")
+            latent = np.repeat(self.generate_latent([classid]), samples, axis=0)
+
         generated_images = self.generator.predict([support_images, latent])
-        final = np.concatenate([support_images[0],
-                                triple_channels(generated_images)], axis=0)
-        utils.show_samples(final)
+        utils.show_samples(support_images[:,0,])
+        utils.show_samples(generated_images)
 
 
     def build_attribute_encoder(self):
@@ -378,10 +395,10 @@ class BalancingGAN:
         # currently do one-shot classification
         supports = np.array([bg.get_samples_for_class(i, 1) \
                         for i in self.classes])
-        sp_vectors = np.array([self.latent_encoder.predict(triple_channels(s_img)) \
+        sp_vectors = np.array([self.latent_encoder.predict(utils.triple_channels(s_img)) \
                         for s_img in supports])
 
-        vectors = self.latent_encoder.predict(triple_channels(images))
+        vectors = self.latent_encoder.predict(utils.triple_channels(images))
         distances = np.array([np.mean(np.square(vector - sp_vector)) \
                             for vector in vectors \
                             for sp_vector in sp_vectors]).reshape(-1,self.nclasses)
@@ -989,9 +1006,9 @@ class BalancingGAN:
             e = str(e)
             try:
                 utils.set_weights(self.generator, self.res_dir)
-            except:
-                e += ', Load weigths array error'
-            logger.warn('Reload error, restart from scratch ' + e)
+            except Exception as err:
+                e += '\n, Load weigths array error ' + str(err)
+                logger.warn('Reload error, restart from scratch ' + e)
             return 0
 
     def backup_point(self, epoch):

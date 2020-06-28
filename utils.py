@@ -13,6 +13,8 @@ import numpy as np
 import datetime
 import pickle
 import cv2
+import urllib.request
+
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
@@ -77,6 +79,16 @@ def pickle_save(object, path):
             return pickle.dump(object, f)
     except:
         print('save data to {} failed'.format(path))
+
+
+def http_get_img(url, rst=64, gray=False):
+    req = urllib.request.urlopen(url)
+    arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
+    img = cv2.imdecode(arr, -1)
+    img = cv2.resize(img, (rst, rst))
+    if gray:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    return (img.reshape((1, rst, rst, -1)) - 127.5) / 127.5
 
 def save_weights(model, dir):
     name = model.name + '.h5'
