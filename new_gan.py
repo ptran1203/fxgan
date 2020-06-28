@@ -301,7 +301,7 @@ class BalancingGAN:
         x = self._norm()(x)
         x = Activation('relu')(x)
 
-        x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
+        x = Conv2D(self.latent_size, kernel_size, strides=2, padding='same')(x)
         x = self._norm()(x)
         x = Activation('relu')(x)
 
@@ -986,7 +986,12 @@ class BalancingGAN:
             return epoch
 
         except Exception as e:
-            logger.warn('Reload error, restart from scratch ' + str(e))
+            e = str(e)
+            try:
+                utils.set_weights(self.generator, self.res_dir)
+            except:
+                e += ', Load weigths array error'
+            logger.warn('Reload error, restart from scratch ' + e)
             return 0
 
     def backup_point(self, epoch):
@@ -998,6 +1003,7 @@ class BalancingGAN:
         generator_fname = "{}/bck_generator.h5".format(self.res_dir)
         discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
+        utils.save_weights(self.generator, self.res_dir)
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
 

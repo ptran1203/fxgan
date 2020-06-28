@@ -78,6 +78,17 @@ def pickle_save(object, path):
     except:
         print('save data to {} failed'.format(path))
 
+def save_weights(model, dir):
+    name = model.name + '.h5'
+    weights = [l.get_weights() for l in model.layers]
+    pickle_save(weights, os.path.join(dir, name))
+
+def set_weights(model, dir):
+    name = model.name + '.h5'
+    weights = pickle_load(os.path.join(dir, name))
+    for layer, w in zip(model.layers, weights):
+        layer.set_weights(w)
+
 
 def pickle_load(path):
     try:
