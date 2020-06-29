@@ -440,14 +440,11 @@ class BalancingGAN:
         # Find last bck name
         files = [
             f for f in os.listdir(self.res_dir)
-            if re.match(r'bck_c_{}'.format(self.target_class_id) + "_" + element, f)
+            if re.match(r'bck_' + element, f)
         ]
         if len(files) > 0:
             fname = files[0]
-            e_str = os.path.splitext(fname)[0].split("_")[-1]
-
-            epoch = int(e_str)
-
+            epoch = 0
             return epoch, fname
 
         else:
@@ -456,35 +453,28 @@ class BalancingGAN:
     def init_gan(self):
         # Find last bck name
         epoch, generator_fname = self._get_lst_bck_name("generator")
-
         new_e, discriminator_fname = self._get_lst_bck_name("discriminator")
-        if new_e != epoch:  # Reload error, restart from scratch
-            return 0
 
         # Load last bck
         try:
             self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
             self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
+            print('GAN weight initialized, train from epoch ', epoch)
             return epoch
 
-        # Return epoch
-        except Exception as e:  # Reload error, restart from scratch (the first time we train we pass from here)
-            print(str(e))
+        except Exception as e:
+            e = str(e)
+            logger.warn('Reload error, restart from scratch ' + e)
             return 0
 
     def backup_point(self, epoch):
-        # Remove last bck
-        _, old_bck_g = self._get_lst_bck_name("generator")
-        _, old_bck_d = self._get_lst_bck_name("discriminator")
-        try:
-            os.remove(os.path.join(self.res_dir, old_bck_g))
-            os.remove(os.path.join(self.res_dir, old_bck_d))
-        except:
-            pass
-
         # Bck
-        generator_fname = "{}/bck_c_{}_generator_e_{}.h5".format(self.res_dir, self.target_class_id, epoch)
-        discriminator_fname = "{}/bck_c_{}_discriminator_e_{}.h5".format(self.res_dir, self.target_class_id, epoch)
+        if epoch == 0:
+            return
+
+        print('Save weights at epochs : ', epoch)
+        generator_fname = "{}/bck_generator.h5".format(self.res_dir)
+        discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
