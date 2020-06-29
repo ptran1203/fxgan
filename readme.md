@@ -38,3 +38,10 @@
 2. Data distribution (Without No finding case)
 
 ![label_counts](images/label_counts_2.png)  
+
+
+
+### Experiments note
+- using Center loss + standard augmentation
+- Select the most informative samples to train GAN, select the samples which are located near the center
+- Using triplet loss instead of l2 loss for Generator

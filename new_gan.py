@@ -286,8 +286,9 @@ class BalancingGAN:
         else:
             print("same latent")
             latent = np.repeat(self.generate_latent([classid]), samples, axis=0)
-
+    
         generated_images = self.generator.predict([support_images, latent])
+        print("predicts: ", self.classify_by_metric(bg, generated_images))
         utils.show_samples(support_images[:,0,])
         utils.show_samples(generated_images)
 
@@ -1011,18 +1012,18 @@ class BalancingGAN:
                 logger.warn('Reload error, restart from scratch ' + e)
             return 0
 
-    def backup_point(self, epoch):
-        # Bck
-        if epoch == 0:
-            return
+        def backup_point(self, epoch):
+            # Bck
+            if epoch == 0:
+                return
 
-        print('Save weights at epochs : ', epoch)
-        generator_fname = "{}/bck_generator.h5".format(self.res_dir)
-        discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
+            print('Save weights at epochs : ', epoch)
+            generator_fname = "{}/bck_generator.h5".format(self.res_dir)
+            discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
-        utils.save_weights(self.generator, self.res_dir)
-        self.generator.save(generator_fname)
-        self.discriminator.save(discriminator_fname)
+            utils.save_weights(self.generator, self.res_dir)
+            self.generator.save(generator_fname)
+            self.discriminator.save(discriminator_fname)
 
     def evaluate_d(self, test_x, test_y):
         y_pre = self.discriminator.predict(test_x)
