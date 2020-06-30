@@ -14,3 +14,12 @@ Trong bài báo này, chúng tôi sử dụng bộ dữ liệu Chest x-ray14 đ�
 
 - Huấn luyện trên những bộ dữ liệu bị mất cân bằng thường sẽ không đạt được chất lượng tốt. Thường thì mô hình sẽ thiên vị về những lớp mang nhiều dữ liệu hơn để tối ưu hàm mất mát, dẫn đến việc dự đoán những lớp có ít dữ liệu không được chính xác. Phương pháp tăng cường dữ liệu (Data augmentation) có thể được dùng để giải quyết vấn đề này, Trong thực tế các kỹ thuật tăng cường dữ liệu điển hình sử dụng các phép biến đổi lên ảnh hiện có, dẫn đến sự đa dạng về đặc tính của ảnh còn hạn chế. Để giải quyết những những khó khăn về dữ liệu mất cân bằng chúng tôi đề xuất phương pháp tổng hợp ảnh dựa trên conditional Generative Adversarial Networks (cGAN). Một số nghiên cứu đã chứng minh rằng GAN có thể tổng hợp được ảnh mang đặc tính cần thiết để huấn luyện các mô hình DL [list the works here]. 
 
+//
+Nói về ưu nhược điểm của những phương pháp đã có: BAGAN,...
+và giới thiệu về phương pháp của bạn, tại sao nó giải quyết được vấn đề đó?
+
+//
+
+//
+Thực nghiệm, kết quả thế nào?
+//

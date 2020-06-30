@@ -253,8 +253,8 @@ class BalancingGAN:
             else:
                 # use upsamling layer
                 # nearest  or   bilinear
-                x = Conv2D(units, kernel_size, strides=1, padding='same')(x)
                 x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
+                x = Conv2D(units, kernel_size, strides=1, padding='same')(x)
                 return x
 
 
@@ -723,7 +723,7 @@ class BalancingGAN:
         # concatenate attribute feature and latent code
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
-        kernel_size = 5
+        kernel_size = 3
         init_channels = 256
         norm = 'fn' if 'fn' in self.norm else self.norm
 
@@ -838,7 +838,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        kernel_size = 5
+        kernel_size = 3
         x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
         x = LeakyReLU()(x)
         x = Dropout(0.3)(x)
