@@ -666,22 +666,24 @@ class BalancingGAN:
                             attr_image=images)
 
         de = self._upscale(de, 'conv', 256, kernel_size)
-        de = self._apply_feature_norm(de, images)
-        de = Activation('relu')(de)
+        # de = self._apply_feature_norm(de, images)
+        de = self._norm()(de)
+        de = LeakyReLU()(de)
         de = Dropout(0.3)(de)
 
         if self.attention:
             de = SelfAttention(256)(de)
 
         de = self._upscale(de, 'conv', 128, kernel_size)
-        de = self._apply_feature_norm(de, images)
-        de = Activation('relu')(de)
+        # de = self._apply_feature_norm(de, images)
+        de = self._norm()(de)
+        de = LeakyReLU()(de)
         de = Dropout(0.3)(de)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
         # de = self._apply_feature_norm(de, images)
         de = self._norm()(de)
-        de = Activation('relu')(de)
+        de = LeakyReLU()(de)
         de = Dropout(0.3)(de)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
