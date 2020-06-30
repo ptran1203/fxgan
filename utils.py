@@ -292,3 +292,25 @@ def plot_model_history(H, opt = 0):
 
 def group_k_images(image_list):
     return np.array(image_list)
+
+
+def prune(x, y, prune_classes):
+    """
+    prune data by give classes
+    """
+    for class_to_prune in range(len(prune_classes)):
+        print(class_to_prune)
+        remove_size = prune_classes[class_to_prune]
+        all_ids = list(np.arange(len(x)))
+        mask = [lc == class_to_prune for lc in y]
+        all_ids_c = np.array(all_ids)[mask]
+        np.random.shuffle(all_ids_c)
+        to_delete  = all_ids_c[:remove_size]
+        x = np.delete(x, to_delete, axis=0)
+        y = np.delete(y, to_delete, axis=0)
+        print('Remove {} items in class {}'.format(remove_size, class_to_prune))
+    return x, y
+
+
+def get_dataset(dataset, resolution, prune):
+    pass

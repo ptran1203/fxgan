@@ -12,8 +12,5 @@
 3) Dữ liệu ít ỏi của một số bệnh hiếm có dẫn đến mất cân bằng
 Trong bài báo này, chúng tôi sử dụng bộ dữ liệu Chest x-ray14 để đánh giá hướng tiếp cận tăng cường dữ liệu sử dụng GAN. Đây là bộ dữ liệu công khai bao gồm 14 bệnh lý liên quan đến phổi, đặc biệt bộ dữ liệu này bị mất cân bằng giữa các lớp, trong đó lớp normal (không mang bệnh) chiếm xấp xỉ 50% của toàn bộ dữ liệu, trong khi đó ở các lớp mang bệnh thì lớp chiếm tỉ lệ cao nhất là 20% và thấp nhất chỉ 2%. Trong nghiên cứu này chúng tôi sẽ không thực hiện trên những dữ liệu mang nhiều bệnh (multi-label) mà chỉ sử dụng những ảnh mang đúng một bệnh lý.
 
-- Huấn luyện trên những bộ dữ liệu bị mất cân bằng thường sẽ không đạt được chất lượng tốt. Thường thì mô hình sẽ thiên vị về những lớp mang nhiều dữ liệu hơn để tối ưu hàm mất mát, dẫn đến việc dự đoán những lớp có ít dữ liệu không được chính xác. Phương pháp tăng cường dữ liệu (Data augmentation) có thể được dùng để giải quyết vấn đề này, Trong thực tế các kỹ thuật tăng cường dữ liệu điển hình sử dụng các phép biến đổi lên ảnh hiện có, dẫn đến sự đa dạng về đặc tính của ảnh còn hạn chế
-## Những thực nghiệm
+- Huấn luyện trên những bộ dữ liệu bị mất cân bằng thường sẽ không đạt được chất lượng tốt. Thường thì mô hình sẽ thiên vị về những lớp mang nhiều dữ liệu hơn để tối ưu hàm mất mát, dẫn đến việc dự đoán những lớp có ít dữ liệu không được chính xác. Phương pháp tăng cường dữ liệu (Data augmentation) có thể được dùng để giải quyết vấn đề này, Trong thực tế các kỹ thuật tăng cường dữ liệu điển hình sử dụng các phép biến đổi lên ảnh hiện có, dẫn đến sự đa dạng về đặc tính của ảnh còn hạn chế. Để giải quyết những những khó khăn về dữ liệu mất cân bằng chúng tôi đề xuất phương pháp tổng hợp ảnh dựa trên conditional Generative Adversarial Networks (cGAN). Một số nghiên cứu đã chứng minh rằng GAN có thể tổng hợp được ảnh mang đặc tính cần thiết để huấn luyện các mô hình DL [list the works here]. 
 
-Dataset:
- + Trong

@@ -88,16 +88,7 @@ class BatchGenerator:
 
         # Prune
         if prune_classes:
-            for class_to_prune in range(len(prune_classes)):
-                remove_size = prune_classes[class_to_prune]
-                all_ids = list(np.arange(len(self.dataset_x)))
-                mask = [lc == class_to_prune for lc in self.dataset_y]
-                all_ids_c = np.array(all_ids)[mask]
-                np.random.shuffle(all_ids_c)
-                to_delete  = all_ids_c[:remove_size]
-                self.dataset_x = np.delete(self.dataset_x, to_delete, axis=0)
-                self.dataset_y = np.delete(self.dataset_y, to_delete, axis=0)
-                print('Remove {} items in class {}'.format(remove_size, class_to_prune))
+            self.dataset_x, self.dataset_y = utils.prune(self.dataset_x, self.dataset_y, prune_classes)
 
         # Recount after pruning
         per_class_count = list()
