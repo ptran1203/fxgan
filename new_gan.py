@@ -655,7 +655,7 @@ class BalancingGAN:
         latent = Activation('relu')(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        kernel_size = 5
+        kernel_size = 3
 
         # using feature normalization
         de = self._res_block(latent, 256, kernel_size,
@@ -679,7 +679,8 @@ class BalancingGAN:
         de = Dropout(0.3)(de)
 
         de = self._upscale(de, 'conv', 64, kernel_size)
-        de = self._apply_feature_norm(de, images)
+        # de = self._apply_feature_norm(de, images)
+        de = self._norm()(de)
         de = Activation('relu')(de)
         de = Dropout(0.3)(de)
 
