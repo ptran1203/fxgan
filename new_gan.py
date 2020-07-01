@@ -1134,7 +1134,7 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = bg_train.dataset_y
+                    real_label = test_batch_y
                     fake_label = np.full(test_size, self.nclasses)
 
                 X = [test_batch_x, generated_images]
