@@ -83,7 +83,7 @@ def re_balance(imgs, labels, per_class_scale=None):
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
-def vgg_16_features(image, num_of_classes, dims=64):
+def vgg_16_features(image, num_of_classes, dims=64, rst=64):
     model = k_apps.VGG16(include_top=False,
                         weights='imagenet',
                         input_tensor=None,
@@ -108,7 +108,7 @@ def vgg_16_features(image, num_of_classes, dims=64):
 def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5):
     image = Input((rst, rst, 3))
     labels = Input((1,))
-    side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims)
+    side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims, rst)
 
     centers = Embedding(num_of_classes, feat_dims)(labels)
     l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
