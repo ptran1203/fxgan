@@ -34,7 +34,7 @@ def _load_multi_chest(rst, large, classes):
     # unseen classes data
     x_unseen, y_unseen = x[to_keep], y[to_keep]
     x_unseen = (x_unseen - 127.5) / 127.5
-    y_unseen = np.array([CATEGORIES_MAP[l] for l in y_test_ed])
+    y_unseen = np.array([CATEGORIES_MAP[l] for l in y_unseen])
 
     return x_train, y_train, x_unseen, y_unseen
 
