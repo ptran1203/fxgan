@@ -208,7 +208,7 @@ class BalancingGAN:
         return FeatureNorm(norm=self.norm)([x, scale, bias])
 
 
-    def _res_block(self,
+    def _up_resblock(self,
                   x,
                   units = 64,
                   kernel_size = 3,
@@ -231,17 +231,19 @@ class BalancingGAN:
                 x = self._apply_feature_norm(x, img)
             return x
 
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
-        out = norm_layer(out, attr_image)
-        out = actv(activation)(out)
+        interpolation = 'nearest'
 
+        out = norm_layer(x, attr_image)
+        out = actv(activation)(out)
+        out = UpSampling2D(size=(2, 2), interpolation=interpolation)(out)
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
+
         out = norm_layer(out, attr_image)
         out = actv(activation)(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
 
+        x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
         x = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
-        x = norm_layer(x, attr_image)
-        x = actv(activation)(x)
 
         return Add()([out, x])
 
@@ -649,44 +651,42 @@ class BalancingGAN:
 
         init_channels = 256
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
+        activation = 'relu'
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
-        latent = Activation('relu')(latent)
+        latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 3
+        interpolation = 'nearest'
 
         # using feature normalization
-        de = self._res_block(latent, 256, kernel_size,
+        de = self._up_resblock(latent, 256, kernel_size,
+                            activation=activation,
                             norm='fn',
                             attr_image=images)
-        de = self._res_block(de, 256, kernel_size,
+        de = self._up_resblock(de, 256, kernel_size,
+                            activation=activation,
                             norm='fn',
                             attr_image=images)
-
-        de = self._upscale(de, 'conv', 256, kernel_size)
-        # de = self._apply_feature_norm(de, images)
-        de = self._norm()(de)
-        de = LeakyReLU()(de)
-        de = Dropout(0.3)(de)
 
         if self.attention:
             de = SelfAttention(256)(de)
 
-        de = self._upscale(de, 'conv', 128, kernel_size)
-        # de = self._apply_feature_norm(de, images)
-        de = self._norm()(de)
-        de = LeakyReLU()(de)
-        de = Dropout(0.3)(de)
+        de = self._up_resblock(de, 128, kernel_size,
+                            activation=activation,
+                            norm='fn',
+                            attr_image=images)
 
-        de = self._upscale(de, 'conv', 64, kernel_size)
-        # de = self._apply_feature_norm(de, images)
-        de = self._norm()(de)
-        de = LeakyReLU()(de)
-        de = Dropout(0.3)(de)
+        de = self._up_resblock(de, 64, kernel_size,
+                            activation=activation,
+                            norm='fn',
+                            attr_image=images)
 
-        final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
+        de = self._norm()(de)
+
+        final = Conv2D(self.channels, kernel_size, strides=1, padding='same')(de)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
@@ -695,67 +695,42 @@ class BalancingGAN:
             name='resnet_gen'
         )
 
-    def build_encode_decode_G(self):
-        def _transpose_block(x, units, activation, kernel_size=3, norm='batch',image=None):
-            def _norm_layer(x):
-                if 'batch' in norm:
-                    x = BatchNormalization()(x)
-                elif 'in' in norm:
-                    x = InstanceNormalization()(x)
-                else:
-                    x = Spade(units)([x, image])
-                return x
-
+    def build_dc_gen(self):
+        def _transpose_block(x, units, activation, kernel_size=3, norm='batch',images=None):
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
-            out = _norm_layer(out)
+            out = self._apply_feature_norm(out, images)
             out = activation(out)
             out = Dropout(0.3)(out)
             return out
 
-        images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3), name = 'G_input')
-        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
-        image = Lambda(lambda x: x[:, 0,])(images)
-        attr_features = []
-        for i in range(self.k_shot):
-            attr_features.append(self.latent_encoder(
-                Lambda(lambda x: x[:, i,])(images)
-            ))
-
-        latent_from_i = Average()(attr_features) # vector 128
-        # concatenate attribute feature and latent code
-        latent_from_i = Concatenate()([latent_from_i, latent_code])
-
         kernel_size = 3
         init_channels = 256
-        norm = 'fn' if 'fn' in self.norm else self.norm
 
-        latent = Dense(4 * 4 * init_channels)(latent_from_i)
+        images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3), name = 'G_input')
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
+
+        latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = Activation('relu')(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
         de = _transpose_block(latent, 256, Activation('relu'),
-                             kernel_size, norm=norm,
-                             image=image)
+                                kernel_size, norm=norm,
+                                image=images)
+        de = _transpose_block(latent, 128, Activation('relu'),
+                                kernel_size, norm=norm,
+                                image=images)
+        de = _transpose_block(latent, 64, Activation('relu'),
+                                kernel_size, norm=norm,
+                                image=images)
 
-        if self.attention:
-            de = SelfAttention(256)(de)
-
-        de = _transpose_block(de, 128, Activation('relu'),
-                             kernel_size, norm=norm,
-                             image=image)
-
-        de = _transpose_block(de, 64, Activation('relu'),
-                             kernel_size, norm=norm,
-                             image=image)
-
-        final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(de)
+        final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(x)
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
             inputs = [images, latent_code],
             outputs = outputs,
-            name='dc_gen',
+            name='dc_gen'
         )
 
 
