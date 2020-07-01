@@ -1,6 +1,7 @@
 import sklearn.metrics as sk_metrics
 from keras.utils import to_categorical
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP
+import numpy as np
 
 def _safe_get(idx):
     try:

@@ -106,7 +106,7 @@ def vgg_16_features(image, num_of_classes, dims=64, rst=64):
     out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
     return out1, out2
 
-def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5):
+def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5, loss_weights=[1, 0.1]):
     image = Input((rst, rst, 3))
     labels = Input((1,))
     side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims, rst)
@@ -123,7 +123,7 @@ def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5):
     train_model.compile(optimizer=Adam(lr),
                                 loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
                                 # loss = triplet_loss_adapted_from_tf,
-                                loss_weights=[1, 0.1],
+                                loss_weights=loss_weights,
                                 metrics=['accuracy'])
 
     return train_model
