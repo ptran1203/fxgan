@@ -822,7 +822,7 @@ class BalancingGAN:
 
         kernel_size = 3
         if self.resnet:
-            x = self._donw_resblock(x, 64, kernel_size)
+            x = self._donw_resblock(image, 64, kernel_size)
             x = self._donw_resblock(x, 128, kernel_size)
             if self.attention:
                 x = SelfAttention(128)(x)
