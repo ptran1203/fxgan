@@ -9,6 +9,20 @@ def _safe_get(idx):
     except:
         return idx
 
+
+def markdown_auc(scores, mode_name='VGG16'):
+    table = '| Model |'
+    size = len(scores)
+    for i in range(size):
+        table +=  _safe_get(i) + '|'
+    table += '\n| -- |'
+    for i in range(size):
+        table += '-- |'
+    table += '\n| VGG16 |'
+    for s in scores:
+        table += '{} |'.format(round(s, 3))
+    return table
+
 def auc_score(y_true, y_pred, verbose=1, plot=0):
     # y_true is not one-hot
     if y_true.shape != y_pred.shape:
