@@ -82,7 +82,7 @@ def load_dataset(dataset='multi_chest', resolution=64, large=False, classes=5):
     x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size = 0.1)
     if dataset != 'chest':
         x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size = 0.24)
-    if x_unseen:
+    if x_unseen is not None:
         x_unseen = triple_channels(x_unseen)
 
     print("\n===== data loaded =====\n")
