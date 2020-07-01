@@ -45,6 +45,7 @@ import pickle
 import cv2
 import utils
 import logger
+from const import BASE_DIR
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
@@ -360,8 +361,9 @@ class BalancingGAN:
 
 
     def build_latent_encoder(self):
-        fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(self.dataset,
-                                                                            self.resolution)
+        fname = '{}/{}/latent_encoder_{}'.format(BASE_DIR,
+                                                self.dataset,
+                                                self.resolution)
         json_file = open(fname + '.json', 'r')
         model = json_file.read()
         json_file.close()

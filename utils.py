@@ -14,12 +14,13 @@ import datetime
 import pickle
 import cv2
 import urllib.request
+from const import BASE_DIR
 
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
-DS_SAVE_DIR = '/content/drive/My Drive/bagan/dataset/save'
-DS_DIR = '/content/drive/My Drive/bagan/dataset/chest_xray'
+DS_SAVE_DIR = BASE_DIR + '/dataset/save'
+DS_DIR = BASE_DIR + '/dataset/chest_xray'
 
 decomposers = {
     'pca': PCA(),
@@ -46,7 +47,7 @@ def save_image_array(img_array, fname=None, show=None):
             try:
                 cv2_imshow(img)
             except Exception as e:
-                fname = '/content/drive/My Drive/bagan/result/model_{}/img_{}.png'.format(
+                fname = BASE_DIR + '/result/model_{}/img_{}.png'.format(
                     resolution,
                     datetime.datetime.now().strftime("%m/%d/%Y-%H%M%S")
                 )

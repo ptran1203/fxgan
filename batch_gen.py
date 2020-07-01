@@ -1,7 +1,7 @@
 import utils
 import numpy as np
 from collections import Counter
-from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP
+from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP, BASE_DIR
 
 
 
@@ -35,7 +35,7 @@ class BatchGenerator:
                 self.dataset_y = y
 
         elif dataset == 'flowers':
-            x, y = utils.pickle_load('/content/drive/My Drive/bagan/dataset/flowers/imgs_labels.pkl')
+            x, y = utils.pickle_load(BASE_DIR + '/dataset/flowers/imgs_labels.pkl')
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
@@ -54,7 +54,7 @@ class BatchGenerator:
 
 
         else: # multi chest
-            x, y = utils.pickle_load('/content/drive/My Drive/bagan/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
+            x, y = utils.pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
