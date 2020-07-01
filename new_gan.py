@@ -259,10 +259,10 @@ class BalancingGAN:
 
         out = actv(activation)(out)
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
-        out = AveragePooling2D(size=(2, 2))(out)
+        out = AveragePooling2D(pool_size=(2, 2))(out)
 
         x = Conv2D(units, 1, strides = 1, padding='same')(x)
-        x = AveragePooling2D(size=(2, 2))(x)
+        x = AveragePooling2D(pool_size=(2, 2))(x)
 
         return Add()([out, x])
 
