@@ -716,13 +716,13 @@ class BalancingGAN:
 
         de = _transpose_block(latent, 256, Activation('relu'),
                                 kernel_size,
-                                image=images)
+                                images=images)
         de = _transpose_block(latent, 128, Activation('relu'),
                                 kernel_size,
-                                image=images)
+                                images=images)
         de = _transpose_block(latent, 64, Activation('relu'),
                                 kernel_size,
-                                image=images)
+                                images=images)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(x)
         outputs = Activation('tanh')(final)
