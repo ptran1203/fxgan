@@ -828,7 +828,7 @@ class BalancingGAN:
                 x = SelfAttention(128)(x)
             x = self._donw_resblock(x, 256, kernel_size)
             x = self._donw_resblock(x, 512, kernel_size)
-            x = GlobalAveragePooling2D()(x)
+            return GlobalAveragePooling2D()(x)
 
         else:
             x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
