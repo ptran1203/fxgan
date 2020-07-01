@@ -22,6 +22,8 @@ from keras.optimizers import Adam, SGD
 from keras.utils import to_categorical
 import tensorflow as tf
 import numpy as np
+import keras.preprocessing.image as iprocess
+
 
 
 def flatten_model(model_nested):
