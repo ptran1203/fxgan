@@ -1,6 +1,7 @@
 from keras.models import Model, load_model
 from keras import applications
 import keras.backend as K
+import keras
 from keras_contrib.applications.resnet import ResNet, basic_block
 from keras_contrib.applications.densenet import DenseNet
 import keras.applications as k_apps
