@@ -105,7 +105,7 @@ def vgg_16_features(image, num_of_classes, dims=64):
     out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
     return out1, out2
 
-def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5),:
+def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5):
     image = Input((rst, rst, 3))
     labels = Input((1,))
     side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims)
