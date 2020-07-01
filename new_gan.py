@@ -696,7 +696,7 @@ class BalancingGAN:
         )
 
     def build_dc_gen(self):
-        def _transpose_block(x, units, activation, kernel_size=3, norm='batch',images=None):
+        def _transpose_block(x, units, activation, kernel_size=3,images=None):
             out = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
             out = self._apply_feature_norm(out, images)
             out = activation(out)
@@ -715,13 +715,13 @@ class BalancingGAN:
         latent = Reshape((4, 4, init_channels))(latent)
 
         de = _transpose_block(latent, 256, Activation('relu'),
-                                kernel_size, norm=norm,
+                                kernel_size,
                                 image=images)
         de = _transpose_block(latent, 128, Activation('relu'),
-                                kernel_size, norm=norm,
+                                kernel_size,
                                 image=images)
         de = _transpose_block(latent, 64, Activation('relu'),
-                                kernel_size, norm=norm,
+                                kernel_size,
                                 image=images)
 
         final = Conv2DTranspose(self.channels, kernel_size, strides=2, padding='same')(x)
