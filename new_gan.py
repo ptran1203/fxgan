@@ -660,7 +660,16 @@ class BalancingGAN:
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         activation = 'relu'
 
-        latent = Dense(4 * 4 * init_channels)(latent_code)
+        attr_features = []
+        for i in range(self.k_shot):
+            attr_features.append(self.latent_encoder(
+                Lambda(lambda x: x[:, i,])(images)
+            ))
+
+        latent_from_i = Average()(attr_features) # vector 128
+        latent_from_i = Concatenate()([latent_from_i, latent_code])
+
+        latent = Dense(4 * 4 * init_channels)(latent_from_i)
         latent = self._norm()(latent)
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
@@ -1096,12 +1105,12 @@ class BalancingGAN:
 
                 # Get Test samples
                 test_size = 100
-                random_ids = np.arange(bg_test.dataset_y.shape[0])
+                random_ids = np.arange(bg_train.dataset_y.shape[0])
                 np.random.shuffle(random_ids)
                 random_ids = random_ids[:test_size]
-                test_batch_x = bg_test.dataset_x[random_ids]
-                test_batch_y = bg_test.dataset_y[random_ids]
-                k_shot_test_batch = bg_test.ramdom_kshot_images(self.k_shot, test_batch_y)
+                test_batch_x = bg_train.dataset_x[random_ids]
+                test_batch_y = bg_train.dataset_y[random_ids]
+                k_shot_test_batch = bg_train.ramdom_kshot_images(self.k_shot, test_batch_y)
                 f = self.generate_latent(test_batch_y)
 
                 generated_images = self.generator.predict(
@@ -1125,7 +1134,7 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = rand_y
+                    real_label = bg_train.dataset_y
                     fake_label = np.full(test_size, self.nclasses)
 
                 X = [test_batch_x, generated_images]
