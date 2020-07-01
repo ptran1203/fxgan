@@ -993,15 +993,17 @@ class BalancingGAN:
 
         # Load last bck
         try:
-            self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
             self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
-            print('GAN weight initialized, train from epoch ', epoch)
+            logger.info("discriminator weigths loaded")
+            self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
+            logger.info("generator weigths loaded")
             return epoch
 
         except Exception as e:
             e = str(e)
             try:
                 utils.set_weights(self.generator, self.res_dir)
+                logger.info("generator weigths loaded manually")
             except Exception as err:
                 e += '\n, Load weigths array error ' + str(err)
                 logger.warn('Reload error, restart from scratch ' + e)
