@@ -524,7 +524,7 @@ class BalancingGAN:
             self.build_resnet_generator()
         else:
             logger.info('Use encode-decode generator')
-            self.build_encode_decode_G()
+            self.build_dc_gen()
 
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
