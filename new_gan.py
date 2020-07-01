@@ -688,8 +688,9 @@ class BalancingGAN:
                             activation=activation,
                             norm='fn',
                             attr_image=images)
-
+        
         de = self._norm()(de)
+        de = Activation('relu')(de)
 
         final = Conv2D(self.channels, kernel_size, strides=1, padding='same')(de)
         outputs = Activation('tanh')(final)
