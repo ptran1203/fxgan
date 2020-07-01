@@ -195,6 +195,11 @@ class Spade(keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape[0]
 
+def actv(activation):
+    if activation == 'leaky_relu':
+        return LeakyReLU()
+    return Activation(activation)
+
 
 class BalancingGAN:
     D_RATE = 1
@@ -215,11 +220,6 @@ class BalancingGAN:
                   activation = 'leaky_relu',
                   norm = 'batch',
                   attr_image=None):
-        def actv(activation):
-            if activation == 'leaky_relu':
-                return LeakyReLU()
-            return Activation(activation)
-
         def norm_layer(x, img):
             if norm == 'batch':
                 x = BatchNormalization()(x)
@@ -243,21 +243,28 @@ class BalancingGAN:
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
 
         x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
-        x = Conv2D(units, kernel_size, strides = 1, padding='same')(x)
+        x = Conv2D(units, 1, strides = 1, padding='same')(x)
 
         return Add()([out, x])
 
-    def _upscale(self, x, interpolation='conv', units=64, kernel_size=5):
-            if interpolation == 'conv':
-                # use convolution
-                x = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
-                return x
-            else:
-                # use upsamling layer
-                # nearest  or   bilinear
-                x = UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
-                x = Conv2D(units, kernel_size, strides=1, padding='same')(x)
-                return x
+    def _donw_resblock(self,
+                      x,
+                      units=64,
+                      kernel_size=3,
+                      activation='leaky_relu',
+                      norm=None):
+
+        out = actv(activation)(x)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
+
+        out = actv(activation)(out)
+        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
+        out = AveragePooling2D(size=(2, 2))(out)
+
+        x = Conv2D(units, 1, strides = 1, padding='same')(x)
+        x = AveragePooling2D(size=(2, 2))(x)
+
+        return Add()([out, x])
 
 
     def show_samples_for_class(self,bg,classid, mode='00'):
@@ -485,7 +492,6 @@ class BalancingGAN:
 
         self.norm = norm
         self.loss_type = loss_type
-        self._show_settings()
 
         if loss_type == 'binary':
             self.g_loss = keras.losses.BinaryCrossentropy()
@@ -520,10 +526,8 @@ class BalancingGAN:
         self.build_discriminator()
         self.build_features_from_d_model()
         if self.resnet:
-            logger.info('Use resnet generator')
             self.build_resnet_generator()
         else:
-            logger.info('Use encode-decode generator')
             self.build_dc_gen()
 
 
@@ -644,6 +648,7 @@ class BalancingGAN:
             loss = [self.g_loss, 'mse'],
             loss_weights= [1.0, 0]
         )
+        self._show_settings()
 
     def build_resnet_generator(self):
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
@@ -796,7 +801,7 @@ class BalancingGAN:
         print('\n=================== GAN Setting ==================\n')
         logger.info('- Dataset: {}'.format(self.dataset))
         logger.info('- Num of classes: {}'.format(self.nclasses))
-        logger.info('- Generator type: {}'.format('Resnet' if self.resnet else 'encode_decode'))
+        logger.info('- Generator: {}'.format(self.generator.name))
         logger.info('- Self-Attention: {}'.format(self.attention))
         logger.info('- K-shot: {}'.format(self.k_shot))
         logger.info('- Adverasial loss: {}'.format(self.loss_type))
@@ -816,29 +821,38 @@ class BalancingGAN:
         channels = self.channels
 
         kernel_size = 3
-        x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
-        x = LeakyReLU()(x)
-        x = Dropout(0.3)(x)
+        if self.resnet:
+            x = self._donw_resblock(x, 64, kernel_size)
+            x = self._donw_resblock(x, 128, kernel_size)
+            if self.attention:
+                x = SelfAttention(128)(x)
+            x = self._donw_resblock(x, 256, kernel_size)
+            x = self._donw_resblock(x, 512, kernel_size)
+            x = GlobalAveragePooling2D()(x)
 
-        x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
-        x = LeakyReLU()(x)
-        x = Dropout(0.3)(x)
-    
-        if self.attention:
-            x = SelfAttention(128)(x)
+        else:
+            x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
+            x = LeakyReLU()(x)
+            x = Dropout(0.3)(x)
 
-        x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
-        # if 'D' in self.norm and 'fn' in self.norm:
-        #     scale, bias = self.attribute_net(attr_image, 256)
-        #     x = FeatureNorm(norm=self.norm)([x, scale, bias])
-        x = LeakyReLU()(x)
-        x = Dropout(0.3)(x)
+            x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
+            x = LeakyReLU()(x)
+            x = Dropout(0.3)(x)
+        
+            if self.attention:
+                x = SelfAttention(128)(x)
 
-        x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
-        x = LeakyReLU()(x)
-        x = Dropout(0.3)(x)
+            x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
+            # if 'D' in self.norm and 'fn' in self.norm:
+            #     scale, bias = self.attribute_net(attr_image, 256)
+            #     x = FeatureNorm(norm=self.norm)([x, scale, bias])
+            x = LeakyReLU()(x)
+            x = Dropout(0.3)(x)
 
-        return Flatten()(x)
+            x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
+            x = LeakyReLU()(x)
+            x = Dropout(0.3)(x)
+            return Flatten()(x)
 
 
     def build_discriminator(self):
