@@ -670,7 +670,11 @@ class BalancingGAN:
                 Lambda(lambda x: x[:, i,])(images)
             ))
 
-        latent_from_i = Average()(attr_features) # vector 128
+        if len(attr_features) == 1:
+            latent_from_i = attr_features[0]
+        else:
+            latent_from_i = Average()(attr_features)
+
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
         latent = Dense(4 * 4 * init_channels)(latent_from_i)
@@ -837,7 +841,7 @@ class BalancingGAN:
         channels = self.channels
 
         kernel_size = 3
-        if self.resnet:
+        if not self.resnet: # dont use this!
             x = self._donw_resblock(image, 64, kernel_size)
             x = self._donw_resblock(x, 128, kernel_size)
             if self.attention:
@@ -1044,6 +1048,19 @@ class BalancingGAN:
         else:
             y_pre = utils.pred2bin(y_pre)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+        plt.figure()
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plt.show()
+
+    
+    def plot_cm_for_G(self, bg, labels=None, metric='l2'):
+        if labels is None:
+            labels = bg.dataset_y
+        support_images = bg.ramdom_kshot_images(self.k_shot, labels)
+        latent = self.generate_latent(labels)
+        generated_images = self.generator.predict([support_images, latent])
+        pred = self.classify_by_metric(bg, generated_images, metric)
+        cm = metrics.confusion_matrix(y_true=labels, y_pred=pred)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
