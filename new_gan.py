@@ -299,7 +299,8 @@ class BalancingGAN:
     
         generated_images = self.generator.predict([support_images, latent])
         print("predicts: ", self.classify_by_metric(bg, generated_images))
-        utils.show_samples(support_images[:,0,])
+        for idx in range(support_images.shape[1]):
+            utils.show_samples(support_images[:,idx,])
         utils.show_samples(generated_images)
 
 
