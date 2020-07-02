@@ -59,7 +59,11 @@ def _load_flower(classes):
 
     return x_train, y_train, x_unseen, y_unseen
 
-def load_dataset(dataset='multi_chest', resolution=64, large=False, classes=5):
+def load_dataset(dataset='multi_chest',
+                resolution=64,
+                large=False,
+                classes=5,
+                test_val_split=[0.3, 0.1]):
     """
     return: train_pair, val_pair, test_pair, unseen_pair
     """
@@ -79,9 +83,13 @@ def load_dataset(dataset='multi_chest', resolution=64, large=False, classes=5):
     x_train, y_train = x_train[random], y_train[random]
     x_train = triple_channels(x_train)
 
-    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size = 0.1)
+    x_train, x_val, y_train, y_val = train_test_split(x_train,
+                                                    y_train,
+                                                    test_size=test_val_split[1])
     if dataset != 'chest':
-        x_train, x_test, y_train, y_test = train_test_split(x_train, y_train, test_size = 0.24)
+        x_train, x_test, y_train, y_test = train_test_split(x_train,
+                                                y_train,
+                                                test_size=test_val_split[0])
     if x_unseen is not None:
         x_unseen = triple_channels(x_unseen)
 
