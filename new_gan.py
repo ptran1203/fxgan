@@ -418,7 +418,45 @@ class BalancingGAN:
                             for sp_vector in sp_vectors]).reshape(-1, len(bg.classes))
         pred = np.argmin(np.array(distances), axis=1)
         return pred
-        
+    
+    def gen_for_class(self, bg, classid,size=1000):
+        total = None
+        for i in range(1000):
+            labels = [classid] * size
+            labels = np.array(labels)
+            latent = self.generate_latent(labels)
+            support = bg.ramdom_kshot_images(self.k_shot,
+                                            np.full(size, classid))
+            gen = self.generator.predict([support, latent])
+            d_outputs = self.classify_by_metric(bg, gen)
+            to_keep = np.where(labels == d_outputs)[0]
+            gen = gen[to_keep]
+            if total is None:
+                total = gen
+            else:
+                total = np.concatenate([total, gen], axis=0)
+            
+            print("total ", len(total))
+            if len(total) >= size:
+                break
+
+        print("done class {}, size {}\n".format(classid, len(total)))
+        return total, np.array([classid] * len(total))
+
+    def gen_augment_data(self, bg, size=1000):
+        total = None
+        labels = None
+        for i in bg.classes:
+            gen, label = self.gen_for_class(bg, i, size)
+            if total is None:
+                total = gen
+                labels = label
+            else:
+                total = np.concatenate([total, gen], axis=0)
+                labels = np.concatenate([labels, label], axis=0)
+
+        print("Done all ", len(total))
+        return total, labels
 
     def evaluate_by_metric(self, bg, images, labels, metric='l2'):
         pred = self.classify_by_metric(bg, images, metric)
