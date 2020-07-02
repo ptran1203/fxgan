@@ -74,8 +74,8 @@ def re_balance(imgs, labels, per_class_samples=None):
     imgs_ = []
     labels_ = []
     counter = [0] * len(labels)
-    if per_class_scale is None:
-        per_class_scale = [1000] * len(labels)
+    if per_class_samples is None:
+        per_class_samples = [1000] * len(labels)
 
     # original
     for i in range(imgs.shape[0]):
