@@ -406,14 +406,14 @@ class BalancingGAN:
     def classify_by_metric(self, bg, images, metric='l2'):
         # currently do one-shot classification
         supports = np.array([bg.get_samples_for_class(i, 1) \
-                        for i in self.classes])
+                        for i in bg.classes])
         sp_vectors = np.array([self.latent_encoder.predict(utils.triple_channels(s_img)) \
                         for s_img in supports])
 
         vectors = self.latent_encoder.predict(utils.triple_channels(images))
         distances = np.array([np.mean(np.square(vector - sp_vector)) \
                             for vector in vectors \
-                            for sp_vector in sp_vectors]).reshape(-1,self.nclasses)
+                            for sp_vector in sp_vectors]).reshape(-1, np.unique(bg.classes))
         pred = np.argmin(np.array(distances), axis=1)
         return pred
 
