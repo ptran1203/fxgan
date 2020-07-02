@@ -73,10 +73,13 @@ def re_balance(imgs, labels, per_class_samples=None):
     deimgs = imgs *127.5 + 127.5
     imgs_ = []
     labels_ = []
-    counter = [0] * len(labels)
+    size = len(np.unique(labels))
+    counter = [0] * size
     if per_class_samples is None:
-        per_class_samples = [1000] * len(labels)
+        per_class_samples = [1000] * size
 
+    print(counter)
+    print(per_class_samples)
     # original
     for i in range(imgs.shape[0]):
         
@@ -85,14 +88,18 @@ def re_balance(imgs, labels, per_class_samples=None):
     # Augment
     for _ in range(1000):
         for i in range(imgs.shape[0]):
-            if counter[i] >= per_class_samples[i]:
-                counter[i] = -1 # Done
-            imgs_.append(tran_one(deimgs[i]))
-            labels_.append(labels[i])
-            counter[i] += 1
-        if counter.count(-1) == len(labels):
-            break
+            l_idx = labels[i]
+            if counter[l_idx] >= per_class_samples[l_idx]:
+                counter[l_idx] = -1 # Done
+            if counter[l_idx] != -1:
+                imgs_.append(tran_one(deimgs[i]))
+                labels_.append(l_idx)
+                counter[l_idx] += 1
 
+        print(counter)
+        print(counter.count(-1), size)
+        if counter.count(-1) == size:
+            break
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
