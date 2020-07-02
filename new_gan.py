@@ -349,8 +349,11 @@ class BalancingGAN:
             attr_features.append(self.latent_encoder(
                 Lambda(lambda x: x[:, i,])(images)
             ))
-        
-        attr_feature = Average()(attr_features)
+
+        if len(attr_features) == 1:
+            attr_feature = attr_features[0]
+        else:
+            attr_feature = Average()(attr_features)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(channels)(scale)

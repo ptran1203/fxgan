@@ -133,8 +133,7 @@ class BalancingGAN:
 
         cnn.add(Flatten())
 
-        features = cnn(image)
-        return features
+        return cnn(image)
 
     # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
     def build_reconstructor(self, latent_size, min_latent_res=8):
@@ -159,13 +158,12 @@ class BalancingGAN:
         self.discriminator = Model(inputs=image, outputs=aux)
 
     def generate_from_latent(self, latent):
-        res = self.generator(latent)
-        return res
+        return self.generator(latent)
+
 
     def generate(self, c, bg=None):  # c is a vector of classes
         latent = self.generate_latent(c, bg)
-        res = self.generator.predict(latent)
-        return res
+        return self.generator.predict(latent)
 
     def evaluate_g(self, test_x, test_y):
         y_pre = self.combined.predict(test_x)
@@ -176,12 +174,47 @@ class BalancingGAN:
         plt.show()
 
     def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
-        res = np.array([
+        return np.array([
             np.random.multivariate_normal(self.means[e], self.covariances[e])
             for e in c
         ])
 
-        return res
+
+    def gen_for_class(self, bg, classid,size=1000):
+        total = None
+        for i in range(1000):
+            labels = [classid] * size
+            labels = np.array(labels)
+            latent = self.generate_latent(labels)
+            print("Predict...")
+            gen = self.generator.predict(latent)
+            d_outputs = self.discriminator.predict(gen)
+            d_outputs = np.argmax(d_outputs, axis=1)
+            print(Counter(d_outputs))
+            to_keep = np.where(labels == d_outputs)[0]
+            gen = gen[to_keep]
+            if total is None:
+                total = gen
+            else:
+                total = np.concatenate([total, gen], axis=0)
+            
+            if len(total) >= size:
+                break
+
+        print("done class {}, size {}".format(classid, len(total)))
+        return total
+
+    def gen_augment_data(self, bg, size=1000):
+        total = None
+        for i in bg.classes:
+            gen = self.gen_for_class(bg, i, size)
+            if total is None:
+                total = gen
+            else:
+                total = np.concatenate([total, gen], axis=0)
+        
+        print("Done all ", len(total))
+        return total
 
     def discriminate(self, image):
         return self.discriminator(image)
@@ -619,36 +652,3 @@ class BalancingGAN:
 
     def generate_samples(self, c, samples, bg = None):
         return self.generate(np.full(samples, c), bg)
-
-    def save_history(self, res_dir, class_id):
-        if self.trained:
-            filename = "{}/class_{}_score.csv".format(res_dir, class_id)
-            generator_fname = "{}/class_{}_generator.h5".format(res_dir, class_id)
-            discriminator_fname = "{}/class_{}_discriminator.h5".format(res_dir, class_id)
-            reconstructor_fname = "{}/class_{}_reconstructor.h5".format(res_dir, class_id)
-            with open(filename, 'w') as csvfile:
-                fieldnames = [
-                    'train_gen_loss', 'train_disc_loss',
-                    'test_gen_loss', 'test_disc_loss'
-                ]
-
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-                writer.writeheader()
-                for e in range(len(self.train_history['gen_loss'])):
-                    row = [
-                        self.train_history['gen_loss'][e],
-                        self.train_history['disc_loss'][e],
-                        self.test_history['gen_loss'][e],
-                        self.test_history['disc_loss'][e]
-                    ]
-
-                    writer.writerow(dict(zip(fieldnames,row)))
-
-            self.generator.save(generator_fname)
-            self.discriminator.save(discriminator_fname)
-            self.reconstructor.save(reconstructor_fname)
-
-    def load_models(self, fname_generator, fname_discriminator, fname_reconstructor, bg_train=None):
-        self.init_autoenc(bg_train, gen_fname=fname_generator, rec_fname=fname_reconstructor)
-        self.discriminator.load_weights(fname_discriminator)
