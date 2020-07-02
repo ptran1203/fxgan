@@ -69,20 +69,30 @@ def augment(imgs, labels,plus = 1, target_labels=None):
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
 
-def re_balance(imgs, labels, per_class_scale=None):
+def re_balance(imgs, labels, per_class_samples=None):
     deimgs = imgs *127.5 + 127.5
     imgs_ = []
     labels_ = []
+    counter = [0] * len(labels)
     if per_class_scale is None:
-        per_class_scale = [0, 0, 0, 0, 1,1,1,3,3,3]
+        per_class_scale = [1000] * len(labels)
+
+    # original
     for i in range(imgs.shape[0]):
-        # original
+        
         imgs_.append(deimgs[i])
         labels_.append(labels[i])
-        # Augment
-        for j in range(per_class_scale[labels[i]]):
+    # Augment
+    for _ in range(1000):
+        for i in range(imgs.shape[0]):
+            if counter[i] >= per_class_samples[i]:
+                counter[i] = -1 # Done
             imgs_.append(tran_one(deimgs[i]))
             labels_.append(labels[i])
+            counter[i] += 1
+        if counter.count(-1) == len(labels):
+            break
+
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
