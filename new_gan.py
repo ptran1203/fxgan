@@ -710,7 +710,7 @@ class BalancingGAN:
 
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
-        latent = Dense(4 * 4 * init_channels)(latent_from_i)
+        latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = self._norm()(latent)
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
