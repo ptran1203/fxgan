@@ -411,16 +411,14 @@ class BalancingGAN:
         # currently do one-shot classification
         supports = np.array([bg.get_samples_for_class(i, 1) \
                         for i in bg.classes])
-        sp_vectors = np.array([self.latent_encoder.predict(utils.triple_channels(s_img)) \
-                        for s_img in supports])
-
+        sp_vectors = self.means.reshape(-1, 1, self.latent_size)
         vectors = self.latent_encoder.predict(utils.triple_channels(images))
         distances = np.array([np.mean(np.square(vector - sp_vector)) \
                             for vector in vectors \
                             for sp_vector in sp_vectors]).reshape(-1, len(bg.classes))
         pred = np.argmin(np.array(distances), axis=1)
         return pred
-
+        
 
     def evaluate_by_metric(self, bg, images, labels, metric='l2'):
         pred = self.classify_by_metric(bg, images, metric)
@@ -429,9 +427,6 @@ class BalancingGAN:
 
 
     def compute_multivariate(self, bg):
-        if self.sampling == 'normal':
-            return
-
         print("Computing feature distribution")
         if not hasattr(self, 'covariances'):
             self.covariances = []
