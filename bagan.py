@@ -202,19 +202,22 @@ class BalancingGAN:
                 break
 
         print("done class {}, size {}".format(classid, len(total)))
-        return total
+        return total, np.array([classid] * len(total))
 
     def gen_augment_data(self, bg, size=1000):
         total = None
+        labels = None
         for i in bg.classes:
-            gen = self.gen_for_class(bg, i, size)
+            gen , label = self.gen_for_class(bg, i, size)
             if total is None:
                 total = gen
+                labels = label
             else:
                 total = np.concatenate([total, gen], axis=0)
+                labels = np.concatenate([labels, label], axis=0)
         
         print("Done all ", len(total))
-        return total
+        return total, labels
 
     def discriminate(self, image):
         return self.discriminator(image)
