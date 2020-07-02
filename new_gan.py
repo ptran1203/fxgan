@@ -692,14 +692,14 @@ class BalancingGAN:
 
         de = self._up_resblock(de, 128, kernel_size,
                             activation=activation,
-                            norm='fn',
+                            norm='in',
                             attr_image=images)
 
         de = self._up_resblock(de, 64, kernel_size,
                             activation=activation,
-                            norm='fn',
+                            norm='in',
                             attr_image=images)
-        
+
         de = self._norm()(de)
         de = Activation('relu')(de)
 
