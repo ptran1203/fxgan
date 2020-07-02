@@ -417,7 +417,7 @@ class BalancingGAN:
         vectors = self.latent_encoder.predict(utils.triple_channels(images))
         distances = np.array([np.mean(np.square(vector - sp_vector)) \
                             for vector in vectors \
-                            for sp_vector in sp_vectors]).reshape(-1, np.unique(bg.classes))
+                            for sp_vector in sp_vectors]).reshape(-1, len(bg.classes))
         pred = np.argmin(np.array(distances), axis=1)
         return pred
 
