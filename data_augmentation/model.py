@@ -1,6 +1,8 @@
 from keras.models import Model, load_model
 from keras import applications
 import keras.backend as K
+import matplotlib.pyplot as plt
+
 import keras
 from keras_contrib.applications.resnet import ResNet, basic_block
 from keras_contrib.applications.densenet import DenseNet
@@ -25,6 +27,27 @@ import numpy as np
 import keras.preprocessing.image as iprocess
 
 
+def plot_history(history):
+    # plot acc
+    loss, val_loss, acc, val_acc = history['main_out_loss'], \
+                                   history['val_main_out_loss'], \
+                                   history['main_out_accuracy'], \
+                                   history['val_main_out_accuracy']
+    plt.plot(loss, label='train')
+    plt.plot(val_loss, label='val')
+    plt.ylabel('acc')
+    plt.xlabel('epoch')
+    plt.title('Training accuracy')
+    plt.legend()
+    plt.show()
+    # plot loss
+    plt.plot(loss, label='train')
+    plt.plot(val_loss, label='val')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.title('Training loss')
+    plt.legend()
+    plt.show()
 
 def flatten_model(model_nested):
     layers_flat = []
