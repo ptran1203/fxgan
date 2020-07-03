@@ -708,7 +708,9 @@ class BalancingGAN:
 
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
-        latent = Dense(4 * 4 * init_channels)(latent_code)
+        print("latent shape: ", latent_from_i.shape)
+
+        latent = Dense(4 * 4 * init_channels)(latent_from_i)
         latent = self._norm()(latent)
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
@@ -719,11 +721,11 @@ class BalancingGAN:
         # using feature normalization
         de = self._up_resblock(latent, 256, kernel_size,
                             activation=activation,
-                            norm='fn',
+                            norm='in',
                             attr_image=images)
         de = self._up_resblock(de, 256, kernel_size,
                             activation=activation,
-                            norm='fn',
+                            norm='in',
                             attr_image=images)
 
         if self.attention:
