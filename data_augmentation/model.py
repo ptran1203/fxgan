@@ -26,6 +26,12 @@ import tensorflow as tf
 import numpy as np
 import keras.preprocessing.image as iprocess
 
+class Option:
+    gan_v1 = 1
+    gan_v2 = 2
+    bagan = 3
+    vgg16 = 4
+    vgg16_st_aug = 5
 
 def plot_history(history):
     # plot acc
@@ -33,8 +39,8 @@ def plot_history(history):
                                    history['val_main_out_loss'], \
                                    history['main_out_accuracy'], \
                                    history['val_main_out_accuracy']
-    plt.plot(loss, label='train')
-    plt.plot(val_loss, label='val')
+    plt.plot(acc, label='train')
+    plt.plot(val_acc, label='val')
     plt.ylabel('acc')
     plt.xlabel('epoch')
     plt.title('Training accuracy')
