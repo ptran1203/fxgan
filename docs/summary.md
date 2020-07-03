@@ -22,7 +22,9 @@ Chúng tôi chọn mô hình BAGAN và mô hình dựa trên openGAN vì nó th�
 
  ### 2.1 BAGAN
 Tóm tắt: BAGAN tận dụng autoencoder để giúp Generator học dễ dàng hơn. Cụ thể ta sẽ huấn luyện autoencoder trước sau đó tính toán multivariate distribution được lấy từ output của encoder, đồng thời khởi tạo trọng số cho Generator bằng trọng số của decoder. Khi train Generator latent vector sẽ được lấy từ multivariate distribution. Discriminator sẽ làm nhiệm vụ phân biệt ảnh input là ảnh giả hay ảnh thuộc một class nào đó, điều này giúp cho ảnh được tạo phải mang thông tin của một lớp cụ thể.
- ### 2.1 openGAN
+ ### 2.1 new GAN
+Sử dụng feature normalization từ openGAN, chúng tôi thêm cho thêm thông tin của ảnh vào latent vector bằng cách concatenate noise z và  feature được trích từ  pre-trained VGG16 trên bộ dữ liệu đó.
+
 Tóm tắt: Open GAN sử dụng feature normalization để mã hoá thông tin vào Generator, Feature sẽ được trích từ một pre-trained Deep metric classification. Với cách thêm thông tin vào G như trên sẽ giúp cho Generator tổng hợp được ảnh với unseen classes.
 
 
@@ -52,7 +54,6 @@ Tương tự như BAGAN, chúng tôi huấn luyện trên 5 classes, kích thư�
 |Effusion| 0.812 | **`0.818`** | 0.813 |0.814 |
 |Nodule| 0.728 |**`0.735`**| 0.732 |0.719 |
 
-
 ### 4.2. AUC score on 5 classes: (augment 3000 images per class)
 
 | | VGG16 + standard aug | VGG16 + Bagan | VGG 16 + NewGAN |
@@ -62,3 +63,6 @@ Tương tự như BAGAN, chúng tôi huấn luyện trên 5 classes, kích thư�
 |Atelectasis| 0.735 | **`0.747`** | 0.744|
 |Effusion| **`0.814`** | 0.81 |0.813|
 |Nodule| 0.728 |0.725| **`0.737`** |
+
+
+BAGAN mang nhiều thông tin của một lớp hơn so với newGAN nhờ vào output của Discriminator giúp Generator tạo ra ảnh chính xác hơn.
