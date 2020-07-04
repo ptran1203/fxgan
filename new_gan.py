@@ -679,10 +679,13 @@ class BalancingGAN:
             Lambda(lambda x: x[:,i,:,:,:self.channels])(real_images_for_G) \
                 for i in range(self.k_shot)
         ]
-        recontruction_loss = Average()([
-            K.square(fake - real_img) \
-                for real_img in real_imgs
-        ])
+        if len(real_imgs) == 1:
+            recontruction_loss = K.square(fake - real_imgs[0])
+        else:
+            recontruction_loss = Average()([
+                K.square(fake - real_img) \
+                    for real_img in real_imgs
+            ])
 
         if 'triplet' in advance_losses:
             self.combined.add_loss(advance_losses['triplet'] * triplet)
@@ -691,7 +694,7 @@ class BalancingGAN:
         if 'fm_D' in advance_losses:
             self.combined.add_loss(advance_losses['fm_D'] * K.mean(fm_D))
         if 'recon' in advance_losses:
-            self.combined.add_loss(advance_losses['recon'] * recontruction_loss)
+            self.combined.add_loss(advance_losses['recon'] * K.mean(recontruction_loss))
 
         self.combined.compile(
             optimizer=Adam(
