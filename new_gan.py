@@ -638,7 +638,7 @@ class BalancingGAN:
             k_op =  K.mean
 
         if len(attr_features) == 1:
-            d_pos = k_op(K.square(fake_attribute - attr_feature))
+            d_pos = k_op(K.square(fake_attribute - attr_features[0]))
         else:
             d_pos = Average()([
                 k_op(K.square(fake_attribute - attr_feature), axis=1) \
