@@ -751,7 +751,7 @@ class BalancingGAN:
             name='resnet_gen'
         )
 
-    def selection_module(latent1, latent2):
+    def selection_module(self, latent1, latent2):
         x = Concatenate()([latent1, latent2])
         x = Dense(128, activation='relu')(x)
         x = Dense(64, activation = 'relu')(x)
@@ -774,7 +774,7 @@ class BalancingGAN:
                 Lambda(lambda x: x[:, i,])(images)
             ))
 
-        s1, s2 = selection_module(attr_features[0], attr_features[1])
+        s1, s2 = self.selection_module(attr_features[0], attr_features[1])
         latent_from_i = Lambda(lambda x: x[0] * x[1] + x[2] * x[3])([
             s1, attr_features[0], s2, attr_features[1]
         ])
