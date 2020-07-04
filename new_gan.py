@@ -632,11 +632,19 @@ class BalancingGAN:
 
         # triplet function
         margin = 1.0
-        d_pos = Average()([
-            K.sum(K.square(fake_attribute - attr_feature), axis=1) \
-                for attr_feature in attr_features
-        ])
-        d_neg = K.sum(K.square(
+        if 'triplet' in advance_losses:
+            k_op = K.sum
+        else:
+            k_op =  K.mean
+
+        if len(attr_features) == 1:
+            d_pos = k_op(K.square(fake_attribute - attr_feature))
+        else:
+            d_pos = Average()([
+                k_op(K.square(fake_attribute - attr_feature), axis=1) \
+                    for attr_feature in attr_features
+            ])
+        d_neg = k_op(K.square(
                 fake_attribute -
                 self.latent_encoder(self._triple_tensor(negative_samples))
                 ), axis=1)
