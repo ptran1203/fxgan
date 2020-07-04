@@ -751,6 +751,15 @@ class BalancingGAN:
             name='resnet_gen'
         )
 
+    def selection_module(latent1, latent2):
+        x = Concatenate()([latent1, latent2])
+        x = Dense(128, activation='relu')(x)
+        x = Dense(64, activation = 'relu')(x)
+
+        s1 = Dense(1, activation='sigmoid')(x)
+        s2 = Dense(1, activation='sigmoid')(x)
+        return s1, s2
+
     def build_new_generator(self):
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
                         name = 'G_input')
@@ -759,8 +768,18 @@ class BalancingGAN:
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         activation = 'relu'
 
-        mean, var = self.attribute_net(images, self.latent_size)
-        c_latent = Lambda(lambda x: x[0] + K.exp(x[1]*0.5) * x[2])([mean, var, latent_code])
+        attr_features = []
+        for i in range(self.k_shot):
+            attr_features.append(self.latent_encoder(
+                Lambda(lambda x: x[:, i,])(images)
+            ))
+
+        s1, s2 = selection_module(attr_features[0], attr_features[1])
+        latent_from_i = Lambda(lambda x: x[0] * x[1] + x[2] * x[3])([
+            s1, attr_features[0], s2, attr_features[1]
+        ])
+        latent_from_i = Concatenate()([latent_from_i, latent_code])
+
         latent = Dense(4 * 4 * init_channels)(c_latent)
         latent = self._norm()(latent)
         latent = Activation(activation)(latent)
