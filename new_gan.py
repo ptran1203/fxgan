@@ -630,11 +630,16 @@ class BalancingGAN:
             name = 'Combined',
         )
 
+        selection = self.selection_module(attr_features)
+
         # triplet function
         margin = 1.0
-        d_pos = Average()([
+        distances = [
             K.sum(K.square(fake_attribute - attr_feature), axis=1) \
                 for attr_feature in attr_features
+        ]
+        d_pos = Lambda(lambda x: x[0] * x[1] + x[2] * x[3])([
+            selection[0], distances[0], selection[1], distances[1]
         ])
         d_neg = K.sum(K.square(
                 fake_attribute -
@@ -653,18 +658,11 @@ class BalancingGAN:
 
         fake_fm = self.features_from_d_model(fake)
 
-        # fm_D = Average()([
-        #     K.square(fake_fm - fm_feature) \
-        #         for fm_feature in fm_features
-        # ])
-        distances = [
+        fm_D = Average()([
             K.square(fake_fm - fm_feature) \
                 for fm_feature in fm_features
-        ]
-        selection = self.selection_module(fm_features)
-        fm_D = Lambda(lambda x: x[0]*x[1] + x[2]*x[3])([
-            selection[0], distances[0], selection[1], distances[1],
         ])
+
         # Recontruction loss
         real_imgs = [
             Lambda(lambda x: x[:,i,:,:,:self.channels])(real_images_for_G) \
@@ -766,9 +764,10 @@ class BalancingGAN:
         x = Dense(128, activation='relu')(x)
         x = Dense(64, activation = 'relu')(x)
 
-        s1 = Dense(2, activation='softmax')(x)
+        s1 = Dense(1, activation='sigmoid')(x)
+        s2 = Dense(1, activation='sigmoid')(x)
         self.selection_module = Model(inputs=[latent1, latent2],
-                                    outputs=s1,
+                                    outputs=[s1, s2],
                                     name='selection_module')
 
     def build_new_generator(self):
