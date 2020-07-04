@@ -652,11 +652,19 @@ class BalancingGAN:
         ]
 
         fake_fm = self.features_from_d_model(fake)
-        fm_D = Average()([
+
+        # fm_D = Average()([
+        #     K.square(fake_fm - fm_feature) \
+        #         for fm_feature in fm_features
+        # ])
+        distances = [
             K.square(fake_fm - fm_feature) \
                 for fm_feature in fm_features
+        ]
+        selection = self.selection_module(fm_features)
+        fm_D = Lambda(lambda x: x[0]*x[1] + x[2]*x[3])([
+            selection[0], distances[0], selection[1], distances[1],
         ])
-
         # Recontruction loss
         real_imgs = [
             Lambda(lambda x: x[:,i,:,:,:self.channels])(real_images_for_G) \
@@ -751,16 +759,20 @@ class BalancingGAN:
             name='resnet_gen'
         )
 
-    def selection_module(self, latent1, latent2):
+    def build_selection_module(self):
+        latent1 = Input((self.latent_size,))
+        latent2 = Input((self.latent_size,))
         x = Concatenate()([latent1, latent2])
         x = Dense(128, activation='relu')(x)
         x = Dense(64, activation = 'relu')(x)
 
-        s1 = Dense(1, activation='sigmoid')(x)
-        s2 = Dense(1, activation='sigmoid')(x)
-        return s1, s2
+        s1 = Dense(2, activation='softmax')(x)
+        self.selection_module = Model(inputs=[latent1, latent2],
+                                    outputs=s1,
+                                    name='selection_module')
 
     def build_new_generator(self):
+        self.build_selection_module()
         images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
                         name = 'G_input')
 
@@ -774,10 +786,11 @@ class BalancingGAN:
                 Lambda(lambda x: x[:, i,])(images)
             ))
 
-        s1, s2 = self.selection_module(attr_features[0], attr_features[1])
+        selection = self.selection_module([attr_features[0], attr_features[1]])
         latent_from_i = Lambda(lambda x: x[0] * x[1] + x[2] * x[3])([
-            s1, attr_features[0], s2, attr_features[1]
+            selection[0], attr_features[0], selection[1], attr_features[1]
         ])
+
         latent_from_i = Concatenate()([latent_from_i, latent_code])
 
         latent = Dense(4 * 4 * init_channels)(latent_from_i)
