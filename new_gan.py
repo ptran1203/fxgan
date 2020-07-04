@@ -63,6 +63,10 @@ def hinge_D_real_loss(y_true, y_pred):
 def hinge_D_fake_loss(y_true, y_pred):
     return K.mean(K.relu(1+y_pred))
 
+def safe_average(list_inputs):
+    if len(list_inputs) == 1:
+        return list_inputs[0]
+    return Average()(list_inputs)
 
 class SelfAttention(Layer):
     def __init__(self, ch, **kwargs):
@@ -660,10 +664,15 @@ class BalancingGAN:
         ]
 
         fake_fm = self.features_from_d_model(fake)
-        fm_D = Average()([
-            K.square(fake_fm - fm_feature) \
-                for fm_feature in fm_features
-        ])
+
+
+        if len(fm_features) == 1:
+            fm_D = K.square(fake_fm - fm_features[0])
+        else:
+             fm_D = Average()([
+                K.square(fake_fm - fm_feature) \
+                    for fm_feature in fm_features
+            ])
 
         # Recontruction loss
         real_imgs = [
