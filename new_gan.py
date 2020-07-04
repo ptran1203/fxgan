@@ -308,7 +308,7 @@ class BalancingGAN:
         """
         Mapping image to latent code
         """
-        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        image = Input(shape=(self.resolution, self.resolution, 3))
         kernel_size = 5
 
         x = Conv2D(32, kernel_size+2, strides = 1, padding='same')(image)
