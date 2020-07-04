@@ -760,9 +760,7 @@ class BalancingGAN:
         activation = 'relu'
 
         mean, var = self.attribute_net(images, self.latent_size)
-        noise = K.random_normal(shape=(self.latent_size,))
-        c_latent = Lambda(lambda x: x[0] + K.exp(x[1] * x[2]))([mean, var, noise])
-        
+        c_latent = Lambda(lambda x: x[0] + K.exp(x[1] * x[2]))([mean, var, latent_code])
         latent = Dense(4 * 4 * init_channels)(c_latent)
         latent = self._norm()(latent)
         latent = Activation(activation)(latent)
