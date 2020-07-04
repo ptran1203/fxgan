@@ -21,6 +21,8 @@ def markdown_auc(scores, mode_name='VGG16'):
     table += '\n| VGG16 |'
     for s in scores:
         table += '{} |'.format(round(s, 3))
+
+    print("Average: ", sum(scores) / len(scores))
     return table
 
 def auc_score(y_true, y_pred, verbose=1, plot=0):
