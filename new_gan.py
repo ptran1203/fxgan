@@ -413,7 +413,7 @@ class BalancingGAN:
 
     def classify_by_metric(self, bg, images, metric='l2'):
         # currently do one-shot classification
-        sp_vectors = self.means.reshape(-1, 1, self.latent_size)
+        sp_vectors = self.means[:len(bg.classes)].reshape(-1, 1, gan.latent_size)
         vectors = self.latent_encoder.predict(utils.triple_channels(images))
         distances = np.array([np.mean(np.square(vector - sp_vector)) \
                             for vector in vectors \
