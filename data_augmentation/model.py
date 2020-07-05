@@ -133,8 +133,9 @@ def re_balance(imgs, labels, per_class_samples=None):
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
 def vgg_16_features(image, num_of_classes, dims=64, rst=64, from_scratch=True):
+    weights = None if from_scratch else 'imagenet'
     model = k_apps.VGG16(include_top=False,
-                        weights='imagenet',
+                        weights=weights,
                         input_tensor=None,
                         input_shape=(rst, rst, 3),
                         pooling='avg',
