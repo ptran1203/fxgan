@@ -132,7 +132,7 @@ def re_balance(imgs, labels, per_class_samples=None):
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
-def vgg_16_features(image, num_of_classes, dims=64, rst=64):
+def vgg_16_features(image, num_of_classes, dims=64, rst=64, from_scratch=True):
     model = k_apps.VGG16(include_top=False,
                         weights='imagenet',
                         input_tensor=None,
@@ -140,25 +140,30 @@ def vgg_16_features(image, num_of_classes, dims=64, rst=64):
                         pooling='avg',
                         classes=num_of_classes)
 
+    if not from_scratch:
+        for layer in model.layers:
+            accept_name = ['block1', 'block2', 'block3', 'block4', 'block5'][:1]
+            if any(x in layer.name for x in accept_name):
+                layer.trainable = False
+            else:
+                layer.trainable = True
+        x = model(image)
+        x = Dense(dims)(x)
+        out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
+        out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
+        return out1, out2
+    else:
+        x = model(image)
+        x1 = Dense(dims)(x)
+        out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x1)
+        out2 = Dense(num_of_classes, activation='softmax', name='main_out')(x)
+        return out1, out2
 
-    for layer in model.layers:
-        accept_name = ['block1', 'block2', 'block3', 'block4', 'block5'][:1]
-        if any(x in layer.name for x in accept_name):
-            layer.trainable = False
-        else:
-            layer.trainable = True
-
-    x = model(image)
-    x = Dense(dims)(x)
-    out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
-    out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
-    return out1, out2
-
-def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5, loss_weights=[1, 0.1]):
+def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5, loss_weights=[1, 0.1],
+                from_scratch=True):
     image = Input((rst, rst, 3))
     labels = Input((1,))
-    side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims, rst)
-
+    side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims, rst,from_scratch)
     centers = Embedding(num_of_classes, feat_dims)(labels)
     l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
                         name='l2_loss')([side_output ,centers])
@@ -169,9 +174,9 @@ def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5, loss_weights=[1, 
                         outputs=[final_output, l2_loss]
                         )
     train_model.compile(optimizer=Adam(lr),
-                                loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
-                                # loss = triplet_loss_adapted_from_tf,
-                                loss_weights=loss_weights,
-                                metrics=['accuracy'])
+                        loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
+                        # loss = triplet_loss_adapted_from_tf,
+                        loss_weights=loss_weights,
+                        metrics=['accuracy'])
 
     return train_model
