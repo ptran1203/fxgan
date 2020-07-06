@@ -642,7 +642,7 @@ class BalancingGAN:
             k_op =  K.mean
 
         if len(attr_features) == 1:
-            d_pos = k_op(K.square(fake_attribute - attr_features[0]))
+            d_pos = k_op(K.square(fake_attribute - attr_features[0]), axis=1)
         else:
             d_pos = Average()([
                 k_op(K.square(fake_attribute - attr_feature), axis=1) \
@@ -665,15 +665,21 @@ class BalancingGAN:
 
         fake_fm = self.features_from_d_model(fake)
 
+        if 'triplet_D' in advance_losses:
+            k_op_d = K.sum
+        else:
+            k_op_d =  K.mean
 
         if len(fm_features) == 1:
-            fm_D = K.square(fake_fm - fm_features[0])
+            fm_D = k_op_d(K.square(fake_fm - fm_features[0]), axis=1)
         else:
-             fm_D = Average()([
-                K.square(fake_fm - fm_feature) \
+            fm_D = Average()([
+                k_op_d(K.square(fake_fm - fm_feature), axis=1) \
                     for fm_feature in fm_features
             ])
 
+        fm_D_neg = k_op_d(K.square(fake_fm - self.features_from_d_model(negative_samples)), axis=1)
+        triplet_D = K.maximum(fm_D - fm_D_neg + margin, 0.0)
         # Recontruction loss
         real_imgs = [
             Lambda(lambda x: x[:,i,:,:,:self.channels])(real_images_for_G) \
@@ -692,7 +698,9 @@ class BalancingGAN:
         if 'l2_feat' in advance_losses:
             self.combined.add_loss(advance_losses['l2_feat'] * d_pos)
         if 'fm_D' in advance_losses:
-            self.combined.add_loss(advance_losses['fm_D'] * K.mean(fm_D))
+            self.combined.add_loss(advance_losses['fm_D'] *fm_D)
+        if 'triplet_D' in advance_losses:
+            self.combined.add_loss(advance_losses['triplet_D'] * triplet_D)
         if 'recon' in advance_losses:
             self.combined.add_loss(advance_losses['recon'] * K.mean(recontruction_loss))
 
