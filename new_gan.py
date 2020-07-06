@@ -543,9 +543,9 @@ class BalancingGAN:
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
         elif loss_type == 'categorical':
-            self.g_loss = 'categorical_crossentropy'
-            self.d_fake_loss = 'categorical_crossentropy'
-            self.d_real_loss = 'categorical_crossentropy'
+            self.g_loss = 'sparse_categorical_crossentropy'
+            self.d_fake_loss = 'sparse_categorical_crossentropy'
+            self.d_real_loss = 'sparse_categorical_crossentropy'
         elif loss_type == 'hinge':
             self.g_loss = hinge_G_loss
             self.d_fake_loss = hinge_D_fake_loss
@@ -579,7 +579,7 @@ class BalancingGAN:
             self.discriminator.compile(
                 optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
                 metrics = ['accuracy'],
-                loss = 'categorical_crossentropy'
+                loss = 'sparse_categorical_crossentropy'
             )
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -1057,7 +1057,8 @@ class BalancingGAN:
                 if self.loss_type == 'categorical':
                     loss, acc = self.discriminator.train_on_batch(
                         np.concatenate([image_batch, generated_images], axis=0),
-                        to_categorical(np.concatenate([label_batch, np.full(crt_batch_size, self.nclasses)], axis=0)))
+                        np.concatenate([label_batch,
+                                        np.full(crt_batch_size, self.nclasses], axis=0)))
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
