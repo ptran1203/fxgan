@@ -33,6 +33,8 @@ from keras.utils import np_utils
 import sklearn.metrics as metrics
 from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix
+from keras.utils import to_categorical
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -575,7 +577,7 @@ class BalancingGAN:
             self.discriminator.compile(
                 optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
                 metrics = ['accuracy'],
-                loss = 'sparse_categorical_crossentropy'
+                loss = 'categorical_crossentropy'
             )
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -1056,7 +1058,7 @@ class BalancingGAN:
                     fake_label = np.full(crt_batch_size, self.nclasses)
                     loss, acc = self.discriminator.train_on_batch([
                         np.concatenate([image_batch, generated_images], axis=0),
-                    ], np.concatenate([real_label, fake_label], axis=0))
+                    ], to_categorical(np.concatenate([real_label, fake_label], axis=0)))
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
