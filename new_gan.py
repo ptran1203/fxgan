@@ -1012,7 +1012,7 @@ class BalancingGAN:
     def build_features_from_d_model(self):
         self.features_from_d_model = Model(
             inputs = self.discriminator.inputs,
-            output = self.discriminator.layers[-3].get_output_at(-1),
+            output = self.discriminator.layers[-2].get_output_at(-1),
             name = 'Feature_matching'
         )
 
@@ -1042,14 +1042,11 @@ class BalancingGAN:
                 # X, aux_y = self.shuffle_data(X, aux_y)
                 fake_label = np.ones((crt_batch_size, 1))
                 real_label = -np.ones((crt_batch_size, 1))
-                real_label_for_d = -np.ones((crt_batch_size, 1))
 
                 if self.loss_type == 'binary':
                     real_label *= 0
-                    real_label_for_d *= 0
                 if self.loss_type == 'categorical':
                     real_label = label_batch
-                    real_label_for_d = label_batch
                     fake_label = np.full(crt_batch_size, self.nclasses)
 
                 attr_images = bg_train.ramdom_kshot_images(self.k_shot, label_batch)
@@ -1058,7 +1055,7 @@ class BalancingGAN:
                                                                 fake_label)
                 loss_real, acc_real, *rest = \
                         self.discriminator_real.train_on_batch([image_batch, attr_images],
-                                                                real_label_for_d)
+                                                                real_label)
                 loss = 0.5 * (loss_fake + loss_real)
                 acc = 0.5 * (acc_fake + acc_real)
 
@@ -1379,7 +1376,10 @@ class BalancingGAN:
             np.full((fakes.shape[0],), 'fake'),
         ])
 
-        utils.scatter_plot(imgs, labels, self.features_from_d_model, 'fake real space')
+        try:
+            utils.scatter_plot(imgs, labels, self.features_from_d_model, 'fake real space')
+        except:
+            print("can not draw fake real space")
         labels = np.concatenate([y, np.concatenate(fake_labels)])
         utils.scatter_plot(imgs, labels, self.latent_encoder, 'latent encoder')
 
