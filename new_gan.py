@@ -1057,8 +1057,10 @@ class BalancingGAN:
                 if self.loss_type == 'categorical':
                     loss, acc = self.discriminator.train_on_batch(
                         np.concatenate([image_batch, generated_images], axis=0),
-                        np.concatenate([label_batch,
-                                        np.full(crt_batch_size, self.nclasses)], axis=0)))
+                        np.concatenate([
+                            label_batch,
+                            np.full(crt_batch_size, self.nclasses)], axis=0)
+                    )
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
