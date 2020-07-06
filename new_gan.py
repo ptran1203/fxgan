@@ -539,9 +539,9 @@ class BalancingGAN:
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
         elif loss_type == 'categorical':
-            self.g_loss = 'sparse_categorical_crossentropy'
-            self.d_fake_loss = 'sparse_categorical_crossentropy'
-            self.d_real_loss = 'sparse_categorical_crossentropy'
+            self.g_loss = keras.losses.SparseCategoricalCrossentropy()
+            self.d_fake_loss = keras.losses.SparseCategoricalCrossentropy()
+            self.d_real_loss = keras.losses.SparseCategoricalCrossentropy()
         elif loss_type == 'hinge':
             self.g_loss = hinge_G_loss
             self.d_fake_loss = hinge_D_fake_loss
@@ -583,25 +583,25 @@ class BalancingGAN:
         fake_output_for_d = self.discriminator([fake_images])
 
         self.discriminator_fake = Model(
-            inputs = [fake_images, attr_images],
+            inputs = [fake_images],
             outputs = fake_output_for_d,
             name='D_fake',
         )
         self.discriminator_fake.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics = ['accuracy'],
-            loss = [self.d_fake_loss]
+            loss = self.d_fake_loss
         )
 
         self.discriminator_real = Model(
-            inputs = [real_images, attr_images],
+            inputs = [real_images],
             outputs = real_output_for_d,
             name='D_real',
         )
         self.discriminator_real.compile(
             optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
             metrics = ['accuracy'],
-            loss = [self.d_real_loss]
+            loss = self.d_real_loss
         )
 
         # Define combined for training generator.
@@ -1051,10 +1051,10 @@ class BalancingGAN:
 
                 attr_images = bg_train.ramdom_kshot_images(self.k_shot, label_batch)
                 loss_fake, acc_fake, *rest = \
-                        self.discriminator_fake.train_on_batch([generated_images, attr_images],
+                        self.discriminator_fake.train_on_batch([generated_images],
                                                                 fake_label)
                 loss_real, acc_real, *rest = \
-                        self.discriminator_real.train_on_batch([image_batch, attr_images],
+                        self.discriminator_real.train_on_batch([image_batch],
                                                                 real_label)
                 loss = 0.5 * (loss_fake + loss_real)
                 acc = 0.5 * (acc_fake + acc_real)
@@ -1261,10 +1261,10 @@ class BalancingGAN:
                 Y = [fake_label, real_label]
 
                 loss_fake, acc_fake, *rest = \
-                        self.discriminator_fake.evaluate([generated_images, k_shot_test_batch],
+                        self.discriminator_fake.evaluate([generated_images],
                                                         fake_label, verbose=False)
                 loss_real, acc_real, *rest = \
-                        self.discriminator_real.evaluate([test_batch_x, k_shot_test_batch],
+                        self.discriminator_real.evaluate([test_batch_x],
                                                         real_label, verbose=False)
                 test_disc_loss = 0.5 * (loss_fake + loss_real)
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
