@@ -49,6 +49,8 @@ import utils
 import logger
 from const import BASE_DIR
 
+K.set_image_dim_ordering('tf')
+
 from google.colab.patches import cv2_imshow
 from PIL import Image
 
@@ -587,8 +589,8 @@ class BalancingGAN:
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        real_output_for_d = self.discriminator([real_images])
-        fake_output_for_d = self.discriminator([fake_images])
+        real_output_for_d = self.discriminator(real_images)
+        fake_output_for_d = self.discriminator(fake_images)
 
         self.discriminator_fake = Model(
             inputs = [fake_images],
@@ -624,7 +626,7 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
         self.attribute_encoder.trainable = True
 
-        aux_fake = self.discriminator([fake])
+        aux_fake = self.discriminator(fake)
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
         fake_attribute = self.latent_encoder(self._triple_tensor(fake))
@@ -993,13 +995,13 @@ class BalancingGAN:
         if self.loss_type == 'categorical':
             aux = Dense(self.nclasses + 1,
                         activation = 'softmax',
-                        name='auxiliary')(features)
+                        name='auxiliary_categorical')(features)
         else:
             aux = Dense(
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=[image],
+        self.discriminator = Model(inputs=image,
                                    outputs=aux,
                                    name='discriminator')
 
@@ -1056,9 +1058,10 @@ class BalancingGAN:
                 if self.loss_type == 'categorical':
                     real_label = label_batch
                     fake_label = np.full(crt_batch_size, self.nclasses)
-                    loss, acc = self.discriminator.train_on_batch([
+                    loss, acc = self.discriminator.train_on_batch(
                         np.concatenate([image_batch, generated_images], axis=0),
-                    ], to_categorical(np.concatenate([real_label, fake_label], axis=0)))
+                        to_categorical(np.concatenate([real_label, fake_label], axis=0))
+                    )
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
