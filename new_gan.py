@@ -543,9 +543,9 @@ class BalancingGAN:
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
         elif loss_type == 'categorical':
-            self.g_loss = keras.losses.SparseCategoricalCrossentropy()
-            self.d_fake_loss = keras.losses.SparseCategoricalCrossentropy()
-            self.d_real_loss = keras.losses.SparseCategoricalCrossentropy()
+            self.g_loss = 'categorical_crossentropy'
+            self.d_fake_loss = 'categorical_crossentropy'
+            self.d_real_loss = 'categorical_crossentropy'
         elif loss_type == 'hinge':
             self.g_loss = hinge_G_loss
             self.d_fake_loss = hinge_D_fake_loss
@@ -689,7 +689,6 @@ class BalancingGAN:
             ])
 
         fm_D_neg = k_op_d(K.square(fake_fm - self.features_from_d_model(negative_samples)), axis=1)
-        print(fm_D_neg.shape, fm_D.shape)
         triplet_D = K.maximum(fm_D - fm_D_neg + margin, 0.0)
         # Recontruction loss
         real_imgs = [
@@ -1076,7 +1075,7 @@ class BalancingGAN:
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
             real_attribute = self.latent_codes(k_shot_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
-                [k_shot_batch, negative_samples, f],
+                [np.expand_dims(image_batch, axis=1), negative_samples, f],
                 [real_label, real_attribute],
             )
 
