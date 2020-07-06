@@ -49,7 +49,7 @@ import utils
 import logger
 from const import BASE_DIR
 
-K.set_image_dim_ordering('tf')
+K.common.set_image_dim_ordering('tf')
 
 from google.colab.patches import cv2_imshow
 from PIL import Image
