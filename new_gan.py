@@ -1056,8 +1056,7 @@ class BalancingGAN:
                     fake_label = np.full(crt_batch_size, self.nclasses)
                     loss, acc = self.discriminator.train_on_batch([
                         np.concatenate([image_batch, generated_images], axis=0),
-                        np.concatenate([real_label, fake_label], axis=0)
-                    ])
+                    ], np.concatenate([real_label, fake_label], axis=0))
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
