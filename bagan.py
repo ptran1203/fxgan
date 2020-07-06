@@ -552,7 +552,7 @@ class BalancingGAN:
                     self.generate_samples(crt_c, 10, bg_train)
                 ]
             ])
-            for crt_c in range(1, self.nclasses):
+            for crt_c in range(1, 3):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
@@ -639,7 +639,7 @@ class BalancingGAN:
                     labels = np.zeros(sample_size)
                     img_samples = self.generate_samples(crt_c, sample_size, bg_train)
                     five_imgs = img_samples[:5]
-                    for crt_c in range(1, self.nclasses):
+                    for crt_c in range(1, 3):
                         new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
                         labels = np.concatenate((np.ones(sample_size), labels), axis=0)
