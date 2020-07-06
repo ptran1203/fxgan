@@ -1001,7 +1001,7 @@ class BalancingGAN:
                 1, activation = activation,name='auxiliary'
             )(features)
 
-        self.discriminator = Model(inputs=image,
+        self.discriminator = Model(inputs=[image],
                                    outputs=aux,
                                    name='discriminator')
 
@@ -1056,12 +1056,9 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
-                    real_label = label_batch
-                    fake_label = np.full(crt_batch_size, self.nclasses)
                     loss, acc = self.discriminator.train_on_batch(
                         np.concatenate([image_batch, generated_images], axis=0),
-                        to_categorical(np.concatenate([real_label, fake_label], axis=0))
-                    )
+                        to_categorical(np.concatenate([label_batch, np.full(crt_batch_size, self.nclasses)], axis=0)))
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
