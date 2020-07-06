@@ -575,7 +575,7 @@ class BalancingGAN:
             self.discriminator.compile(
                 optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
                 metrics = ['accuracy'],
-                loss = 'sparse_categorial_crossentropy'
+                loss = 'sparse_categorical_crossentropy'
             )
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
