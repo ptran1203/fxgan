@@ -726,9 +726,9 @@ class BalancingGAN:
         else:
             latent_from_i = Average()(attr_features)
 
-        latent_from_i = GaussianNoise(0, 0.1)(latent_from_i)
+        latent_from_i = GaussianNoise(0.1)(latent_from_i)
         latent_from_i = Concatenate()([latent_from_i, latent_code])
-        latent_from_i = GaussianNoise(0, 0.1)(latent_from_i)
+        latent_from_i = GaussianNoise(0.1)(latent_from_i)
 
         latent = Dense(4 * 4 * init_channels)(latent_from_i)
         latent = self._norm()(latent)
