@@ -679,6 +679,7 @@ class BalancingGAN:
             ])
 
         fm_D_neg = k_op_d(K.square(fake_fm - self.features_from_d_model(negative_samples)), axis=1)
+        print(fm_D_neg.shape, fm_D.shape)
         triplet_D = K.maximum(fm_D - fm_D_neg + margin, 0.0)
         # Recontruction loss
         real_imgs = [
