@@ -571,6 +571,12 @@ class BalancingGAN:
         else:
             self.build_new_generator()
 
+        if self.loss_type == 'categorical':
+            self.discriminator.compile(
+                optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+                metrics = ['accuracy'],
+                loss = 'sparse_categorial_crossentropy'
+            )
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         # Use VGG16 model -> channels = 3
@@ -979,7 +985,7 @@ class BalancingGAN:
         # attr_image = Input(shape=(self.k_shot, resolution, resolution, 3))
 
         features = self._discriminator_feature(image)
-
+        features = Dropout(0.4)(features)
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
 
         if self.loss_type == 'categorical':
@@ -1048,16 +1054,19 @@ class BalancingGAN:
                 if self.loss_type == 'categorical':
                     real_label = label_batch
                     fake_label = np.full(crt_batch_size, self.nclasses)
-
-                attr_images = bg_train.ramdom_kshot_images(self.k_shot, label_batch)
-                loss_fake, acc_fake, *rest = \
-                        self.discriminator_fake.train_on_batch([generated_images],
-                                                                fake_label)
-                loss_real, acc_real, *rest = \
-                        self.discriminator_real.train_on_batch([image_batch],
-                                                                real_label)
-                loss = 0.5 * (loss_fake + loss_real)
-                acc = 0.5 * (acc_fake + acc_real)
+                    loss, acc = self.discriminator.train_on_batch([
+                        np.concatenate([image_batch, generated_images], axis=0),
+                        np.concatenate([real_label, fake_label], axis=0)
+                    ])
+                else:
+                    loss_fake, acc_fake, *rest = \
+                            self.discriminator_fake.train_on_batch([generated_images],
+                                                                    fake_label)
+                    loss_real, acc_real, *rest = \
+                            self.discriminator_real.train_on_batch([image_batch],
+                                                                    real_label)
+                    loss = 0.5 * (loss_fake + loss_real)
+                    acc = 0.5 * (acc_fake + acc_real)
 
             epoch_disc_loss.append(loss)
 
