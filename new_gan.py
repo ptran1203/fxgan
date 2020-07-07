@@ -72,6 +72,12 @@ def safe_average(list_inputs):
         return list_inputs[0]
     return Average()(list_inputs)
 
+def l2_distance(a, b):
+    return np.mean(np.square(a - b))
+
+def cosine_sim(a, b):
+    return - (np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+
 class SelfAttention(Layer):
     def __init__(self, ch, **kwargs):
         super(SelfAttention, self).__init__(**kwargs)
@@ -419,10 +425,11 @@ class BalancingGAN:
         # currently do one-shot classification
         sp_vectors = self.means[:len(bg.classes)].reshape(-1, 1, self.latent_size)
         vectors = self.latent_encoder.predict(utils.triple_channels(images))
-        distances = np.array([np.mean(np.square(vector - sp_vector)) \
+        metric_func = l2_distance if metric == 'l2' else cosine_sim
+        similiarity = np.array([metric_func(vector - sp_vector) \
                             for vector in vectors \
                             for sp_vector in sp_vectors]).reshape(-1, len(bg.classes))
-        pred = np.argmin(np.array(distances), axis=1)
+        pred = np.argmin(np.array(similiarity), axis=1)
         return pred
     
     def gen_for_class(self, bg, classid,size=1000):
