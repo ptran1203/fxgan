@@ -78,6 +78,12 @@ def l2_distance(a, b):
 def cosine_sim(a, b):
     return - (np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b)))
 
+def cosine_sim_op(vests):
+    x, y = vests
+    x = K.l2_normalize(x, axis=-1)
+    y = K.l2_normalize(y, axis=-1)
+    return -K.mean(x * y, axis=-1, keepdims=True)
+
 class SelfAttention(Layer):
     def __init__(self, ch, **kwargs):
         super(SelfAttention, self).__init__(**kwargs)
@@ -655,17 +661,19 @@ class BalancingGAN:
         margin = 1.0
         if 'triplet' in advance_losses:
             k_op = K.sum
+            metric_op = K.square
         else:
             k_op =  K.mean
+            metric_op = cosine_sim_op
 
         if len(attr_features) == 1:
-            d_pos = k_op(K.square(fake_attribute - attr_features[0]), axis=1)
+            d_pos = k_op(metric_op(fake_attribute - attr_features[0]), axis=1)
         else:
             d_pos = Average()([
-                k_op(K.square(fake_attribute - attr_feature), axis=1) \
+                k_op(metric_op(fake_attribute - attr_feature), axis=1) \
                     for attr_feature in attr_features
             ])
-        d_neg = k_op(K.square(
+        d_neg = k_op(metric_op(
                 fake_attribute -
                 self.latent_encoder(self._triple_tensor(negative_samples))
                 ), axis=1)
