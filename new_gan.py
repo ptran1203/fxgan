@@ -432,7 +432,7 @@ class BalancingGAN:
         sp_vectors = self.means[:len(bg.classes)].reshape(-1, 1, self.latent_size)
         vectors = self.latent_encoder.predict(utils.triple_channels(images))
         metric_func = l2_distance if metric == 'l2' else cosine_sim
-        similiarity = np.array([metric_func(vector - sp_vector) \
+        similiarity = np.array([metric_func(vector, sp_vector) \
                             for vector in vectors \
                             for sp_vector in sp_vectors]).reshape(-1, len(bg.classes))
         pred = np.argmin(np.array(similiarity), axis=1)
