@@ -995,7 +995,8 @@ class BalancingGAN:
             x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
             x = LeakyReLU()(x)
             x = Dropout(0.3)(x)
-            return Flatten()(x)
+            x = Flatten()(x)
+            return x
 
 
     def build_discriminator(self):
@@ -1008,17 +1009,16 @@ class BalancingGAN:
         features = self._discriminator_feature(image)
         features = Dropout(0.4)(features)
         activation = 'sigmoid' if self.loss_type == 'binary' else 'linear'
-
+        last_channels = 1
         if self.loss_type == 'categorical':
-            aux = Dense(self.nclasses + 1,
-                        activation = 'softmax',
-                        name='auxiliary_categorical')(features)
-        else:
-            aux = Dense(
-                1, activation = activation,name='auxiliary'
-            )(features)
+            activation = 'softmax'
+            last_channels = self.nclasses + 1
 
-        self.discriminator = Model(inputs=[image],
+        aux = Dense(
+            last_channels, activation = activation,name='auxiliary'
+        )(features)
+
+        self.discriminator = Model(inputs=image,
                                    outputs=aux,
                                    name='discriminator')
 
