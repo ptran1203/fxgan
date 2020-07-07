@@ -1,6 +1,8 @@
 
 from collections import defaultdict, Counter
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from sklearn.preprocessing import StandardScaler
 
@@ -237,12 +239,13 @@ def visualize_scatter(data_2d, label_ids, figsize=(8,8)):
     plt.grid()
     
     nb_classes = len(np.unique(label_ids))
-    
+    colors = cm.rainbow(np.linspace(0, 1, nb_classes))
+
     for i,label_id in enumerate(np.unique(label_ids)):
         plt.scatter(data_2d[np.where(label_ids == label_id), 0],
                     data_2d[np.where(label_ids == label_id), 1],
                     marker='o',
-                    color= plt.cm.Set1(i / float(nb_classes)),
+                    colors=colors[i],
                     linewidth='1',
                     alpha=0.8,
                     label=label_id)
