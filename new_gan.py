@@ -662,12 +662,13 @@ class BalancingGAN:
         if 'triplet' in advance_losses:
             print("Triplet OP")
             k_op = K.sum
-            # metric_op = K.square
-            metric_op = cosine_sim_op
+            metric_op = K.square
+            # metric_op = cosine_sim_op
         else:
             print("L2 OP")
             k_op =  K.mean
-            metric_op = cosine_sim_op
+            # metric_op = cosine_sim_op
+            metric_op = K.square
 
         if len(attr_features) == 1:
             d_pos = k_op(metric_op(fake_attribute - attr_features[0]), axis=1)
