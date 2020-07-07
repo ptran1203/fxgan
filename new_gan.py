@@ -653,7 +653,7 @@ class BalancingGAN:
 
         self.combined = Model(
             inputs=[real_images_for_G, negative_samples, latent_code],
-            outputs=[aux_fake, fake_attribute],
+            outputs=aux_fake,
             name = 'Combined',
         )
 
@@ -739,8 +739,7 @@ class BalancingGAN:
                 beta_1=self.adam_beta_1
             ),
             metrics=['accuracy'],
-            loss = [self.g_loss, 'mse'],
-            loss_weights= [1.0, 0]
+            loss = self.g_loss,
         )
         self._show_settings()
 
@@ -1074,10 +1073,11 @@ class BalancingGAN:
                 if self.loss_type == 'binary':
                     real_label *= 0
                 if self.loss_type == 'categorical':
+                    real_label = label_batch
                     loss, acc = self.discriminator.train_on_batch(
                         np.concatenate([image_batch, generated_images], axis=0),
                         np.concatenate([
-                            label_batch,
+                            real_label,
                             np.full(crt_batch_size, self.nclasses)], axis=0)
                     )
                 else:
@@ -1095,13 +1095,12 @@ class BalancingGAN:
             ################## Train Generator ##################
             f = self.generate_latent(label_batch)
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
-            real_attribute = self.latent_codes(k_shot_batch)
             [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
                 [
                     utils.triple_channels(np.expand_dims(image_batch, axis=1)),
                     negative_samples, f
                 ],
-                [real_label, real_attribute],
+                real_label,
             )
 
             epoch_gen_loss.append([d_loss, l_loss])
@@ -1304,14 +1303,13 @@ class BalancingGAN:
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(test_batch_y))
-                real_attribute = self.latent_codes(k_shot_test_batch)
                 [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
                     [
                         k_shot_test_batch,
                         negative_samples,
                         f
                     ],
-                    [real_label, real_attribute],
+                    real_label,
                     verbose = 0
                 )
 

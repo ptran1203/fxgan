@@ -152,9 +152,9 @@ class BalancingGAN:
         features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
-        aux = Dense(
-            self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
-        )(features)
+        aux = Dense(self.nclasses+1,
+                    activation='softmax',
+                    name='auxiliary')(features)
         self.discriminator = Model(inputs=image, outputs=aux)
 
     def generate_from_latent(self, latent):
@@ -253,11 +253,6 @@ class BalancingGAN:
 
         # Build generator
         self.build_generator(latent_size, init_resolution=min_latent_res)
-        self.generator.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            # metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
-        )
 
         latent_gen = Input(shape=(latent_size, ))
 
