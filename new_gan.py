@@ -1095,7 +1095,7 @@ class BalancingGAN:
             ################## Train Generator ##################
             f = self.generate_latent(label_batch)
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
-            [loss, d_loss, l_loss, *rest] = self.combined.train_on_batch(
+            gloss, gacc = self.combined.train_on_batch(
                 [
                     utils.triple_channels(np.expand_dims(image_batch, axis=1)),
                     negative_samples, f
@@ -1103,7 +1103,7 @@ class BalancingGAN:
                 real_label,
             )
 
-            epoch_gen_loss.append([d_loss, l_loss])
+            epoch_gen_loss.append(gloss)
 
         return (
             np.mean(np.array(epoch_disc_loss), axis=0),
@@ -1374,8 +1374,8 @@ class BalancingGAN:
                 self.interval_process(e)
 
 
-                print("- D_loss {}, G_adv_loss {} G_mse_loss {} - {}".format(
-                    train_disc_loss, train_gen_loss[0], train_gen_loss[1],
+                print("- D_loss {}, G_loss {} - {}".format(
+                    train_disc_loss, train_gen_loss,
                     datetime.datetime.now() - start_time
                 ))
 
