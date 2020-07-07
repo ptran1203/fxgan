@@ -1303,7 +1303,7 @@ class BalancingGAN:
                 test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(test_batch_y))
-                [_, gen_d_loss, gen_latent_loss, *_] = self.combined.evaluate(
+                gen_d_loss, _ = self.combined.evaluate(
                     [
                         k_shot_test_batch,
                         negative_samples,
@@ -1382,7 +1382,7 @@ class BalancingGAN:
                 self.train_history['disc_loss'].append(train_disc_loss)
                 self.train_history['gen_loss'].append(train_gen_loss)
                 self.test_history['disc_loss'].append(test_disc_loss)
-                self.test_history['gen_loss'].append([gen_d_loss, gen_latent_loss])
+                self.test_history['gen_loss'].append(gen_d_loss)
 
             self.trained = True
 
