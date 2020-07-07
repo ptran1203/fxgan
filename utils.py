@@ -245,7 +245,7 @@ def visualize_scatter(data_2d, label_ids, figsize=(8,8)):
         plt.scatter(data_2d[np.where(label_ids == label_id), 0],
                     data_2d[np.where(label_ids == label_id), 1],
                     marker='o',
-                    colors=colors[i],
+                    color=colors[i],
                     linewidth='1',
                     alpha=0.8,
                     label=label_id)
