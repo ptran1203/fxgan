@@ -597,35 +597,35 @@ class BalancingGAN:
 
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         # Use VGG16 model -> channels = 3
-        attr_images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3))
         latent_code = Input(shape=(self.latent_size,))
 
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
-        real_output_for_d = self.discriminator(real_images)
-        fake_output_for_d = self.discriminator(fake_images)
+        if self.loss_type != 'categorical':
+            real_output_for_d = self.discriminator(real_images)
+            fake_output_for_d = self.discriminator(fake_images)
 
-        self.discriminator_fake = Model(
-            inputs = [fake_images],
-            outputs = fake_output_for_d,
-            name='D_fake',
-        )
-        self.discriminator_fake.compile(
-            optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics = ['accuracy'],
-            loss = self.d_fake_loss
-        )
+            self.discriminator_fake = Model(
+                inputs = [fake_images],
+                outputs = fake_output_for_d,
+                name='D_fake',
+            )
+            self.discriminator_fake.compile(
+                optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+                metrics = ['accuracy'],
+                loss = self.d_fake_loss
+            )
 
-        self.discriminator_real = Model(
-            inputs = [real_images],
-            outputs = real_output_for_d,
-            name='D_real',
-        )
-        self.discriminator_real.compile(
-            optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            metrics = ['accuracy'],
-            loss = self.d_real_loss
-        )
+            self.discriminator_real = Model(
+                inputs = [real_images],
+                outputs = real_output_for_d,
+                name='D_real',
+            )
+            self.discriminator_real.compile(
+                optimizer = Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
+                metrics = ['accuracy'],
+                loss = self.d_real_loss
+            )
 
         # Define combined for training generator.
         real_images_for_G = Input((self.k_shot, self.resolution, self.resolution, 3))
@@ -1279,14 +1279,21 @@ class BalancingGAN:
                 X = [test_batch_x, generated_images]
                 Y = [fake_label, real_label]
 
-                loss_fake, acc_fake, *rest = \
-                        self.discriminator_fake.evaluate([generated_images],
-                                                        fake_label, verbose=False)
-                loss_real, acc_real, *rest = \
-                        self.discriminator_real.evaluate([test_batch_x],
-                                                        real_label, verbose=False)
-                test_disc_loss = 0.5 * (loss_fake + loss_real)
-                test_disc_acc = 0.5 * (acc_fake + acc_real)
+                if self.loss_type == 'categorical':
+                    test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                        np.concatenate([test_batch_x, generated_images]),
+                        np.concatenate([real_label, fake_label]),
+                        verbose=False
+                    )
+                else:
+                    loss_fake, acc_fake, *rest = \
+                            self.discriminator_fake.evaluate([generated_images],
+                                                            fake_label, verbose=False)
+                    loss_real, acc_real, *rest = \
+                            self.discriminator_real.evaluate([test_batch_x],
+                                                            real_label, verbose=False)
+                    test_disc_loss = 0.5 * (loss_fake + loss_real)
+                    test_disc_acc = 0.5 * (acc_fake + acc_real)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(test_batch_y))
                 gen_d_loss, _ = self.combined.evaluate(
