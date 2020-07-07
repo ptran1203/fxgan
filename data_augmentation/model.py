@@ -181,3 +181,46 @@ def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5, loss_weights=[1, 
                         metrics=['accuracy'])
 
     return train_model
+
+
+def l2_distance(a, b):
+    return np.mean(np.square(a - b))
+
+def cosine_sim(a, b):
+    return - (np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b)))
+
+def cal_sp_vectors(embbeder, supports,k_shot):
+    means = []
+    x_sp, y_sp = supports
+    classes = np.unique(y_sp)
+    # perclassid
+    per_class_ids = dict()
+    ids = np.array(range(len(x_sp)))
+    for c in classes:
+        per_class_ids[c] = ids[y_sp == c]
+
+    for c in classes:
+        imgs = x_sp[per_class_ids[c][:k_shot]]
+        # imgs = utils.triple_channels(imgs)
+        latent = embbeder.predict(imgs)
+        means.append(np.mean(latent, axis=0))
+    return np.array(means)
+    
+def classify_by_metric(embbeder, supports, images, k_shot=1,metric='l2'):
+    x_sp, y_sp = supports
+    classes = np.unique(y_sp)
+    # currently do one-shot classification
+    sp_vectors = cal_sp_vectors(embbeder, supports,k_shot)
+    vectors = embbeder.predict(triple_channels(images))
+    metric_func = l2_distance if metric == 'l2' else cosine_sim
+    similiarity = np.array([metric_func(vector, sp_vector) \
+                        for vector in vectors \
+                        for sp_vector in sp_vectors]).reshape(-1, len(classes))
+    pred = np.argmin(np.array(similiarity), axis=1)
+    return pred
+
+def evaluate_by_metric(embbeder, supports, images, labels, k_shot=1,metric='l2'):
+    pred = classify_by_metric(embbeder, supports,
+                              images,k_shot=k_shot, metric=metric)
+    acc = (pred == labels).mean()
+    return acc
