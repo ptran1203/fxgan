@@ -636,8 +636,6 @@ class BalancingGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
         self.features_from_d_model.trainable = False
-        self.latent_encoder.trainable = False
-        self.attribute_encoder.trainable = True
 
         aux_fake = self.discriminator(fake)
 
@@ -900,20 +898,9 @@ class BalancingGAN:
 
 
     def plot_loss_his(self):
-        def _get_arr(x, idx):
-            return [i[idx] for i in x]
-
         def plot_g(train_g, test_g):
-            plt.plot(_get_arr(train_g, 1), label='train mse')
-            plt.plot(_get_arr(test_g, 1), label='test mse')
-            plt.ylabel('loss')
-            plt.xlabel('epoch')
-            plt.title('Generator')
-            plt.legend()
-            plt.show()
-
-            plt.plot(_get_arr(train_g, 0), label='train adv')
-            plt.plot(_get_arr(test_g, 0), label='test adv')
+            plt.plot(train_g, label='train adv')
+            plt.plot(test_g, label='test adv')
             plt.ylabel('loss')
             plt.xlabel('epoch')
             plt.title('Generator')
@@ -964,7 +951,7 @@ class BalancingGAN:
         channels = self.channels
 
         kernel_size = 3
-        if not self.resnet: # dont use this!
+        if False: # dont use this!
             x = self._donw_resblock(image, 64, kernel_size)
             x = self._donw_resblock(x, 128, kernel_size)
             if self.attention:
@@ -973,30 +960,29 @@ class BalancingGAN:
             x = self._donw_resblock(x, 512, kernel_size)
             return GlobalAveragePooling2D()(x)
 
-        else:
-            x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
-            x = LeakyReLU()(x)
-            x = Dropout(0.3)(x)
+        x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
 
-            x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
-            x = LeakyReLU()(x)
-            x = Dropout(0.3)(x)
-        
-            if self.attention:
-                x = SelfAttention(128)(x)
+        x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
+    
+        if self.attention:
+            x = SelfAttention(128)(x)
 
-            x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
-            # if 'D' in self.norm and 'fn' in self.norm:
-            #     scale, bias = self.attribute_net(attr_image, 256)
-            #     x = FeatureNorm(norm=self.norm)([x, scale, bias])
-            x = LeakyReLU()(x)
-            x = Dropout(0.3)(x)
+        x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
+        # if 'D' in self.norm and 'fn' in self.norm:
+        #     scale, bias = self.attribute_net(attr_image, 256)
+        #     x = FeatureNorm(norm=self.norm)([x, scale, bias])
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
 
-            x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
-            x = LeakyReLU()(x)
-            x = Dropout(0.3)(x)
-            x = Flatten()(x)
-            return x
+        x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
+        x = LeakyReLU()(x)
+        x = Dropout(0.3)(x)
+        x = Flatten()(x)
+        return x
 
 
     def build_discriminator(self):
