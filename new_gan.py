@@ -1313,7 +1313,7 @@ class BalancingGAN:
                         np.concatenate(Y, axis=0))
                     self.evaluate_g(
                         [
-                            test_batch_y,
+                            k_shot_test_batch,
                             negative_samples,
                             f,
                             
