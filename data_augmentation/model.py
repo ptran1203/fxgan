@@ -132,7 +132,10 @@ def re_balance(imgs, labels, per_class_samples=None):
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
-def vgg_16_features(image, num_of_classes, dims=64, rst=64, from_scratch=True):
+def vgg_16_features(image, num_of_classes,
+                    dims=64, rst=64,
+                    from_scratch=True,
+                    frozen_block=[]):
     weights = None if from_scratch else 'imagenet'
     model = k_apps.VGG16(include_top=False,
                         weights=weights,
@@ -143,8 +146,7 @@ def vgg_16_features(image, num_of_classes, dims=64, rst=64, from_scratch=True):
 
     if not from_scratch:
         for layer in model.layers:
-            accept_name = ['block1', 'block2', 'block3', 'block4', 'block5'][:1]
-            if any(x in layer.name for x in accept_name):
+            if any(x in layer.name for x in frozen_block):
                 layer.trainable = False
             else:
                 layer.trainable = True
@@ -160,11 +162,17 @@ def vgg_16_features(image, num_of_classes, dims=64, rst=64, from_scratch=True):
         out2 = Dense(num_of_classes, activation='softmax', name='main_out')(x)
         return out1, out2
 
-def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5, loss_weights=[1, 0.1],
-                from_scratch=True):
+def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
+                loss_weights=[1, 0.1],
+                from_scratch=True,frozen_block=[]):
     image = Input((rst, rst, 3))
     labels = Input((1,))
-    side_output, final_output = vgg_16_features(image, num_of_classes, feat_dims, rst,from_scratch)
+    side_output, final_output = vgg_16_features(image,
+                                                num_of_classes,
+                                                feat_dims,
+                                                rst,
+                                                from_scratch,
+                                                frozen_block=frozen_block)
     centers = Embedding(num_of_classes, feat_dims)(labels)
     l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
                         name='l2_loss')([side_output ,centers])
