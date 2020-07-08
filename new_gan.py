@@ -1170,13 +1170,8 @@ class BalancingGAN:
                 generated_images = self.generate(k_shot_test_batch, f)
 
                 X = np.concatenate([test_batch_x, generated_images])
-    
-                aux_y = np.concatenate([
-                    np.full(test_size, 0),
-                    np.full(test_size, 1)
-                ])
 
-                fake_label = np.ones((test_size, 1))
+                fake_label = np.ones((generated_images.shape[0], 1))
                 real_label = -np.ones((test_size, 1))
 
                 if self.loss_type == 'binary':
