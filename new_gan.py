@@ -1132,13 +1132,14 @@ class BalancingGAN:
             e = str(e)
             try:
                 utils.set_weights(self.generator, self.res_dir)
+                logger.info("generator weigths loaded manually")
                 self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
                 logger.info("discriminator weigths loaded")
-                logger.info("generator weigths loaded manually")
             except Exception as err:
                 e += '\n, Load weigths array error ' + str(err)
                 logger.warn('Reload error, restart from scratch ' + e)
             return 0
+
 
     def backup_point(self, epoch):
         # Bck
@@ -1307,16 +1308,18 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    # self.evaluate_d(np.concatenate([X[0], X[1]], axis=0), np.concatenate(Y, axis=0))
-                    # self.evaluate_g(
-                    #     [
-                    #         bg_test.dataset_x,
-                    #         negative_samples,
-                    #         f,
+                    self.evaluate_d(
+                        np.concatenate(X, axis=0),
+                        np.concatenate(Y, axis=0))
+                    self.evaluate_g(
+                        [
+                            test_batch_y,
+                            negative_samples,
+                            f,
                             
-                    #     ],
-                    #     [real_label, real_attribute],
-                    # )
+                        ],
+                        real_label,
+                    )
 
                     crt_c = 0
                     # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
