@@ -317,7 +317,7 @@ class BalancingGAN:
             print("same latent")
             latent = np.repeat(self.generate_latent([classid]), samples, axis=0)
     
-        generated_images = self.generator.predict([support_images, latent])
+        generated_images = self.generate(support_images, latent)
         print("predicts: ", self.classify_by_metric(bg, generated_images))
         for idx in range(support_images.shape[1]):
             utils.show_samples(support_images[:,idx,])
@@ -362,18 +362,20 @@ class BalancingGAN:
             name='attribute_encoder',
         )
 
+    def get_attribute_tensor(self, images, average=True):
+        attr_features = [
+            self.latent_encoder(
+                Lambda(lambda x: x[:, i,])(images)
+            ) for i in range(self.k_shot)
+        ]
+        if len(attr_features) == 1:
+            return attr_features[0]
+
+        return Average()(attr_features) if average else attr_features
+
 
     def attribute_net(self, images, channels):
-        attr_features = []
-        for i in range(self.k_shot):
-            attr_features.append(self.latent_encoder(
-                Lambda(lambda x: x[:, i,])(images)
-            ))
-
-        if len(attr_features) == 1:
-            attr_feature = attr_features[0]
-        else:
-            attr_feature = Average()(attr_features)
+        attr_feature = self.get_attribute_tensor(images)
 
         scale = Dense(256, activation = 'relu')(attr_feature)
         scale = Dense(channels)(scale)
@@ -409,7 +411,7 @@ class BalancingGAN:
                                             np.full(1, classid))
             images = np.repeat(images, samples,axis=0)
 
-        generated_images = self.generator.predict([images, latent])
+        generated_images = self.generate(images, latent)
         return generated_images
 
     def generate_augmented_data(self, bg, size=1000):
@@ -418,7 +420,7 @@ class BalancingGAN:
         labels = bg.dataset_y[random][:size]
         labels = np.repeat(labels, 3, axis=0)
         latent = self.generate_latent(labels)
-        generated = self.generator.predict([bg.ramdom_kshot_images(self.k_shot, labels), latent])
+        generated = self.generate(bg.ramdom_kshot_images(self.k_shot, labels), latent)
         discriminated = self.discriminator.predict(generated)
         d_sorted = discriminated.argsort(axis=0).reshape(-1)
         # sort by realism
@@ -430,7 +432,7 @@ class BalancingGAN:
     def classify_by_metric(self, bg, images, metric='l2'):
         # currently do one-shot classification
         sp_vectors = self.means[:len(bg.classes)].reshape(-1, 1, self.latent_size)
-        vectors = self.latent_encoder.predict(utils.triple_channels(images))
+        vectors = self.latent_code(utils.triple_channels(images))
         metric_func = l2_distance if metric == 'l2' else cosine_sim
         similiarity = np.array([metric_func(vector, sp_vector) \
                             for vector in vectors \
@@ -446,7 +448,7 @@ class BalancingGAN:
             latent = self.generate_latent(labels)
             support = bg.ramdom_kshot_images(self.k_shot,
                                             np.full(size, classid))
-            gen = self.generator.predict([support, latent])
+            gen = self.generate(support, latent)
             d_outputs = self.classify_by_metric(bg, gen)
             to_keep = np.where(labels == d_outputs)[0]
             gen = gen[to_keep]
@@ -495,7 +497,7 @@ class BalancingGAN:
         for c in np.unique(bg.dataset_y):
             imgs = bg.dataset_x[bg.per_class_ids[c]]
             imgs = utils.triple_channels(imgs)
-            latent = self.latent_encoder.predict(imgs)
+            latent = self.latent_code(imgs)
             
             self.covariances.append(np.cov(np.transpose(latent)))
             self.means.append(np.mean(latent, axis=0))
@@ -586,7 +588,7 @@ class BalancingGAN:
         if self.resnet:
             self.build_resnet_generator()
         else:
-            self.build_new_generator()
+            raise("Should use resnet")
 
         if self.loss_type == 'categorical':
             self.discriminator.compile(
@@ -598,7 +600,6 @@ class BalancingGAN:
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         # Use VGG16 model -> channels = 3
         latent_code = Input(shape=(self.latent_size,))
-
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
         if self.loss_type != 'categorical':
@@ -629,8 +630,10 @@ class BalancingGAN:
 
         # Define combined for training generator.
         real_images_for_G = Input((self.k_shot, self.resolution, self.resolution, 3))
+         # real attr
+        attr_features = self.get_attribute_tensor(real_images_for_G, average=False)
         fake = self.generator([
-            real_images_for_G, latent_code
+            attr_features, latent_code
         ])
 
         self.discriminator.trainable = False
@@ -641,13 +644,6 @@ class BalancingGAN:
 
         negative_samples = Input((self.resolution,self.resolution,self.channels))
         fake_attribute = self.latent_encoder(self._triple_tensor(fake))
-
-        ## real attr
-        attr_features = []
-        for i in range(self.k_shot):
-            attr_features.append(self.latent_encoder(
-                Lambda(lambda x: x[:, i,])(real_images_for_G)
-            ))
 
         self.combined = Model(
             inputs=[real_images_for_G, negative_samples, latent_code],
@@ -668,8 +664,8 @@ class BalancingGAN:
             # metric_op = cosine_sim_op
             metric_op = K.square
 
-        if len(attr_features) == 1:
-            d_pos = k_op(metric_op(fake_attribute - attr_features[0]), axis=1)
+        if len(attr_features.shape) < 5:
+            d_pos = k_op(metric_op(fake_attribute - attr_features), axis=1)
         else:
             d_pos = Average()([
                 k_op(metric_op(fake_attribute - attr_feature), axis=1) \
@@ -742,25 +738,13 @@ class BalancingGAN:
         self._show_settings()
 
     def build_resnet_generator(self):
-        images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
-                        name = 'G_input')
-
         init_channels = 256
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
+        attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
         activation = 'relu'
 
-        attr_features = []
-        for i in range(self.k_shot):
-            attr_features.append(self.latent_encoder(
-                Lambda(lambda x: x[:, i,])(images)
-            ))
 
-        if len(attr_features) == 1:
-            latent_from_i = attr_features[0]
-        else:
-            latent_from_i = Average()(attr_features)
-
-        latent_from_i = GaussianNoise(0.1)(latent_from_i)
+        latent_from_i = GaussianNoise(0.1)(attribute_code)
         latent_from_i = Concatenate()([latent_from_i, latent_code])
         latent_from_i = GaussianNoise(0.1)(latent_from_i)
 
@@ -775,25 +759,21 @@ class BalancingGAN:
         # using feature normalization
         de = self._up_resblock(latent, 256, kernel_size,
                             activation=activation,
-                            norm='in',
-                            attr_image=images)
+                            norm='in')
         de = self._up_resblock(de, 256, kernel_size,
                             activation=activation,
-                            norm='in',
-                            attr_image=images)
+                            norm='in')
 
         if self.attention:
             de = SelfAttention(256)(de)
 
         de = self._up_resblock(de, 128, kernel_size,
                             activation=activation,
-                            norm='in',
-                            attr_image=images)
+                            norm='in')
 
         de = self._up_resblock(de, 64, kernel_size,
                             activation=activation,
-                            norm='in',
-                            attr_image=images)
+                            norm='in')
 
         de = self._norm()(de)
         de = Activation('relu')(de)
@@ -802,7 +782,7 @@ class BalancingGAN:
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
-            inputs = [images, latent_code],
+            inputs = [attribute_code, latent_code],
             outputs = outputs,
             name='resnet_gen'
         )
@@ -815,69 +795,6 @@ class BalancingGAN:
         s1 = Dense(1, activation='sigmoid')(x)
         s2 = Dense(1, activation='sigmoid')(x)
         return s1, s2
-
-    def build_new_generator(self):
-        images = Input(shape=(self.k_shot, self.resolution, self.resolution, 3),
-                        name = 'G_input')
-
-        init_channels = 256
-        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
-        activation = 'relu'
-
-        attr_features = []
-        for i in range(self.k_shot):
-            attr_features.append(self.latent_encoder(
-                Lambda(lambda x: x[:, i,])(images)
-            ))
-
-        s1, s2 = self.selection_module(attr_features[0], attr_features[1])
-        latent_from_i = Lambda(lambda x: x[0] * x[1] + x[2] * x[3])([
-            s1, attr_features[0], s2, attr_features[1]
-        ])
-        latent_from_i = Concatenate()([latent_from_i, latent_code])
-
-        latent = Dense(4 * 4 * init_channels)(latent_from_i)
-        latent = self._norm()(latent)
-        latent = Activation(activation)(latent)
-        latent = Reshape((4, 4, init_channels))(latent)
-
-        kernel_size = 3
-        interpolation = 'nearest'
-
-        # using feature normalization
-        de = self._up_resblock(latent, 256, kernel_size,
-                            activation=activation,
-                            norm='in',
-                            attr_image=images)
-        de = self._up_resblock(de, 256, kernel_size,
-                            activation=activation,
-                            norm='in',
-                            attr_image=images)
-
-        if self.attention:
-            de = SelfAttention(256)(de)
-
-        de = self._up_resblock(de, 128, kernel_size,
-                            activation=activation,
-                            norm='in',
-                            attr_image=images)
-
-        de = self._up_resblock(de, 64, kernel_size,
-                            activation=activation,
-                            norm='in',
-                            attr_image=images)
-
-        de = self._norm()(de)
-        de = Activation('relu')(de)
-
-        final = Conv2D(self.channels, kernel_size, strides=1, padding='same')(de)
-        outputs = Activation('tanh')(final)
-
-        self.generator = Model(
-            inputs = [images, latent_code],
-            outputs = outputs,
-            name='new_gen'
-        )
 
 
     def build_perceptual_model(self):
@@ -1044,13 +961,7 @@ class BalancingGAN:
             f = self.generate_latent(label_batch)
             k_shot_batch = bg_train.ramdom_kshot_images(self.k_shot, label_batch)
             for i in range(self.D_RATE):
-                generated_images = self.generator.predict(
-                    [
-                        k_shot_batch,
-                        f,
-                    ],
-                    verbose=0
-                )
+                generated_images = self.generate(k_shot_batch, f)
 
                 # X, aux_y = self.shuffle_data(X, aux_y)
                 fake_label = np.ones((crt_batch_size, 1))
@@ -1132,13 +1043,14 @@ class BalancingGAN:
             e = str(e)
             try:
                 utils.set_weights(self.generator, self.res_dir)
+                logger.info("generator weigths loaded manually")
                 self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
                 logger.info("discriminator weigths loaded")
-                logger.info("generator weigths loaded manually")
             except Exception as err:
                 e += '\n, Load weigths array error ' + str(err)
                 logger.warn('Reload error, restart from scratch ' + e)
             return 0
+
 
     def backup_point(self, epoch):
         # Bck
@@ -1170,7 +1082,7 @@ class BalancingGAN:
             labels = bg.dataset_y
         support_images = bg.ramdom_kshot_images(self.k_shot, labels)
         latent = self.generate_latent(labels)
-        generated_images = self.generator.predict([support_images, latent])
+        generated_images = self.generate(support_images, latent)
         pred = self.classify_by_metric(bg, generated_images, metric)
         cm = metrics.confusion_matrix(y_true=labels, y_pred=pred)
         plt.figure()
@@ -1188,6 +1100,19 @@ class BalancingGAN:
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
         plt.show()
+
+    def generate(self, images, latent):
+        attr_codes = [
+            self.latent_code(images[:,i, ]) \
+                for i in range(self.k_shot)
+        ]
+        if len(attr_codes) == 1:
+            attr_code = attr_codes[0]
+        else:
+            attr_code = np.mean(attr_codes, axis=1)
+        return self.generator.predict([
+            attr_code, latent
+        ])
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
@@ -1209,12 +1134,7 @@ class BalancingGAN:
                     # batch, k_shot, h, w, c
                     act_img_samples[:, 0,:,:,:self.channels] \
                         for i in range(self.k_shot)
-                ] + [
-                    self.generator.predict([
-                        act_img_samples,
-                        f,
-                    ]),
-                ]
+                ] + [self.generate(act_img_samples, f)]
             ])
             for crt_c in range(1, min(self.nclasses, 3)): # more 3 classes
                 # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
@@ -1225,12 +1145,7 @@ class BalancingGAN:
                         # batch, k_shot, h, w, c
                         act_img_samples[:, 0,:,:,:self.channels] \
                             for i in range(self.k_shot)
-                    ] + [
-                        self.generator.predict([
-                            act_img_samples,
-                            f,
-                        ]),
-                    ]
+                    ] + [self.generate(act_img_samples, f)]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
@@ -1243,7 +1158,7 @@ class BalancingGAN:
                 train_disc_loss, train_gen_loss = self._train_one_epoch(bg_train)
 
                 # Get Test samples
-                test_size = 100
+                test_size = 100 * self.nclasses
                 random_ids = np.arange(bg_train.dataset_y.shape[0])
                 np.random.shuffle(random_ids)
                 random_ids = random_ids[:test_size]
@@ -1252,22 +1167,11 @@ class BalancingGAN:
                 k_shot_test_batch = bg_train.ramdom_kshot_images(self.k_shot, test_batch_y)
                 f = self.generate_latent(test_batch_y)
 
-                generated_images = self.generator.predict(
-                    [
-                        k_shot_test_batch,
-                        f
-                    ],
-                    verbose=False
-                )
+                generated_images = self.generate(k_shot_test_batch, f)
 
                 X = np.concatenate([test_batch_x, generated_images])
-    
-                aux_y = np.concatenate([
-                    np.full(test_size, 0),
-                    np.full(test_size, 1)
-                ])
 
-                fake_label = np.ones((test_size, 1))
+                fake_label = np.ones((generated_images.shape[0], 1))
                 real_label = -np.ones((test_size, 1))
 
                 if self.loss_type == 'binary':
@@ -1307,16 +1211,18 @@ class BalancingGAN:
                 )
 
                 if e % 25 == 0:
-                    # self.evaluate_d(np.concatenate([X[0], X[1]], axis=0), np.concatenate(Y, axis=0))
-                    # self.evaluate_g(
-                    #     [
-                    #         bg_test.dataset_x,
-                    #         negative_samples,
-                    #         f,
+                    self.evaluate_d(
+                        np.concatenate(X, axis=0),
+                        np.concatenate(Y, axis=0))
+                    self.evaluate_g(
+                        [
+                            k_shot_test_batch,
+                            negative_samples,
+                            f,
                             
-                    #     ],
-                    #     [real_label, real_attribute],
-                    # )
+                        ],
+                        real_label,
+                    )
 
                     crt_c = 0
                     # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
@@ -1330,10 +1236,7 @@ class BalancingGAN:
                             act_img_samples[:, 0,:,:,:self.channels] \
                                 for i in range(self.k_shot)
                         ] + [
-                            self.generator.predict([
-                                act_img_samples,
-                                f,
-                            ]),
+                            self.generate(act_img_samples, f)
                         ]
                     ])
                     for crt_c in range(1, min(self.nclasses, 3)):
@@ -1347,10 +1250,7 @@ class BalancingGAN:
                                 act_img_samples[:, 0,:,:,:self.channels] \
                                     for i in range(self.k_shot)
                             ] + [
-                                self.generator.predict([
-                                    act_img_samples,
-                                    f,
-                                ]),
+                                self.generate(act_img_samples, f)
                             ]
                         ])
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
@@ -1383,14 +1283,15 @@ class BalancingGAN:
         x, y = bg.dataset_x, bg.dataset_y
         real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, bg.classes[0]))
-        fakes = self.generator.predict([real,
-                                        self.generate_latent([0] * size)])
+
+        fakes = self.generate(real, self.generate_latent([0] * size))
+
         fake_labels = [np.full((size,), 'fake of 0')]
 
         for classid in bg.classes[1:5]:
             real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, classid))
-            fake = self.generator.predict([real, self.generate_latent([classid] * size)])
+            fake = self.generate(real, self.generate_latent([classid] * size))
             fakes = np.concatenate([fakes, fake])
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
