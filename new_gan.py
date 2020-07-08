@@ -1296,7 +1296,7 @@ class BalancingGAN:
         for classid in bg.classes[1:5]:
             real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, classid))
-            fakes = self.generate(real, self.generate_latent([classid] * size))
+            fake = self.generate(real, self.generate_latent([classid] * size))
             fakes = np.concatenate([fakes, fake])
             fake_labels.append(np.full((size,), 'fake of {}'.format(classid)))
 
