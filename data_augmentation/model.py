@@ -204,7 +204,7 @@ def feature_extractor(image, num_of_classes,
 def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
                 loss_weights=[1, 0.1],
                 from_scratch=True,frozen_block=[],
-                name='vgg16'):
+                name='vgg16',decay=None):
     image = Input((rst, rst, 3))
     labels = Input((1,))
     side_output, final_output = feature_extractor(image,
@@ -223,7 +223,8 @@ def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
                         # outputs=labels_plus_embeddings,
                         outputs=[final_output, l2_loss]
                         )
-    train_model.compile(optimizer=Adam(lr),
+    optimizer = Adam(lr, decay=decay) if decay else Adam(lr)
+    train_model.compile(optimizer=optimizer,
                         loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
                         # loss = triplet_loss_adapted_from_tf,
                         loss_weights=loss_weights,
