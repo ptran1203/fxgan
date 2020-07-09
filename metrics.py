@@ -33,27 +33,27 @@ def draw_md_table(scores):
     avgs = [sum(v)/len_head for v in scores.values()]
     for i in range(len_head):
         # use i + 1 because we don't care No Finding case 
-        table += '| ' + _safe_get(i + 1) + ' |'
+        table += '| ' + _safe_get(i) + ' |'
         # find the best score value
         best = 0
         row = ''
         for name in scores.keys():
-            point = scores[name][i]
+            point = round(scores[name][i], 3)
             if point > best:
                 best = point
             row += ' {} |'.format(point)
         row = row.replace(str(best), '**{}**'.format(best))
         table += row + '\n'
-    row = '| Average |'
+    row = '| **Average** |'
     best = 0
     for avg in avgs:
+        avg = round(avg, 3)
         if avg > best:
             best = avg
         row += ' {} |'.format(avg)
     row = row.replace(str(best), '**{}**'.format(best))
     table += row + '\n'
     return table
-
 
 
 def auc_score(y_true, y_pred, verbose=1, plot=0):

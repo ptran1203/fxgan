@@ -15,6 +15,8 @@ from keras.layers import (
     Average,GlobalAveragePooling2D,
     MaxPooling2D, AveragePooling2D,
 )
+from classification_models.keras import Classifiers
+
 from keras.layers.convolutional import (
     UpSampling2D,
     Conv2D, Conv2DTranspose
@@ -32,6 +34,47 @@ class Option:
     bagan = 3
     vgg16 = 4
     vgg16_st_aug = 5
+
+def get_pretrained_model(name, input_shape, weights):
+    """
+    name should be: [
+        'resnet18',
+        'resnet34',
+        'resnet50',
+        'resnet101',
+        'resnet152',
+        'seresnet18',
+        'seresnet34',
+        'seresnet50',
+        'seresnet101',
+        'seresnet152',
+        'seresnext50',
+        'seresnext101',
+        'senet154',
+        'resnet50v2',
+        'resnet101v2',
+        'resnet152v2',
+        'resnext50',
+        'resnext101',
+        'vgg16',
+        'vgg19',
+        'densenet121',
+        'densenet169',
+        'densenet201',
+        'inceptionresnetv2',
+        'inceptionv3',
+        'xception',
+        'nasnetlarge',
+        'nasnetmobile',
+        'mobilenet',
+        'mobilenetv2'
+    ]
+    """
+
+    model, _ = Classifiers.get(name)
+    return model(input_shape=input_shape,
+                 weights=weights,
+                 include_top=False)
 
 def plot_history(history):
     # plot acc
@@ -132,47 +175,45 @@ def re_balance(imgs, labels, per_class_samples=None):
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
-def vgg_16_features(image, num_of_classes,
+def feature_extractor(image, num_of_classes,
                     dims=64, rst=64,
                     from_scratch=True,
-                    frozen_block=[]):
+                    frozen_block=[],
+                    name='vgg16'):
     weights = None if from_scratch else 'imagenet'
-    model = k_apps.VGG16(include_top=False,
-                        weights=weights,
-                        input_tensor=None,
-                        input_shape=(rst, rst, 3),
-                        pooling='avg',
-                        classes=num_of_classes)
 
-    if not from_scratch:
-        for layer in model.layers:
-            if any(x in layer.name for x in frozen_block):
-                layer.trainable = False
-            else:
-                layer.trainable = True
-        x = model(image)
-        x = Dense(dims)(x)
-        out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
-        out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
-        return out1, out2
-    else:
-        x = model(image)
-        x1 = Dense(dims)(x)
-        out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x1)
-        out2 = Dense(num_of_classes, activation='softmax', name='main_out')(x)
-        return out1, out2
+    model = get_pretrained_model(name=name,
+                                input_shape=(rst, rst, 3),
+                                weights=weights,
+                                )
+
+    for layer in model.layers:
+        if any(x in layer.name for x in frozen_block):
+            layer.trainable = False
+        else:
+            layer.trainable = True
+
+    x = GlobalAveragePooling2D()(model.output)
+    x = model(image)
+    x = Dense(dims)(x)
+    out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
+    out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
+    return out1, out2
+
 
 def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
                 loss_weights=[1, 0.1],
-                from_scratch=True,frozen_block=[]):
+                from_scratch=True,frozen_block=[],
+                name='vgg16'):
     image = Input((rst, rst, 3))
     labels = Input((1,))
-    side_output, final_output = vgg_16_features(image,
+    side_output, final_output = feature_extractor(image,
                                                 num_of_classes,
                                                 feat_dims,
                                                 rst,
                                                 from_scratch,
-                                                frozen_block=frozen_block)
+                                                frozen_block=frozen_block,
+                                                name=name)
     centers = Embedding(num_of_classes, feat_dims)(labels)
     l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
                         name='l2_loss')([side_output ,centers])
