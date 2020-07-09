@@ -193,8 +193,8 @@ def feature_extractor(image, num_of_classes,
         else:
             layer.trainable = True
 
-    x = GlobalAveragePooling2D()(model.output)
     x = model(image)
+    x = GlobalAveragePooling2D()(x)
     x = Dense(dims)(x)
     out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
     out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
