@@ -81,7 +81,7 @@ def load_dataset(dataset='multi_chest',
     random = np.arange(x_train.shape[0])
     np.random.shuffle(random)
     x_train, y_train = x_train[random], y_train[random]
-    x_train = triple_channels(x_train)
+    # x_train = triple_channels(x_train)
 
     x_train, x_val, y_train, y_val = train_test_split(x_train,
                                                     y_train,
@@ -90,8 +90,8 @@ def load_dataset(dataset='multi_chest',
         x_train, x_test, y_train, y_test = train_test_split(x_train,
                                                 y_train,
                                                 test_size=test_val_split[0])
-    if x_unseen is not None:
-        x_unseen = triple_channels(x_unseen)
+    # if x_unseen is not None:
+        # x_unseen = triple_channels(x_unseen)
 
     print("\n===== data loaded =====\n")
     print("TRAIN: ", Counter(y_train))
