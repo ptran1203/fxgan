@@ -1,5 +1,3 @@
-import sklearn.metrics as sk_metrics
-from keras.utils import to_categorical
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP
 import numpy as np
 
@@ -8,7 +6,6 @@ def _safe_get(idx):
         return INVERT_CATEGORIES_MAP[idx]
     except:
         return idx
-
 
 def draw_md_table(scores):
     """
@@ -56,31 +53,15 @@ def draw_md_table(scores):
     return table
 
 
-def auc_score(y_true, y_pred, verbose=1, plot=0):
-    # y_true is not one-hot
-    if y_true.shape != y_pred.shape:
-        _y_true = to_categorical(y_true, y_pred.shape[-1])
-        scores = sk_metrics.roc_auc_score(_y_true, y_pred, average=None)
-    else:
-        scores = sk_metrics.roc_auc_score(y_true, y_pred, average=None)
 
-    if verbose:
-        print('AUC score: \n')
-        for i in range(len(scores)):
-            print('{}: {}'.format(_safe_get(i), scores[i])) 
+t = draw_md_table(
+    {
+        'VGG16': [0.72008197, 0.65094216, 0.70600801, 0.76723819, 0.71350819,
+            0.77838193, 0.7679022 , 0.73409787, 0.68693671, 0.88577081],
 
-    if plot:
-        print('[WARN] Function is not implemented')
+        'VGG16 + decay': [0.65971942, 0.67350554, 0.74284161, 0.78021341, 0.71633025,
+            0.75088064, 0.75108217, 0.76870327, 0.67295667, 0.86955549]
+    }
+)
 
-    return scores
-
-def f1_score(y_true, y_pred, verbose=1):
-    _y_pred = np.argmax(y_pred, axis=1)
-
-    scores = sk_metrics.f1_score(y_true, _y_pred, average=None)
-    if verbose:
-        print('f1 score: \n')
-        for i in range(len(scores)):
-            print('{}: {}'.format(_safe_get(i), scores[i])) 
-
-    return scores
+print(t)

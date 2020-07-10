@@ -152,9 +152,9 @@ class BalancingGAN:
         features = self._build_common_encoder(image, min_latent_res)
         # Discriminator specific
         features = Dropout(0.4)(features)
-        aux = Dense(
-            self.nclasses+1, activation='softmax', name='auxiliary'  # nclasses+1. The last class is: FAKE
-        )(features)
+        aux = Dense(self.nclasses+1,
+                    activation='softmax',
+                    name='auxiliary')(features)
         self.discriminator = Model(inputs=image, outputs=aux)
 
     def generate_from_latent(self, latent):
@@ -253,11 +253,6 @@ class BalancingGAN:
 
         # Build generator
         self.build_generator(latent_size, init_resolution=min_latent_res)
-        self.generator.compile(
-            optimizer=Adam(lr=self.adam_lr, beta_1=self.adam_beta_1),
-            # metrics=['accuracy'],
-            loss='sparse_categorical_crossentropy'
-        )
 
         latent_gen = Input(shape=(latent_size, ))
 
@@ -552,7 +547,7 @@ class BalancingGAN:
                     self.generate_samples(crt_c, 10, bg_train)
                 ]
             ])
-            for crt_c in range(1, self.nclasses):
+            for crt_c in range(1, 3):
                 act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
                 new_samples = np.array([
                     [
@@ -639,7 +634,7 @@ class BalancingGAN:
                     labels = np.zeros(sample_size)
                     img_samples = self.generate_samples(crt_c, sample_size, bg_train)
                     five_imgs = img_samples[:5]
-                    for crt_c in range(1, self.nclasses):
+                    for crt_c in range(1, 3):
                         new_samples = self.generate_samples(crt_c, sample_size, bg_train)
                         img_samples = np.concatenate((img_samples, new_samples), axis=0)
                         labels = np.concatenate((np.ones(sample_size), labels), axis=0)
