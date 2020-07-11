@@ -768,7 +768,7 @@ class BalancingGAN:
         if self.attention:
             de = SelfAttention(init_channels)(de)
 
-        while de.output_shape[-1] != self.resolution:
+        while de.shape[-1] != self.resolution:
             init_channels //= 2
             de = self._up_resblock(de, init_channels, kernel_size,
                                 activation=activation,
