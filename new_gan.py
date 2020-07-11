@@ -1058,7 +1058,7 @@ class BalancingGAN:
         generator_fname = "{}/bck_generator.h5".format(self.res_dir)
         discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
-        utils.save_weights(self.generator, self.res_dir)
+        # utils.save_weights(self.generator, self.res_dir)
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
 
