@@ -757,23 +757,22 @@ class BalancingGAN:
         interpolation = 'nearest'
 
         # using feature normalization
-        de = self._up_resblock(latent, 256, kernel_size,
+        init_channels = 4 * self.resolution
+        de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
-        de = self._up_resblock(de, 256, kernel_size,
+        de = self._up_resblock(de, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
 
         if self.attention:
-            de = SelfAttention(256)(de)
+            de = SelfAttention(init_channels)(de)
 
-        de = self._up_resblock(de, 128, kernel_size,
-                            activation=activation,
-                            norm='in')
-
-        de = self._up_resblock(de, 64, kernel_size,
-                            activation=activation,
-                            norm='in')
+        while de.output_shape[-1] != self.resolution:
+            init_channels //= 2
+            de = self._up_resblock(de, init_channels, kernel_size,
+                                activation=activation,
+                                norm='in')
 
         de = self._norm()(de)
         de = Activation('relu')(de)
