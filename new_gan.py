@@ -768,7 +768,7 @@ class BalancingGAN:
         if self.attention:
             de = SelfAttention(init_channels)(de)
 
-        while de.shape[-1] != self.resolution:
+        while de.shape[-2] != self.resolution:
             init_channels //= 2
             de = self._up_resblock(de, init_channels, kernel_size,
                                 activation=activation,
@@ -887,16 +887,14 @@ class BalancingGAN:
         if self.attention:
             x = SelfAttention(128)(x)
 
-        x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
-        # if 'D' in self.norm and 'fn' in self.norm:
-        #     scale, bias = self.attribute_net(attr_image, 256)
-        #     x = FeatureNorm(norm=self.norm)([x, scale, bias])
-        x = LeakyReLU()(x)
-        x = Dropout(0.3)(x)
+        channels = 256
+        # downsample to 4
+        while x.shape[-2] != 4:
+            x = Conv2D(channels, kernel_size, strides=2, padding='same')(x)
+            x = LeakyReLU()(x)
+            x = Dropout(0.3)(x)
+            channels *= 2
 
-        x = Conv2D(512, kernel_size, strides=2, padding='same')(x)
-        x = LeakyReLU()(x)
-        x = Dropout(0.3)(x)
         x = Flatten()(x)
         return x
 
