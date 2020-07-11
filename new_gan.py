@@ -1258,7 +1258,7 @@ class BalancingGAN:
                     self.plot_loss_his()
                     self.plot_feature_distr(bg_train)
 
-                if e % 100 == 0:
+                if e % 100 // (self.resolution // 32) == 0:
                     self.backup_point(e)
 
                 self.interval_process(e)
