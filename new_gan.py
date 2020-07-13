@@ -1120,7 +1120,7 @@ class BalancingGAN:
         support_images = bg.ramdom_kshot_images(self.k_shot, bg.dataset_y)
         if bg_test is not None:
             support_images = np.concatenate([support_images,
-                bg.ramdom_kshot_images(self.k_shot,  bg_test.dataset_y)])
+                bg_test.ramdom_kshot_images(self.k_shot,  bg_test.dataset_y)])
 
 
         latent = self.generate_latent(labels)
