@@ -287,20 +287,6 @@ class BalancingGAN:
 
         return Add()([out, x])
 
-    def plot_cm_for_G(self, bg_train, bg_test, labels=None, metric='l2'):
-        if labels is None:
-            labels = bg_train.dataset_y
-        offset = np.min(labels)
-        support_images = bg_train.ramdom_kshot_images(self.k_shot, labels)
-        latent = self.generate_latent(labels)
-        generated_images = self.generate(support_images, latent)
-        pred = self.classify_by_metric(bg_train, generated_images, metric) + offset
-        
-        cm = metrics.confusion_matrix(y_true=labels, y_pred=pred)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
-        plt.show()
-
 
     def show_samples_for_class(self,bg,classid, mode='00'):
         """
