@@ -1085,18 +1085,6 @@ class BalancingGAN:
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
 
-    def evaluate_d(self, test_x, test_y):
-        y_pre = self.discriminator.predict(test_x)
-        if y_pre[0].shape[0] > 1:
-            y_pre = np.argmax(y_pre, axis=1)
-        else:
-            y_pre = utils.pred2bin(y_pre)
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
-        plt.show()
-
-
     def plot_cm_for_G(self, bg, bg_test=None, labels=None, metric='l2'):
         if labels is None:
             labels = bg.dataset_y
@@ -1129,8 +1117,21 @@ class BalancingGAN:
         plt.show()
 
 
+    def evaluate_d(self, test_x, test_y):
+        y_pre = self.discriminator.predict(test_x)
+        if y_pre[0].shape[0] > 1:
+            y_pre = np.argmax(y_pre, axis=1)
+        else:
+            y_pre = utils.pred2bin(y_pre)
+        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
+        plt.figure()
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
+        plt.show()
+
+
     def evaluate_g(self, test_x, test_y):
-        y_pre = self.combined.predict(test_x)
+        fakes = self.generate(test_x[0], test_x[1])
+        y_pre = self.discriminator.predict(fakes)
         if y_pre[0].shape[0] > 1:
             y_pre = np.argmax(y_pre, axis=1)
         else:
@@ -1257,9 +1258,7 @@ class BalancingGAN:
                     self.evaluate_g(
                         [
                             k_shot_test_batch,
-                            negative_samples,
                             f,
-                            
                         ],
                         real_label,
                     )

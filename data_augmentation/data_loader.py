@@ -32,7 +32,7 @@ def _load_multi_chest(rst, large, classes):
     to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
 
     # unseen classes data
-    if to_keep:
+    if len(to_keep) > 0:
         x_unseen, y_unseen = x[to_keep], y[to_keep]
         x_unseen = (x_unseen - 127.5) / 127.5
         y_unseen = np.array([CATEGORIES_MAP[l] for l in y_unseen])
