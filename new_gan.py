@@ -1093,21 +1093,28 @@ class BalancingGAN:
             y_pre = utils.pred2bin(y_pre)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
 
-    
+
     def plot_cm_for_G(self, bg, bg_test=None, labels=None, metric='l2'):
         if labels is None:
             labels = bg.dataset_y
             if bg_test is not None:
                 labels = np.concatenate([labels, bg_test.dataset_y])
+        else:
+            labels = np.array(labels)
 
+        train_max_id = np.max(bg.classes)
+        train_mask = np.where(labels <= train_max_id)[0]
+        test_mask = np.where(labels > train_max_id)[0]
 
-        support_images = bg.ramdom_kshot_images(self.k_shot, labels[:len(bg.dataset_y)])
+        support_images = bg.ramdom_kshot_images(self.k_shot,
+                                labels[train_mask])
         if bg_test is not None:
             support_images = np.concatenate([support_images,
-                bg_test.ramdom_kshot_images(self.k_shot, labels[len(bg.dataset_y):])])
+                bg_test.ramdom_kshot_images(self.k_shot,
+                                labels[test_mask])])
 
 
         latent = self.generate_latent(labels)
@@ -1115,8 +1122,12 @@ class BalancingGAN:
         pred = self.classify_by_metric(bg, generated_images, metric, bg_test)
         cm = metrics.confusion_matrix(y_true=labels, y_pred=pred)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm,
+                              hide_ticks=False,
+                              cmap=plt.cm.Blues,
+                              figsize=(8,8))
         plt.show()
+
 
     def evaluate_g(self, test_x, test_y):
         y_pre = self.combined.predict(test_x)
@@ -1127,7 +1138,7 @@ class BalancingGAN:
 
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
 
     def generate(self, images, latent):

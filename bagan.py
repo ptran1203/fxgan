@@ -176,7 +176,7 @@ class BalancingGAN:
         y_pre = np.argmax(y_pre, axis=1)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
 
     def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
