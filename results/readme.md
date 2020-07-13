@@ -31,3 +31,13 @@
 | Pleural_Thickening | **0.687** | 0.673 |
 | Cardiomegaly | **0.886** | 0.87 |
 | **Average** | **0.741** | 0.739 |
+
+
+echo -------------------- Begin Dump remote Server DB ----------------------
+DATETIME=`date +"%Y-%m-%d-%H-%M-%S"`
+BACKUP_FILE_NAME=SHINE_DB_$DATETIME.bak
+pg_dump -v -h 10.0.12.8 -p 54328 -d sidb -U si > ./$BACKUP_FILE_NAME
+dropdb -h 10.0.12.8 -p 54328 sidb_phat
+createdb sidb_phat
+psql sidb_phat < ./$BACKUP_FILE_NAME
+echo ------------------------- CLONING DB Done -------------------------

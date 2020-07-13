@@ -429,27 +429,40 @@ class BalancingGAN:
         return generated, labels
 
 
-    def classify_by_metric(self, bg, images, metric='l2'):
+    def classify_by_metric(self, bg, images, metric='l2', bg_test=None):
         # currently do one-shot classification
-        sp_vectors = self.means[:len(bg.classes)].reshape(-1, 1, self.latent_size)
+        size = len(bg.classes)
+        if bg_test is not None:
+            size += len(bg_test.classes)
+
+        sp_vectors = self.means[:size].reshape(-1, 1, self.latent_size)
         vectors = self.latent_code(utils.triple_channels(images))
         metric_func = l2_distance if metric == 'l2' else cosine_sim
         similiarity = np.array([metric_func(vector, sp_vector) \
                             for vector in vectors \
-                            for sp_vector in sp_vectors]).reshape(-1, len(bg.classes))
+                            for sp_vector in sp_vectors]).reshape(-1, size)
         pred = np.argmin(np.array(similiarity), axis=1)
         return pred
-    
-    def gen_for_class(self, bg, classid,size=1000):
+
+
+    def gen_for_class(self, bg, bg_test=None, classid=0,size=1000):
         total = None
         for i in range(1000):
             labels = [classid] * size
             labels = np.array(labels)
             latent = self.generate_latent(labels)
-            support = bg.ramdom_kshot_images(self.k_shot,
-                                            np.full(size, classid))
+            if classid in bg.classes:
+                support = bg.ramdom_kshot_images(self.k_shot,
+                                                np.full(size, classid))
+            else:
+                if bg_test is None:
+                    raise("bg_test is None, please give it, boi")
+
+                support = bg_test.ramdom_kshot_images(self.k_shot,
+                                                np.full(size, classid))
+
             gen = self.generate(support, latent)
-            d_outputs = self.classify_by_metric(bg, gen)
+            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test)
             to_keep = np.where(labels == d_outputs)[0]
             gen = gen[to_keep]
             if total is None:
@@ -459,22 +472,32 @@ class BalancingGAN:
             
             print("total ", len(total))
             if len(total) >= size:
+                total = total[:size]
                 break
 
         print("done class {}, size {}\n".format(classid, len(total)))
         return total, np.array([classid] * len(total))
 
-    def gen_augment_data(self, bg, size=1000):
+    def gen_augment_data(self, bg, bg_test=None, size=1000):
         total = None
         labels = None
         for i in bg.classes:
-            gen, label = self.gen_for_class(bg, i, size)
+            gen, label = self.gen_for_class(bg, bg_test, i, size)
             if total is None:
                 total = gen
                 labels = label
             else:
                 total = np.concatenate([total, gen], axis=0)
                 labels = np.concatenate([labels, label], axis=0)
+        if bg_test is not None:
+            for i in bg_test.classes:
+                gen, label = self.gen_for_class(bg, bg_test, i, size)
+                if total is None:
+                    total = gen
+                    labels = label
+                else:
+                    total = np.concatenate([total, gen], axis=0)
+                    labels = np.concatenate([labels, label], axis=0)
 
         print("Done all ", len(total))
         return total, labels
@@ -1070,21 +1093,41 @@ class BalancingGAN:
             y_pre = utils.pred2bin(y_pre)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
 
-    
-    def plot_cm_for_G(self, bg, labels=None, metric='l2'):
+
+    def plot_cm_for_G(self, bg, bg_test=None, labels=None, metric='l2'):
         if labels is None:
             labels = bg.dataset_y
-        support_images = bg.ramdom_kshot_images(self.k_shot, labels)
+            if bg_test is not None:
+                labels = np.concatenate([labels, bg_test.dataset_y])
+        else:
+            labels = np.array(labels)
+
+        train_max_id = np.max(bg.classes)
+        train_mask = np.where(labels <= train_max_id)[0]
+        test_mask = np.where(labels > train_max_id)[0]
+
+        support_images = bg.ramdom_kshot_images(self.k_shot,
+                                labels[train_mask])
+        if bg_test is not None:
+            support_images = np.concatenate([support_images,
+                bg_test.ramdom_kshot_images(self.k_shot,
+                                labels[test_mask])])
+
+
         latent = self.generate_latent(labels)
         generated_images = self.generate(support_images, latent)
-        pred = self.classify_by_metric(bg, generated_images, metric)
+        pred = self.classify_by_metric(bg, generated_images, metric, bg_test)
         cm = metrics.confusion_matrix(y_true=labels, y_pred=pred)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm,
+                              hide_ticks=False,
+                              cmap=plt.cm.Blues,
+                              figsize=(8,8))
         plt.show()
+
 
     def evaluate_g(self, test_x, test_y):
         y_pre = self.combined.predict(test_x)
@@ -1095,7 +1138,7 @@ class BalancingGAN:
 
         cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
 
     def generate(self, images, latent):
