@@ -459,7 +459,7 @@ class BalancingGAN:
         return pred
 
 
-    def gen_for_class(self, bg, bg_test=None, classid,size=1000):
+    def gen_for_class(self, bg, bg_test=None, classid=0,size=1000):
         total = None
         for i in range(1000):
             labels = [classid] * size
@@ -492,17 +492,26 @@ class BalancingGAN:
         print("done class {}, size {}\n".format(classid, len(total)))
         return total, np.array([classid] * len(total))
 
-    def gen_augment_data(self, bg, size=1000):
+    def gen_augment_data(self, bg, bg_test=None size=1000):
         total = None
         labels = None
         for i in bg.classes:
-            gen, label = self.gen_for_class(bg, i, size)
+            gen, label = self.gen_for_class(bg, bg_test, i, size)
             if total is None:
                 total = gen
                 labels = label
             else:
                 total = np.concatenate([total, gen], axis=0)
                 labels = np.concatenate([labels, label], axis=0)
+        if bg_test is not None:
+            for i in bg_test.classes:
+                gen, label = self.gen_for_class(bg, bg_test, i, size)
+                if total is None:
+                    total = gen
+                    labels = label
+                else:
+                    total = np.concatenate([total, gen], axis=0)
+                    labels = np.concatenate([labels, label], axis=0)
 
         print("Done all ", len(total))
         return total, labels
