@@ -492,7 +492,7 @@ class BalancingGAN:
         print("done class {}, size {}\n".format(classid, len(total)))
         return total, np.array([classid] * len(total))
 
-    def gen_augment_data(self, bg, bg_test=None size=1000):
+    def gen_augment_data(self, bg, bg_test=None, size=1000):
         total = None
         labels = None
         for i in bg.classes:
