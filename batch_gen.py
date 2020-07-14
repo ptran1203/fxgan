@@ -111,9 +111,10 @@ class BatchGenerator:
                                                  np.unique(self.dataset_y),
                                                  self.dataset_y)
         
+        min_w = np.min(self.class_weights)
         # add fakes label weight
-        self.class_weights.append(min(self.class_weights))
         self.class_weights = dict(enumerate(self.class_weights))
+        self.class_weights[len(self.classes)] = min_w
 
 
     def get_samples_for_class(self, c, samples=None):
