@@ -980,10 +980,12 @@ class BalancingGAN:
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
-                                                                    fake_label)
+                                                                    fake_label,
+                                                                    class_weight=bg_train.class_weights)
                     loss_real, acc_real, *rest = \
                             self.discriminator_real.train_on_batch([image_batch],
-                                                                    real_label)
+                                                                    real_label,
+                                                                    class_weight=bg_train.class_weights)
                     loss = 0.5 * (loss_fake + loss_real)
                     acc = 0.5 * (acc_fake + acc_real)
 
@@ -998,6 +1000,7 @@ class BalancingGAN:
                     negative_samples, f
                 ],
                 real_label,
+                class_weight=bg_train.class_weights
             )
 
             epoch_gen_loss.append(gloss)

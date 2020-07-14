@@ -2,8 +2,7 @@ import utils
 import numpy as np
 from collections import Counter
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP, BASE_DIR
-
-
+from sklearn.utils import class_weight as sk_weight
 
 class BatchGenerator:
     TRAIN = 1
@@ -107,6 +106,14 @@ class BatchGenerator:
         ids = np.array(range(len(self.dataset_x)))
         for c in classes:
             self.per_class_ids[c] = ids[self.labels == c]
+
+        self.class_weights = sk_weight.compute_class_weight('balanced',
+                                                 np.unique(self.dataset_y),
+                                                 self.dataset_y)
+        
+        # add fakes label weight
+        self.class_weights.append(min(self.class_weights))
+        self.class_weights = dict(enumerate(self.class_weights))
 
 
     def get_samples_for_class(self, c, samples=None):
