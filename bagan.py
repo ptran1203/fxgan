@@ -131,9 +131,15 @@ class BalancingGAN:
         cnn.add(LeakyReLU(alpha=0.2))
         cnn.add(Dropout(0.3))
 
+        if resolution == 128:
+            cnn.add(Conv2D(1024, (5, 5), padding='same', strides=(2, 2)))
+            cnn.add(LeakyReLU(alpha=0.2))
+            cnn.add(Dropout(0.3))
+
         cnn.add(Flatten())
 
-        return cnn(image)
+        features = cnn(image)
+        return features
 
     # latent_size is the innermost latent vector size; min_latent_res is latent resolution (before the dense layer).
     def build_reconstructor(self, latent_size, min_latent_res=8):
@@ -170,7 +176,7 @@ class BalancingGAN:
         y_pre = np.argmax(y_pre, axis=1)
         cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
         plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
 
     def generate_latent(self, c, bg=None, n_mix=10):  # c is a vector of classes
