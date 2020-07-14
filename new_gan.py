@@ -1140,10 +1140,11 @@ class BalancingGAN:
         else:
             y_pre = pred2bin(y_pre)
 
-        cm = metrics.confusion_matrix(y_true=test_y[0], y_pred=y_pre)
+        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)
         plt.figure()
         plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
         plt.show()
+
 
     def generate(self, images, latent):
         attr_codes = [
