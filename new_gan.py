@@ -1203,7 +1203,7 @@ class BalancingGAN:
                 train_disc_loss, train_gen_loss = self._train_one_epoch(bg_train)
 
                 # Get Test samples
-                test_size = 100 * self.nclasses
+                test_size = bg_train.dataset_y.shape[0] # 100 * self.nclasses
                 random_ids = np.arange(bg_train.dataset_y.shape[0])
                 np.random.shuffle(random_ids)
                 random_ids = random_ids[:test_size]
