@@ -18,19 +18,27 @@
 | Cardiomegaly | 0.864 | **0.867** | 0.847 | 0.862 |
 | **Average** | **0.739** | **0.739** | 0.725 | 0.736 |
 
-|  | VGG16 | VGG16 + decay |
+
+## 128x128
+
+|  | VGG16 + standard augment | GAN v2 |
 |--|--|--|
-| No Finding | **0.72** | 0.66 |
-| Infiltration | 0.651 | **0.674** |
-| Atelectasis | 0.706 | **0.743** |
-| Effusion | 0.767 | **0.78** |
-| Nodule | 0.714 | **0.716** |
-| Pneumothorax | **0.778** | 0.751 |
-| Mass | **0.768** | 0.751 |
-| Consolidation | 0.734 | **0.769** |
-| Pleural_Thickening | **0.687** | 0.673 |
-| Cardiomegaly | **0.886** | 0.87 |
-| **Average** | **0.741** | 0.739 |
+| No Finding | 0.708 | **0.709** |
+| Infiltration | 0.681 | **0.689** |
+| Atelectasis | 0.749 | **0.769** |
+| Effusion | **0.798** | 0.793 |
+| Nodule | 0.688 | **0.71** |
+| Pneumothorax | 0.77 | **0.798** |
+| Mass | **0.76** | 0.733 |
+| Consolidation | 0.593 | **0.655** |
+| Pleural_Thickening | 0.682 | **0.693** |
+| Cardiomegaly | 0.877 | **0.888** |
+| Emphysema | 0.714 | **0.782** |
+| Fibrosis | **0.717** | 0.672 |
+| Edema | 0.75 | **0.797** |
+| Pneumonia | **0.534** | 0.496 |
+| Hernia | **0.894** | 0.809 |
+| **Average** | 0.728 | **0.733** |
 
 
 echo -------------------- Begin Dump remote Server DB ----------------------
