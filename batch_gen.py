@@ -42,10 +42,14 @@ class BatchGenerator:
                 to_keep = np.array([i for i, l in enumerate(y) if l in to_test_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
+                # TODO start from 0
+                self.dataset_y = y
             else:
                 to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
+                # TODO start from 0
+                self.dataset_y = y
 
 
         else: # multi chest
