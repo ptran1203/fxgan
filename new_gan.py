@@ -761,7 +761,7 @@ class BalancingGAN:
         self._show_settings()
 
     def build_resnet_generator(self):
-        init_channels = 256
+        init_channels = 4 * self.resolution
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
         activation = 'relu'
@@ -776,11 +776,9 @@ class BalancingGAN:
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        kernel_size = 3
+        kernel_size = 5
         interpolation = 'nearest'
-
-        # using feature normalization
-        init_channels = 4 * self.resolution
+       
         de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
@@ -889,7 +887,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        kernel_size = 3
+        kernel_size = 5
         if False: # dont use this!
             x = self._donw_resblock(image, 64, kernel_size)
             x = self._donw_resblock(x, 128, kernel_size)
