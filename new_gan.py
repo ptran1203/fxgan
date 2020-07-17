@@ -1226,31 +1226,31 @@ class BalancingGAN:
                 Y = [fake_label, real_label]
 
                 if self.loss_type == 'categorical':
-                    test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                    test_disc_loss, _ = self.discriminator.evaluate(
                         np.concatenate([test_batch_x, generated_images]),
                         np.concatenate([real_label, fake_label]),
                         verbose=False
                     )
                 else:
-                    loss_fake, acc_fake, *rest = \
-                            self.discriminator_fake.evaluate([generated_images],
-                                                            fake_label, verbose=False)
-                    loss_real, acc_real, *rest = \
-                            self.discriminator_real.evaluate([test_batch_x],
-                                                            real_label, verbose=False)
-                    test_disc_loss = 0.5 * (loss_fake + loss_real)
-                    test_disc_acc = 0.5 * (acc_fake + acc_real)
+                    # loss_fake, acc_fake, *rest = \
+                    #         self.discriminator_fake.evaluate([generated_images],
+                    #                                         fake_label, verbose=False)
+                    # loss_real, acc_real, *rest = \
+                    #         self.discriminator_real.evaluate([test_batch_x],
+                    #                                         real_label, verbose=False)
+                    test_disc_loss = 0.5 * (1 + 1)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(test_batch_y))
-                gen_d_loss, _ = self.combined.evaluate(
-                    [
-                        k_shot_test_batch,
-                        negative_samples,
-                        f
-                    ],
-                    real_label,
-                    verbose = 0
-                )
+                # gen_d_loss, _ = self.combined.evaluate(
+                #     [
+                #         k_shot_test_batch,
+                #         negative_samples,
+                #         f
+                #     ],
+                #     real_label,
+                #     verbose = 0
+                # )
+                gen_d_loss = 0
 
                 if e % 25 == 0:
                     self.evaluate_d(
