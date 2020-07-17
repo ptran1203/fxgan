@@ -970,7 +970,7 @@ class BalancingGAN:
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
         epoch_gen_loss = []
-
+        class_weight = bg_train.class_weights
         for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
 
@@ -993,17 +993,16 @@ class BalancingGAN:
                         np.concatenate([image_batch, generated_images], axis=0),
                         np.concatenate([
                             real_label,
-                            np.full(crt_batch_size, self.nclasses)], axis=0)
+                            np.full(crt_batch_size, self.nclasses)], axis=0),
+                        class_weight=class_weight,
                     )
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
-                                                                    fake_label,
-                                                                    class_weight=bg_train.class_weights)
+                                                                    fake_label)
                     loss_real, acc_real, *rest = \
                             self.discriminator_real.train_on_batch([image_batch],
-                                                                    real_label,
-                                                                    class_weight=bg_train.class_weights)
+                                                                    real_label)
                     loss = 0.5 * (loss_fake + loss_real)
                     acc = 0.5 * (acc_fake + acc_real)
 
@@ -1018,7 +1017,7 @@ class BalancingGAN:
                     negative_samples, f
                 ],
                 real_label,
-                class_weight=bg_train.class_weights
+                class_weight=class_weight if self.loss_type == 'categorical' else None
             )
 
             epoch_gen_loss.append(gloss)
