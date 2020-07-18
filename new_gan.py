@@ -776,7 +776,7 @@ class BalancingGAN:
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
-        kernel_size = 5
+        kernel_size = 3
         interpolation = 'nearest'
        
         de = self._up_resblock(latent, init_channels, kernel_size,
@@ -887,7 +887,7 @@ class BalancingGAN:
         resolution = self.resolution
         channels = self.channels
 
-        kernel_size = 5
+        kernel_size = 3
         if False: # dont use this!
             x = self._donw_resblock(image, 64, kernel_size)
             x = self._donw_resblock(x, 128, kernel_size)
