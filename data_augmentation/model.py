@@ -16,6 +16,8 @@ from keras.layers import (
     MaxPooling2D, AveragePooling2D,
 )
 from classification_models.keras import Classifiers
+from mlxtend.plotting import plot_confusion_matrix
+
 
 from keras.layers.convolutional import (
     UpSampling2D,
@@ -27,6 +29,9 @@ from keras.utils import to_categorical
 import tensorflow as tf
 import numpy as np
 import keras.preprocessing.image as iprocess
+import sklearn.metrics as sk_metrics
+
+
 
 class Option:
     gan_v1 = 1
