@@ -761,7 +761,7 @@ class BalancingGAN:
         self._show_settings()
 
     def build_resnet_generator(self):
-        init_channels = 256
+        init_channels = 2 * self.resolution
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
         activation = 'relu'
@@ -778,9 +778,7 @@ class BalancingGAN:
 
         kernel_size = 3
         interpolation = 'nearest'
-
-        # using feature normalization
-        init_channels = 4 * self.resolution
+       
         de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
@@ -972,7 +970,7 @@ class BalancingGAN:
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
         epoch_gen_loss = []
-
+        class_weight = bg_train.class_weights
         for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
 
@@ -995,17 +993,16 @@ class BalancingGAN:
                         np.concatenate([image_batch, generated_images], axis=0),
                         np.concatenate([
                             real_label,
-                            np.full(crt_batch_size, self.nclasses)], axis=0)
+                            np.full(crt_batch_size, self.nclasses)], axis=0),
+                        class_weight=class_weight,
                     )
                 else:
                     loss_fake, acc_fake, *rest = \
                             self.discriminator_fake.train_on_batch([generated_images],
-                                                                    fake_label,
-                                                                    class_weight=bg_train.class_weights)
+                                                                    fake_label)
                     loss_real, acc_real, *rest = \
                             self.discriminator_real.train_on_batch([image_batch],
-                                                                    real_label,
-                                                                    class_weight=bg_train.class_weights)
+                                                                    real_label)
                     loss = 0.5 * (loss_fake + loss_real)
                     acc = 0.5 * (acc_fake + acc_real)
 
@@ -1020,7 +1017,7 @@ class BalancingGAN:
                     negative_samples, f
                 ],
                 real_label,
-                class_weight=bg_train.class_weights
+                class_weight=class_weight if self.loss_type == 'categorical' else None
             )
 
             epoch_gen_loss.append(gloss)
@@ -1229,31 +1226,31 @@ class BalancingGAN:
                 Y = [fake_label, real_label]
 
                 if self.loss_type == 'categorical':
-                    test_disc_loss, test_disc_acc = self.discriminator.evaluate(
+                    test_disc_loss, _ = self.discriminator.evaluate(
                         np.concatenate([test_batch_x, generated_images]),
                         np.concatenate([real_label, fake_label]),
                         verbose=False
                     )
                 else:
-                    loss_fake, acc_fake, *rest = \
-                            self.discriminator_fake.evaluate([generated_images],
-                                                            fake_label, verbose=False)
-                    loss_real, acc_real, *rest = \
-                            self.discriminator_real.evaluate([test_batch_x],
-                                                            real_label, verbose=False)
-                    test_disc_loss = 0.5 * (loss_fake + loss_real)
-                    test_disc_acc = 0.5 * (acc_fake + acc_real)
+                    # loss_fake, acc_fake, *rest = \
+                    #         self.discriminator_fake.evaluate([generated_images],
+                    #                                         fake_label, verbose=False)
+                    # loss_real, acc_real, *rest = \
+                    #         self.discriminator_real.evaluate([test_batch_x],
+                    #                                         real_label, verbose=False)
+                    test_disc_loss = 0.5 * (1 + 1)
 
                 negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(test_batch_y))
-                gen_d_loss, _ = self.combined.evaluate(
-                    [
-                        k_shot_test_batch,
-                        negative_samples,
-                        f
-                    ],
-                    real_label,
-                    verbose = 0
-                )
+                # gen_d_loss, _ = self.combined.evaluate(
+                #     [
+                #         k_shot_test_batch,
+                #         negative_samples,
+                #         f
+                #     ],
+                #     real_label,
+                #     verbose = 0
+                # )
+                gen_d_loss = 0
 
                 if e % 25 == 0:
                     self.evaluate_d(
@@ -1304,7 +1301,7 @@ class BalancingGAN:
                     self.plot_loss_his()
                     self.plot_feature_distr(bg_train)
 
-                if e % 100 // (self.resolution // 32) == 0:
+                if e % (100 // (self.resolution // 32)) == 0:
                     self.backup_point(e)
 
                 self.interval_process(e)
