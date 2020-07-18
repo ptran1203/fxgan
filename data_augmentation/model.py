@@ -30,6 +30,7 @@ import tensorflow as tf
 import numpy as np
 import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
+import utils
 
 
 
@@ -284,7 +285,7 @@ def train_one_epoch(model, batch_gen, class_weight):
 class BatchGen:
     """simple batch gen"""
     def __init__(self, x, y, batch_size=64):
-        self.x = x
+        self.x = utils.triple_channels(x)
         self.y = y
         self.batch_size = batch_size
         self.num_of_classes = len(np.unique(y))
