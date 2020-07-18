@@ -76,22 +76,9 @@ def get_pretrained_model(name, input_shape, weights):
                  weights=weights,
                  include_top=False)
 
-def plot_history(history):
-    # plot acc
-    loss, val_loss, acc, val_acc = history['main_out_loss'], \
-                                   history['val_main_out_loss'], \
-                                   history['main_out_accuracy'], \
-                                   history['val_main_out_accuracy']
-    plt.plot(acc, label='train')
-    plt.plot(val_acc, label='val')
-    plt.ylabel('acc')
-    plt.xlabel('epoch')
-    plt.title('Training accuracy')
-    plt.legend()
-    plt.show()
-    # plot loss
-    plt.plot(loss, label='train')
-    plt.plot(val_loss, label='val')
+def plot_history(losses):
+      # plot loss
+    plt.plot(losses, label='train')
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.title('Training loss')
@@ -274,3 +261,69 @@ def evaluate_by_metric(embbeder, supports, images, labels, k_shot=1,metric='l2')
                               images,k_shot=k_shot, metric=metric)
     acc = (pred == labels).mean()
     return acc
+
+
+def train_one_epoch(model, batch_gen, class_weight):
+    m_losses, l2_losses = [], []
+    for x, y in batch_gen.next_batch():
+        loss, main_loss, l2_loss, *_ = model.train_on_batch(
+            x, y,
+            class_weight=class_weight
+        )
+        m_losses.append(main_loss)
+        l2_losses.append(l2_loss)
+
+    return np.mean(np.array(m_losses)), np.mean(np.array(l2_losses))
+
+
+class BatchGen:
+    """simple batch gen"""
+    def __init__(self, x, y, batch_size=64):
+        self.x = x
+        self.y = y
+        self.batch_size = batch_size
+        self.num_of_classes = len(np.unique(y))
+        self.dummy = np.zeros((self.batch_size, 129))
+
+
+    def next_batch(self):
+        dataset_x = self.x
+        labels = self.y
+        onehot_labels = to_categorical(labels, self.num_of_classes)
+
+        indices = np.arange(dataset_x.shape[0])
+        np.random.shuffle(indices)
+
+        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
+            access_pattern = indices[start_idx:start_idx + self.batch_size]
+
+            yield (
+                [dataset_x[access_pattern, :, :, :], labels[access_pattern]],
+                [onehot_labels[access_pattern], self.dummy],
+            )
+
+
+def save_embbeding(train_model, dataset='multi_chest'):
+    embbeding_model = Model(
+        inputs = train_model.inputs[0],
+        outputs = train_model.get_layer('side_out').get_output_at(-1)
+    )
+    fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, x_train.shape[1])
+    with open(fname + '.json', 'w', encoding='utf-8') as f:
+        print('Save json model')
+        f.write(embbeding_model.to_json())
+    embbeding_model.save(fname + '.h5')
+    print("Save model for dataset ", dataset)
+
+def confusion_mt(model, test_x, test_y):
+    y_pred = model.predict(test_x)
+    y_pred = np.argmax(y_pred, axis=1)
+    cm = sk_metrics.confusion_matrix(y_true=test_y, y_pred=y_pred)
+    plt.figure()
+    plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+    plt.show()
+
+def shuffle_data(data_x, data_y):
+    rd_idx = np.arange(data_x.shape[0])
+    np.random.shuffle(rd_idx)
+    return data_x[rd_idx], data_y[rd_idx]
