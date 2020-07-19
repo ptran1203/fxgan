@@ -404,6 +404,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     class_counter = dict(Counter(y_train))
     classes = np.unique(y_train)
     num_of_classes = len(classes)
+    dataset = 'multi_chest'
 
     
     if experiments > 1:
