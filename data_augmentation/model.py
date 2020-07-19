@@ -32,7 +32,7 @@ import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
 from utils import *
 import triplet_loss
-from data_loader import load_gen
+from data_augmentation.data_loader import load_gen
 
 classifier = None
 train_model = None
@@ -404,7 +404,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     
     if experiments > 1:
         # only use k_shot images in useen classes (pneumonia, herina)
-        keep = [0] * 12
+        keep = [0] * 13
         to_remove = [
             class_counter[13] - k_shot,
             class_counter[14] - k_shot,
