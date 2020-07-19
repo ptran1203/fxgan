@@ -428,7 +428,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             [(class_counter[1] - class_counter[i]) + 0 for i in range(num_of_classes)])
     else:
         print("Train on fake data")
-        x_train_aug, y_train_aug = load_gen(dataset, mode)
+        x_train_aug, y_train_aug = load_gen('multi_chest', mode)
         # to balance
         counter = dict(Counter(y_train))
         prune_classes = [max(2000 - (2183 - counter[cls]), 0) for cls in classes]
