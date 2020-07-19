@@ -338,17 +338,19 @@ class BatchGen:
             )
 
 
-def save_embbeding(train_model, dataset='multi_chest'):
+def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
     embbeding_model = Model(
         inputs = train_model.inputs[0],
         outputs = train_model.get_layer('side_out').get_output_at(-1)
-    )
+    ) if loss_type == Losses.center else train_model
+
     fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, x_train.shape[1])
     with open(fname + '.json', 'w', encoding='utf-8') as f:
         print('Save json model')
         f.write(embbeding_model.to_json())
     embbeding_model.save(fname + '.h5')
     print("Save model for dataset ", dataset)
+
 
 def confusion_mt(model, test_x, test_y):
     y_pred = model.predict(test_x)
@@ -364,11 +366,39 @@ def shuffle_data(data_x, data_y):
     return data_x[rd_idx], data_y[rd_idx]
 
 
+def evaluate_model(train_model, x_test, y_test,
+                   y_test_onehot):
+
+    x_test_3 = triple_channels(x_test)
+    classifier = Model(inputs = train_model.inputs[0],
+                        outputs = train_model.get_layer('main_out').get_output_at(-1))
+    classifier.compile(optimizer='adam', metrics = ['accuracy'],
+                        loss='categorical_crossentropy')
+    accuracy = classifier.evaluate(x_test_3, y_test_onehot, verbose=0)[1]
+    auc = metrics.auc_score(y_test, classifier.predict(x_test_3), verbose=0)
+    confusion_mt(classifier, x_test_3, y_test)
+    return accuracy, auc
+
+def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='l2'):
+    x_test_3 = triple_channels(x_test)
+
+    y_pred = classify_by_metric(embbeder, supports,
+                              x_test_3, k_shot=k_shot,
+                              metric=metric
+
+    cm = sk_metrics.confusion_matrix(y_true=y_test, y_pred=y_pred)
+    plt.figure()
+    plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+    plt.show()
+    return (pred == labels).mean(), 0
 
 ## ==== Run training ==== ##
-def run(mode, experiments = 1, frozen_block=[], name='vgg16', save=False, lr=1e-5,
+def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
+        name='vgg16', save=False, lr=1e-5,
         loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None):
-    global classifier, train_model
+
+    x_test, y_test = test_data
+
     class_weight = sk_weight.compute_class_weight('balanced',
                                                  np.unique(y_train),
                                                  y_train)
@@ -385,7 +415,6 @@ def run(mode, experiments = 1, frozen_block=[], name='vgg16', save=False, lr=1e-
     else:
         print("Train on fake data")
         x_train_aug, y_train_aug = load_gen(dataset, mode)
-        # prune_classes = [x_train_aug.shape[0]//num_of_classes] * num_of_classes
         # to balance
         counter = dict(Counter(y_train))
         prune_classes = [max(2000 - (2183 - counter[cls]), 0) for cls in classes]
@@ -426,18 +455,22 @@ def run(mode, experiments = 1, frozen_block=[], name='vgg16', save=False, lr=1e-
             start_time = datetime.datetime.now()
             loss_mean = train_one_epoch(train_model, batch_gen, class_weight)
             print("epochs {}/{} - loss: {} - {}".format(
-                i + 1,epochs,loss_mean, datetime.datetime.now() - start_time
+                i + 1, epochs, loss_mean, datetime.datetime.now() - start_time
             ))
             losses.append(loss_mean)
 
-        classifier = Model(inputs = train_model.inputs[0], outputs = train_model.get_layer('main_out').get_output_at(-1))
-        classifier.compile(optimizer='adam', metrics = ['accuracy'],  loss='categorical_crossentropy')
+
         if save:
-            save_embbeding(train_model, dataset)
-        x_test_3 = triple_channels(x_test)
-        accuracy = classifier.evaluate(x_test_3, y_test_onehot, verbose=0)[1]
-        auc = metrics.auc_score(y_test, classifier.predict(x_test_3), verbose=0)
-        confusion_mt(classifier, x_test_3, y_test)
+            save_embbeding(train_model, dataset, loss_type=loss_type)
+
+        if loss_type == Losses.center:
+            accuracy, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
+        else:
+            x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
+            accuracy, auc = evaluate_model_metric(train_model,
+                                        ( x_sp_u, y_sp_u), 
+                                        x_test_u, y_test_u ,
+                                        k_shot=1, metric='l2')
         print("Acc ", accuracy)
         print("Auc ", auc)
         acc.append(accuracy)
