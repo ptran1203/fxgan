@@ -19,7 +19,6 @@ from classification_models.keras import Classifiers
 from mlxtend.plotting import plot_confusion_matrix
 from sklearn.utils import class_weight as sk_weight
 
-
 from keras.layers.convolutional import (
     UpSampling2D,
     Conv2D, Conv2DTranspose
@@ -33,6 +32,7 @@ import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
 from utils import *
 import triplet_loss
+from data_loader import load_gen
 
 classifier = None
 train_model = None
