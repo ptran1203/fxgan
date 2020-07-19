@@ -272,7 +272,7 @@ def cal_sp_vectors(embbeder, supports,k_shot):
     for c in classes:
         imgs = x_sp[per_class_ids[c][:k_shot]]
         # imgs = utils.triple_channels(imgs)
-        latent = embbeder.predict(imgs)
+        latent = embbeder.predict(triple_channels(imgs))
         means.append(np.mean(latent, axis=0))
     return np.array(means)
     
