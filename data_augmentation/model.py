@@ -244,7 +244,7 @@ def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
         labels_plus_embeddings = Concatenate()([labels, embeddings])
         train_model = Model(inputs=[images, labels],
                             outputs=labels_plus_embeddings)
-        train_model.compile(loss=triplet_loss,
+        train_model.compile(loss=triplet_loss.loss,
                             optimizer=optimizer)
 
     return train_model
