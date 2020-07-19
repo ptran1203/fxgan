@@ -466,6 +466,8 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
                             name=name,
                             decay=lr_decay,
                             loss_type=loss_type)
+        embedder = Model(inputs = train_model.inputs[0],
+                    outputs = train_model.layers[-2].get_output_at(-1))
         
         losses = []
         for i in range(epochs):
@@ -477,15 +479,17 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             losses.append(loss_mean)
 
 
-        if save:
-            save_embbeding(train_model, dataset, loss_type=loss_type)
 
         if loss_type == Losses.center:
+            if save:
+                save_embbeding(train_model, dataset, loss_type=loss_type)
             y_test_onehot = to_categorical(y_test, num_of_classes)
             accuracy, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
         else:
+            if save:
+                save_embbeding(embedder, dataset, loss_type=loss_type)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
-            accuracy, auc = evaluate_model_metric(train_model,
+            accuracy, auc = evaluate_model_metric(embedder,
                                         ( x_sp_u, y_sp_u), 
                                         x_test_u, y_test_u ,
                                         k_shot=1, metric='l2')
