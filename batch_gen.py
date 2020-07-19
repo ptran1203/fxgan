@@ -121,7 +121,10 @@ class BatchGenerator:
 
     def split_data(self, split):
         self.dataset_x, _, self.dataset_y, _ = train_test_split(
-            self.dataset_x, self.dataset_y, test_size=split
+            self.dataset_x, self.dataset_y, test_size=0.1
+        )
+        self.dataset_x, _, self.dataset_y, _ = train_test_split(
+            self.dataset_x, self.dataset_y, test_size=0.3
         )
 
 
