@@ -301,7 +301,7 @@ def train_one_epoch(model, batch_gen, class_weight):
             x, y,
             class_weight=class_weight
         )
-        total_loss.append(loss_[1])
+        total_loss.append(loss_)
 
     return np.mean(np.array(total_loss))
 
