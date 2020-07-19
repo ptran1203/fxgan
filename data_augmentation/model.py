@@ -400,6 +400,8 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
 
     x_test, y_test = test_data
     class_counter = dict(Counter(y_train))
+    classes = np.unique(y_train)
+    num_of_classes = len(classes)
 
     
     if experiments > 1:
@@ -455,11 +457,11 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     batch_gen = BatchGen(x_train_aug, y_train_aug, 128, loss_type=loss_type)
     for i in range(experiments):
         print("run experiments {}/{} - {}".format(i + 1, experiments, model_map[RUN]))
-        train_model = main_model(num_of_classes, rst,
-                            feat_dims, lr=lr,
+        train_model = main_model(num_of_classes, 128,
+                            128, lr=lr,
                             loss_weights=loss_weights,
-                            from_scratch=from_scratch,
-                            frozen_block=frozen_block,
+                            from_scratch=False,
+                            frozen_block=[],
                             name=name,
                             decay=lr_decay,
                             loss_type=loss_type)
