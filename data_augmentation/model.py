@@ -17,6 +17,7 @@ from keras.layers import (
 )
 from classification_models.keras import Classifiers
 from mlxtend.plotting import plot_confusion_matrix
+from sklearn.utils import class_weight as sk_weight
 
 
 from keras.layers.convolutional import (
@@ -30,9 +31,13 @@ import tensorflow as tf
 import numpy as np
 import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
-import utils
+from utils import *
+import triplet_loss
 
-
+classifier = None
+train_model = None
+model_map = [0, 'GAN v1', 'GAN v2', 'BAGAN',
+             'VGG16', 'VGG16 + standard augment']
 
 class Option:
     gan_v1 = 1
@@ -40,6 +45,10 @@ class Option:
     bagan = 3
     vgg16 = 4
     vgg16_st_aug = 5
+
+class Losses:
+    center = 1
+    triplet = 2
 
 def get_pretrained_model(name, input_shape, weights):
     """
@@ -172,7 +181,8 @@ def feature_extractor(image, num_of_classes,
                     dims=64, rst=64,
                     from_scratch=True,
                     frozen_block=[],
-                    name='vgg16'):
+                    name='vgg16'
+                    loss_type=Losses.center):
     weights = None if from_scratch else 'imagenet'
 
     model = get_pretrained_model(name=name,
@@ -189,41 +199,56 @@ def feature_extractor(image, num_of_classes,
     x = model(image)
     x = GlobalAveragePooling2D()(x)
     x = Dense(dims)(x)
-    out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
-    out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
-    return out1, out2
+    if loss_type == Losses.center:
+        out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
+        out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
+        return out1, out2
+
+    return x
 
 
 def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
                 loss_weights=[1, 0.1],
                 from_scratch=True,frozen_block=[],
-                name='vgg16',decay=None):
-    image = Input((rst, rst, 3))
+                name='vgg16',decay=None,loss_type=Losses.center):
+    images = Input((rst, rst, 3))
     labels = Input((1,))
-    side_output, final_output = feature_extractor(image,
-                                                num_of_classes,
-                                                feat_dims,
-                                                rst,
-                                                from_scratch,
-                                                frozen_block=frozen_block,
-                                                name=name)
-    centers = Embedding(num_of_classes, feat_dims)(labels)
-    l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
-                        name='l2_loss')([side_output ,centers])
-
-    labels_plus_embeddings = Concatenate()([labels, side_output])
-    train_model = Model(inputs=[image, labels],
-                        # outputs=labels_plus_embeddings,
-                        outputs=[final_output, l2_loss]
-                        )
+    outputs = feature_extractor(images,
+                                num_of_classes,
+                                feat_dims,
+                                rst,
+                                from_scratch,
+                                frozen_block=frozen_block,
+                                name=name,loss_type=loss_type)
     optimizer = Adam(lr, decay=decay) if decay else Adam(lr)
-    train_model.compile(optimizer=optimizer,
-                        loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
-                        # loss = triplet_loss_adapted_from_tf,
-                        loss_weights=loss_weights,
-                        metrics=['accuracy'])
+
+    if loss_type == Losses.center:
+        side_output, final_output = outputs
+        centers = Embedding(num_of_classes, feat_dims)(labels)
+        l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
+                            name='l2_loss')([side_output ,centers])
+
+        labels_plus_embeddings = Concatenate()([labels, side_output])
+        train_model = Model(inputs=[images, labels],
+                            # outputs=labels_plus_embeddings,
+                            outputs=[final_output, l2_loss]
+                            )
+        train_model.compile(optimizer=optimizer,
+                            loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
+                            # loss = triplet_loss_adapted_from_tf,
+                            loss_weights=loss_weights,
+                            metrics=['accuracy'])
+    else:
+        # https://github.com/AdrianUng/keras-triplet-loss-mnist
+        embeddings = outputs
+        labels_plus_embeddings = Concatenate()([input_labels, embeddings])
+        train_model = Model(inputs=[images, labels],
+                            outputs=labels_plus_embeddings)
+        train_model.compile(loss=triplet_loss,
+                            optimizer=optimizer)
 
     return train_model
+    
 
 
 def l2_distance(a, b):
@@ -270,26 +295,26 @@ def evaluate_by_metric(embbeder, supports, images, labels, k_shot=1,metric='l2')
 
 
 def train_one_epoch(model, batch_gen, class_weight):
-    m_losses, l2_losses = [], []
+    total_loss = []
     for x, y in batch_gen.next_batch():
-        loss, main_loss, l2_loss, *_ = model.train_on_batch(
+        loss_ = model.train_on_batch(
             x, y,
             class_weight=class_weight
         )
-        m_losses.append(main_loss)
-        l2_losses.append(l2_loss)
+        total_loss.append(loss_[1])
 
-    return np.mean(np.array(m_losses)), np.mean(np.array(l2_losses))
+    return np.mean(np.array(total_loss))
 
 
 class BatchGen:
     """simple batch gen"""
-    def __init__(self, x, y, batch_size=64):
-        self.x = utils.triple_channels(x)
+    def __init__(self, x, y, batch_size=64, loss_type=Losses.center):
+        self.x = triple_channels(x)
         self.y = y
         self.batch_size = batch_size
         self.num_of_classes = len(np.unique(y))
         self.dummy = np.zeros((self.batch_size, 129))
+        self.loss_type = loss_type
 
 
     def next_batch(self):
@@ -303,9 +328,13 @@ class BatchGen:
         for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
             access_pattern = indices[start_idx:start_idx + self.batch_size]
 
+            if self.loss_type == Losses.center:
+                batch_y = [onehot_labels[access_pattern], self.dummy]
+            else:
+                batch_y = self.dummy
             yield (
                 [dataset_x[access_pattern, :, :, :], labels[access_pattern]],
-                [onehot_labels[access_pattern], self.dummy],
+                batch_y,
             )
 
 
@@ -333,3 +362,89 @@ def shuffle_data(data_x, data_y):
     rd_idx = np.arange(data_x.shape[0])
     np.random.shuffle(rd_idx)
     return data_x[rd_idx], data_y[rd_idx]
+
+
+
+## ==== Run training ==== ##
+def run(mode, experiments = 1, frozen_block=[], name='vgg16', save=False, lr=1e-5,
+        loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None):
+    global classifier, train_model
+    class_weight = sk_weight.compute_class_weight('balanced',
+                                                 np.unique(y_train),
+                                                 y_train)
+    class_weight = dict(enumerate(class_weight))
+    if loss_type == Losses.triplet:
+        class_weight  =  None
+    if mode == 4:
+        x_train_aug, y_train_aug = x_train, y_train
+    elif mode == 5:
+        x_train_aug, y_train_aug = re_balance(
+            x_train,
+            y_train,
+            [(class_counter[1] - class_counter[i]) + 0 for i in range(num_of_classes)])
+    else:
+        print("Train on fake data")
+        x_train_aug, y_train_aug = load_gen(dataset, mode)
+        # prune_classes = [x_train_aug.shape[0]//num_of_classes] * num_of_classes
+        # to balance
+        counter = dict(Counter(y_train))
+        prune_classes = [max(2000 - (2183 - counter[cls]), 0) for cls in classes]
+        x_train_aug, y_train_aug = prune(x_train_aug, y_train_aug, [])
+
+        print("Augment data: ", Counter(y_train_aug))
+        print("Origin data: ", Counter(y_train))
+
+        if mode == Option.bagan:
+            x_train_aug = x_train_aug *127.5+127.5
+        show_samples(x_train_aug[:10])
+
+        x_train_aug, y_train_aug = (np.concatenate([x_train,x_train_aug]),
+                                    np.concatenate([y_train, y_train_aug]))
+        x_train_aug = triple_channels(x_train_aug)
+
+    # run 5 experiments
+    acc = []
+    auc_scores = []
+    y_test_onehot = to_categorical(y_test, num_of_classes)
+    batch_size = 128
+    print("learning rate decay ", lr_decay)
+    print(Counter(y_train_aug))
+    batch_gen = BatchGen(x_train_aug, y_train_aug, 128, loss_type=loss_type)
+    for i in range(experiments):
+        print("run experiments {}/{} - {}".format(i + 1, experiments, model_map[RUN]))
+        train_model = main_model(num_of_classes, rst,
+                            feat_dims, lr=lr,
+                            loss_weights=loss_weights,
+                            from_scratch=from_scratch,
+                            frozen_block=frozen_block,
+                            name=name,
+                            decay=lr_decay,
+                            loss_type=loss_type)
+        
+        losses = []
+        for i in range(epochs):
+            start_time = datetime.datetime.now()
+            loss_mean = train_one_epoch(train_model, batch_gen, class_weight)
+            print("epochs {}/{} - loss: {} - {}".format(
+                i + 1,epochs,loss_mean, datetime.datetime.now() - start_time
+            ))
+            losses.append(loss_mean)
+
+        classifier = Model(inputs = train_model.inputs[0], outputs = train_model.get_layer('main_out').get_output_at(-1))
+        classifier.compile(optimizer='adam', metrics = ['accuracy'],  loss='categorical_crossentropy')
+        if save:
+            save_embbeding(train_model, dataset)
+        x_test_3 = triple_channels(x_test)
+        accuracy = classifier.evaluate(x_test_3, y_test_onehot, verbose=0)[1]
+        auc = metrics.auc_score(y_test, classifier.predict(x_test_3), verbose=0)
+        confusion_mt(classifier, x_test_3, y_test)
+        print("Acc ", accuracy)
+        print("Auc ", auc)
+        acc.append(accuracy)
+        auc_scores.append(auc)
+
+    ## calculate avg
+    mean_acc = np.mean(np.array(acc))
+    mean_auc = np.mean(np.array(auc_scores), axis=0)
+    return mean_auc
+

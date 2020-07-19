@@ -45,7 +45,7 @@ def masked_minimum(data, mask, dim=1):
         keepdims=True) + axis_maximums
     return masked_minimums
 
-def triplet_loss_adapted_from_tf(y_true, y_pred):
+def loss(y_true, y_pred):
     del y_true
     margin = 1.
     labels = y_pred[:, :1]
