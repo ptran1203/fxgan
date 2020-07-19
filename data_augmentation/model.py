@@ -181,7 +181,7 @@ def feature_extractor(image, num_of_classes,
                     dims=64, rst=64,
                     from_scratch=True,
                     frozen_block=[],
-                    name='vgg16'
+                    name='vgg16',
                     loss_type=Losses.center):
     weights = None if from_scratch else 'imagenet'
 
@@ -384,7 +384,7 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
 
     y_pred = classify_by_metric(embbeder, supports,
                               x_test_3, k_shot=k_shot,
-                              metric=metric
+                              metric=metric)
 
     cm = sk_metrics.confusion_matrix(y_true=y_test, y_pred=y_pred)
     plt.figure()
