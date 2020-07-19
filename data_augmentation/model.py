@@ -392,7 +392,7 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
     plt.figure()
     plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
     plt.show()
-    return (pred == labels).mean(), 0
+    return (y_pred == y_test).mean(), 0
 
 ## ==== Run training ==== ##
 def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
