@@ -346,7 +346,7 @@ def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
         outputs = train_model.get_layer('side_out').get_output_at(-1)
     ) if loss_type == Losses.center else train_model
 
-    fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, x_train.shape[1])
+    fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, 128)
     with open(fname + '.json', 'w', encoding='utf-8') as f:
         print('Save json model')
         f.write(embbeding_model.to_json())
