@@ -21,31 +21,21 @@
 
 ## 128x128
 
-|  | VGG16 + standard augment | GAN v2 |
-|--|--|--|
-| No Finding | 0.708 | **0.709** |
-| Infiltration | 0.681 | **0.689** |
-| Atelectasis | 0.749 | **0.769** |
-| Effusion | **0.798** | 0.793 |
-| Nodule | 0.688 | **0.71** |
-| Pneumothorax | 0.77 | **0.798** |
-| Mass | **0.76** | 0.733 |
-| Consolidation | 0.593 | **0.655** |
-| Pleural_Thickening | 0.682 | **0.693** |
-| Cardiomegaly | 0.877 | **0.888** |
-| Emphysema | 0.714 | **0.782** |
-| Fibrosis | **0.717** | 0.672 |
-| Edema | 0.75 | **0.797** |
-| Pneumonia | **0.534** | 0.496 |
-| Hernia | **0.894** | 0.809 |
-| **Average** | 0.728 | **0.733** |
-
-
-echo -------------------- Begin Dump remote Server DB ----------------------
-DATETIME=`date +"%Y-%m-%d-%H-%M-%S"`
-BACKUP_FILE_NAME=SHINE_DB_$DATETIME.bak
-pg_dump -v -h 10.0.12.8 -p 54328 -d sidb -U si > ./$BACKUP_FILE_NAME
-dropdb -h 10.0.12.8 -p 54328 sidb_phat
-createdb sidb_phat
-psql sidb_phat < ./$BACKUP_FILE_NAME
-echo ------------------------- CLONING DB Done -------------------------
+|  | VGG16 + standard augment | GAN v2 | BAGAN |
+|--|--|--|--|
+| No Finding | 0.708 | **0.709** | 0.701 |
+| Infiltration | 0.681 | **0.689** | 0.68 |
+| Atelectasis | 0.749 | **0.769** | 0.746 |
+| Effusion | 0.798 | 0.793 | **0.811** |
+| Nodule | 0.688 | **0.71** | 0.696 |
+| Pneumothorax | 0.77 | **0.798** | 0.762 |
+| Mass | **0.76** | 0.733 | 0.739 |
+| Consolidation | 0.593 | **0.655** | 0.647 |
+| Pleural_Thickening | 0.682 | 0.693 | **0.71** |
+| Cardiomegaly | 0.877 | 0.888 | **0.897** |
+| Emphysema | 0.714 | **0.782** | 0.738 |
+| Fibrosis | **0.717** | 0.672 | 0.705 |
+| Edema | 0.75 | 0.797 | **0.81** |
+| Pneumonia | 0.534 | 0.496 | **0.633** |
+| Hernia | **0.894** | 0.809 | 0.8 |
+| **Average** | 0.728 | 0.733 | **0.738** |
