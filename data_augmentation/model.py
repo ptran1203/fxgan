@@ -455,7 +455,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     print(Counter(y_train_aug))
     batch_gen = BatchGen(x_train_aug, y_train_aug, 128, loss_type=loss_type)
     for i in range(experiments):
-        print("run experiments {}/{} - {}".format(i + 1, experiments, model_map[RUN]))
+        print("run experiments {}/{} - {}".format(i + 1, experiments, model_map[mode]))
         train_model = main_model(num_of_classes, 128,
                             128, lr=lr,
                             loss_weights=loss_weights,
