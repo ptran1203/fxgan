@@ -18,7 +18,7 @@ class BatchGenerator:
         dataset='MNIST',
         rst=64,
         prune_classes=None,
-        split=False
+        split=0
     ):
         self.batch_size = batch_size
         self.data_src = data_src
@@ -87,8 +87,8 @@ class BatchGenerator:
         for c in classes:
             per_class_count.append(np.sum(np.array(self.dataset_y == c)))
 
-        if split:
-            self.split_data()
+        if split > 0:
+            self.split_data(split)
         if prune_classes:
             self.dataset_x, self.dataset_y = utils.prune(self.dataset_x, self.dataset_y, prune_classes)
 
@@ -119,9 +119,9 @@ class BatchGenerator:
         self.class_weights = dict(enumerate(self.class_weights))
         self.class_weights[len(self.classes)] = min_w
 
-    def split_data(self):
+    def split_data(self, split):
         self.dataset_x, _, self.dataset_y, _ = train_test_split(
-            self.dataset_x, self.dataset_y, test_size=0.37
+            self.dataset_x, self.dataset_y, test_size=split
         )
 
 
