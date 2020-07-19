@@ -18,6 +18,7 @@ class BatchGenerator:
         dataset='MNIST',
         rst=64,
         prune_classes=None,
+        split=False
     ):
         self.batch_size = batch_size
         self.data_src = data_src
@@ -86,7 +87,8 @@ class BatchGenerator:
         for c in classes:
             per_class_count.append(np.sum(np.array(self.dataset_y == c)))
 
-        # Prune
+        if split:
+            self.split_data()
         if prune_classes:
             self.dataset_x, self.dataset_y = utils.prune(self.dataset_x, self.dataset_y, prune_classes)
 
