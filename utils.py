@@ -304,8 +304,10 @@ def prune(x, y, prune_classes):
     prune data by give classes
     """
     for class_to_prune in range(len(prune_classes)):
-        print(class_to_prune)
         remove_size = prune_classes[class_to_prune]
+        if remove_size == 0:
+            continue
+        print(class_to_prune)
         all_ids = list(np.arange(len(x)))
         mask = [lc == class_to_prune for lc in y]
         all_ids_c = np.array(all_ids)[mask]

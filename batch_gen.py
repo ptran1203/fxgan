@@ -3,7 +3,7 @@ import numpy as np
 from collections import Counter
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP, BASE_DIR
 from sklearn.utils import class_weight as sk_weight
-
+from sklearn.model_selection import train_test_split
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
@@ -116,6 +116,11 @@ class BatchGenerator:
         # add fakes label weight
         self.class_weights = dict(enumerate(self.class_weights))
         self.class_weights[len(self.classes)] = min_w
+
+    def split_data(self):
+        self.dataset_x, _, self.dataset_y, _ = train_test_split(
+            self.dataset_x, self.dataset_y, test_size=0.37
+        )
 
 
     def get_samples_for_class(self, c, samples=None):

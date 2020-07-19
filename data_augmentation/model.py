@@ -395,9 +395,23 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
 ## ==== Run training ==== ##
 def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
         name='vgg16', save=False, lr=1e-5,
-        loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None):
+        loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
+        k_shot=1):
 
     x_test, y_test = test_data
+    class_counter = dict(Counter(y_train))
+
+    
+    if experiments > 1:
+        # only use k_shot images in useen classes (pneumonia, herina)
+        keep = [0] * 12
+        to_remove = [
+            class_counter[13] - k_shot,
+            class_counter[14] - k_shot,
+        ]
+        x_train, y_train = prune(x_train, y_train, keep+to_remove)
+        
+
 
     class_weight = sk_weight.compute_class_weight('balanced',
                                                  np.unique(y_train),
