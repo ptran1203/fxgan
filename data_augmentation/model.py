@@ -450,7 +450,6 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     # run 5 experiments
     acc = []
     auc_scores = []
-    y_test_onehot = to_categorical(y_test, num_of_classes)
     batch_size = 128
     print("learning rate decay ", lr_decay)
     print(Counter(y_train_aug))
@@ -480,6 +479,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             save_embbeding(train_model, dataset, loss_type=loss_type)
 
         if loss_type == Losses.center:
+            y_test_onehot = to_categorical(y_test, num_of_classes)
             accuracy, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
         else:
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
