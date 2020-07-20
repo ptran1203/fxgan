@@ -407,7 +407,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     num_of_classes = len(classes)
 
     
-    if experiments > 1:
+    if experiments > 500:
         # only use k_shot images in useen classes (pneumonia, herina)
         keep = [0] * 13
         to_remove = [
