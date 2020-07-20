@@ -398,13 +398,12 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
 def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
         name='vgg16', save=False, lr=1e-5,
         loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
-        k_shot=1, metric='l2'):
+        k_shot=1, metric='l2', dataset='multi_chest'):
 
     x_test, y_test = test_data
     class_counter = dict(Counter(y_train))
     classes = np.unique(y_train)
     num_of_classes = len(classes)
-    dataset = 'multi_chest'
 
     
     if experiments > 1:
@@ -433,7 +432,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             [(class_counter[1] - class_counter[i]) + 0 for i in range(num_of_classes)])
     else:
         print("Train on fake data")
-        x_train_aug, y_train_aug = load_gen('multi_chest', mode)
+        x_train_aug, y_train_aug = load_gen(dataset, mode)
         # to balance
         counter = dict(Counter(y_train))
         prune_classes = [max(2000 - (2183 - counter[cls]), 0) for cls in classes]
