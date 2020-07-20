@@ -35,6 +35,7 @@ import sklearn.metrics as sk_metrics
 from utils import *
 import triplet_loss
 from data_augmentation.data_loader import load_gen
+import metrics
 
 classifier = None
 train_model = None

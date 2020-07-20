@@ -1319,7 +1319,7 @@ class BalancingGAN:
 
             self.trained = True
 
-    def plot_feature_distr(self, bg, size=500):
+    def plot_feature_distr(self, bg, size=50):
         x, y = bg.dataset_x, bg.dataset_y
         real = bg.ramdom_kshot_images(self.k_shot,
                                     np.full(size, bg.classes[0]))
