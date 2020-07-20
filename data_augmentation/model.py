@@ -430,7 +430,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
         x_train_aug, y_train_aug = re_balance(
             x_train,
             y_train,
-            [(class_counter[1] - class_counter[i]) + 0 for i in range(num_of_classes)])
+            [(class_counter[0] - class_counter[i]) + 0 for i in range(num_of_classes)])
     else:
         print("Train on fake data")
         x_train_aug, y_train_aug = load_gen(dataset, mode)
