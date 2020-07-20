@@ -466,9 +466,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
                             name=name,
                             decay=lr_decay,
                             loss_type=loss_type)
-        embedder = Model(inputs = train_model.inputs[0],
-                    outputs = train_model.layers[-2].get_output_at(-1))
-        
+
         losses = []
         for i in range(epochs):
             start_time = datetime.datetime.now()
@@ -489,17 +487,19 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
                                                 to_categorical(y_train, num_of_classes))
             print("Train acc: ", train_acc)
         else:
+            embedder = Model(inputs = train_model.inputs[0],
+                    outputs = train_model.layers[-2].get_output_at(-1))
             if save:
                 save_embbeding(embedder, dataset, loss_type=loss_type)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
             accuracy, auc = evaluate_model_metric(embedder,
                                         ( x_sp_u, y_sp_u), 
-                                        x_test_u, y_test_u ,
+                                        x_test_u, y_test_u - np.min(y_test_u),
                                         k_shot=k_shot, metric=metric)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
             train_acc, train_auc = evaluate_model_metric(embedder,
                                     ( x_sp_u, y_sp_u), 
-                                    x_test_u, y_test_u ,
+                                    x_test_u, y_test_u -np.min(y_test_u),
                                     k_shot=k_shot, metric=metric)
             print("Train acc: ", train_acc)
 
