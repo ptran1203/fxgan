@@ -39,3 +39,22 @@
 | Pneumonia | 0.534 | 0.496 | **0.633** |
 | Hernia | **0.894** | 0.809 | 0.8 |
 | **Average** | 0.728 | 0.733 | **0.738** |
+
+D
+1.	There is a dog behind the woman - OK
+2.	The two women are at the table - OK 
+3.	There are some flowers in the garden - OK
+4.	I can see two boys and a dog [next to] on the steps - dang buoc di
+5.	The vendor is [on] next to the stand - dung benh canh ...
+
+DESCRIPTION
+Picture 1:
+This is a image took outside. In the picture, there are some flowers grows next to the dog. The dog is lying in the ground. The women is standing and painting a picture in front of the dog. She is wearing a white dress and a small hat . Her right hand hold a paintbrush.
+Picture 5:
+Look at the picture 5, there are two people running together. That is one man and one woman. The man is wering a white uniform while the woman is wering a black one. They are exercising on the stress where have much fallen tree leaves. Both sides of the road, there are a lot of big trees. Both of them are same smiling.
+
+
+## Picture 1
+This is a image took outside. In the picture, there are some flowers grows next to the dog. The dog is lying in the ground. The women is standing and painting a picture in front of the dog. She is wearing a white dress and a small hat . Her right hand hold a paintbrush.
+
+This picture is took outside. In the picture, there are some flowers grow next to the dog. The dof is lying on the ground. The women is stading and drawing a picture in front of the dog. She is wearing a white dres and a small hat. She is holding a paintbrush in her right hand.

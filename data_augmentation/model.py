@@ -35,6 +35,7 @@ import sklearn.metrics as sk_metrics
 from utils import *
 import triplet_loss
 from data_augmentation.data_loader import load_gen
+import metrics
 
 classifier = None
 train_model = None
@@ -398,13 +399,12 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
 def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
         name='vgg16', save=False, lr=1e-5,
         loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
-        k_shot=1):
+        k_shot=1, metric='l2', dataset='multi_chest'):
 
     x_test, y_test = test_data
     class_counter = dict(Counter(y_train))
     classes = np.unique(y_train)
     num_of_classes = len(classes)
-    dataset = 'multi_chest'
 
     
     if experiments > 1:
@@ -433,7 +433,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             [(class_counter[1] - class_counter[i]) + 0 for i in range(num_of_classes)])
     else:
         print("Train on fake data")
-        x_train_aug, y_train_aug = load_gen('multi_chest', mode)
+        x_train_aug, y_train_aug = load_gen(dataset, mode)
         # to balance
         counter = dict(Counter(y_train))
         prune_classes = [max(2000 - (2183 - counter[cls]), 0) for cls in classes]
@@ -467,9 +467,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
                             name=name,
                             decay=lr_decay,
                             loss_type=loss_type)
-        embedder = Model(inputs = train_model.inputs[0],
-                    outputs = train_model.layers[-2].get_output_at(-1))
-        
+
         losses = []
         for i in range(epochs):
             start_time = datetime.datetime.now()
@@ -486,14 +484,26 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
                 save_embbeding(train_model, dataset, loss_type=loss_type)
             y_test_onehot = to_categorical(y_test, num_of_classes)
             accuracy, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
+            train_acc, train_auc = evaluate_model(train_model, x_train, y_train,
+                                                to_categorical(y_train, num_of_classes))
+            print("Train acc: ", train_acc)
         else:
+            embedder = Model(inputs = train_model.inputs[0],
+                    outputs = train_model.layers[-2].get_output_at(-1))
             if save:
                 save_embbeding(embedder, dataset, loss_type=loss_type)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
             accuracy, auc = evaluate_model_metric(embedder,
                                         ( x_sp_u, y_sp_u), 
-                                        x_test_u, y_test_u ,
-                                        k_shot=1, metric='l2')
+                                        x_test_u, y_test_u - np.min(y_test_u),
+                                        k_shot=k_shot, metric=metric)
+            x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
+            train_acc, train_auc = evaluate_model_metric(embedder,
+                                    ( x_sp_u, y_sp_u), 
+                                    x_test_u, y_test_u -np.min(y_test_u),
+                                    k_shot=k_shot, metric=metric)
+            print("Train acc: ", train_acc)
+
         print("Acc ", accuracy)
         print("Auc ", auc)
         acc.append(accuracy)
