@@ -47,7 +47,7 @@ import pickle
 import cv2
 import utils
 import logger
-from const import BASE_DIR
+from const import BASE_DIR, COUNTER, MAX
 
 K.common.set_image_dim_ordering('tf')
 
@@ -482,6 +482,11 @@ class BalancingGAN:
         total = None
         labels = None
         for i in bg.classes:
+            acctual_size = max((MAX - COUNTER[i]), 0)
+            print(acctual_size, size, MAX, COUNTER[i])
+            if acctual_size == 0:
+                print("Skip class", i)
+                continue
             gen, label = self.gen_for_class(bg, bg_test, i, size)
             if total is None:
                 total = gen
@@ -1299,7 +1304,7 @@ class BalancingGAN:
 
                     # calculate attribute distance
                     self.plot_loss_his()
-                    self.plot_feature_distr(bg_train)
+                    # self.plot_feature_distr(bg_train)
 
                 if e % (100 // (self.resolution // 32)) == 0:
                     self.backup_point(e)

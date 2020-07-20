@@ -37,3 +37,4 @@ COUNTER = {0: 3128,
          10: 185,
          11: 153,
          12: 133}
+MAX = max(COUNTER.values())
