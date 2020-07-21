@@ -344,7 +344,8 @@ class BatchGen:
 def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
     embbeding_model = Model(
         inputs = train_model.inputs[0],
-        outputs = train_model.get_layer('side_out').get_output_at(-1)
+        outputs = train_model.get_layer('side_out').get_output_at(-1),
+        name="center_loss"
     ) if loss_type == Losses.center else train_model
 
     fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, 128)
@@ -489,7 +490,8 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             print("Train acc: ", train_acc)
         else:
             embedder = Model(inputs = train_model.inputs[0],
-                    outputs = train_model.layers[-2].get_output_at(-1))
+                    outputs = train_model.layers[-2].get_output_at(-1),
+                    name="triplet_net")
             if save:
                 save_embbeding(embedder, dataset, loss_type=loss_type)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
