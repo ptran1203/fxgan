@@ -1308,12 +1308,12 @@ class BalancingGAN:
                     # self.plot_feature_distr(bg_train)
                     per_class_size = 50 
                     classes = []
-                    for i in bg_train_full.classes:
+                    for i in bg_train.classes:
                         classes += [i] * per_class_size
                     for i in bg_test.classes:
                         classes += [i] * per_class_size
 
-                    self.plot_cm_for_G(bg_train_full,
+                    self.plot_cm_for_G(bg_train,
                                     bg_test,
                                     classes)
 
