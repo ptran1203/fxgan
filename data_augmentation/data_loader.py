@@ -77,9 +77,6 @@ def load_dataset(dataset='multi_chest',
 
     # norm
     x_train = (x_train - 127.5) / 127.5
-    random = np.arange(x_train.shape[0])
-    np.random.shuffle(random)
-    x_train, y_train = x_train[random], y_train[random]
     # x_train = triple_channels(x_train)
 
     x_train, x_val, y_train, y_val = train_test_split(x_train,
