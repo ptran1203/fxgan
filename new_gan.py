@@ -975,7 +975,7 @@ class BalancingGAN:
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
         epoch_gen_loss = []
-        class_weight = bg_train.class_weights
+        class_weight = None #bg_train.class_weights
         for image_batch, label_batch in bg_train.next_batch():
             crt_batch_size = label_batch.shape[0]
 
