@@ -514,5 +514,5 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     ## calculate avg
     mean_acc = np.mean(np.array(acc))
     mean_auc = np.mean(np.array(auc_scores), axis=0)
-    return mean_auc
+    return mean_auc train_model
 
