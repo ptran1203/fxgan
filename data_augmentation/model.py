@@ -408,20 +408,19 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     num_of_classes = len(classes)
 
     
-    if experiments > 500:
+    if experiments > 1 and len(class_counter) == 15:
         # only use k_shot images in useen classes (pneumonia, herina)
         keep = [0] * 13
         to_remove = [
             class_counter[13] - k_shot,
             class_counter[14] - k_shot,
         ]
-        x_train, y_train = prune(x_train, y_train, keep+to_remove)
-        
-
+        x_train, y_train = prune(x_train, y_train, keep + to_remove)
 
     class_weight = sk_weight.compute_class_weight('balanced',
                                                  np.unique(y_train),
                                                  y_train)
+
     class_weight = dict(enumerate(class_weight))
     if loss_type == Losses.triplet or mode != Option.vgg16 or mode != Option.vgg16_st_aug:
         class_weight  =  None
@@ -514,5 +513,5 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     ## calculate avg
     mean_acc = np.mean(np.array(acc))
     mean_auc = np.mean(np.array(auc_scores), axis=0)
-    return mean_auc train_model
+    return mean_auc, train_model
 
