@@ -456,10 +456,10 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     batch_size = 128
     print("learning rate decay ", lr_decay)
     print(Counter(y_train_aug))
-    batch_gen = BatchGen(x_train_aug, y_train_aug, 128, loss_type=loss_type)
+    batch_gen = BatchGen(x_train_aug, y_train_aug, batch_size, loss_type=loss_type)
     for i in range(experiments):
         print("run experiments {}/{} - {}".format(i + 1, experiments, model_map[mode]))
-        train_model = main_model(num_of_classes, 128,
+        train_model = main_model(num_of_classes, x_train.shape[1],
                             128, lr=lr,
                             loss_weights=loss_weights,
                             from_scratch=False,
