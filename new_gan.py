@@ -1257,7 +1257,8 @@ class BalancingGAN:
                 # )
                 gen_d_loss = 0
 
-                if e % 25 == 0:
+                if e % (50 // (self.resolution // 32)) == 0:
+                    self.backup_point(e)
                     self.evaluate_d(
                         np.concatenate(X, axis=0),
                         np.concatenate(Y, axis=0))
@@ -1305,6 +1306,16 @@ class BalancingGAN:
                     # calculate attribute distance
                     self.plot_loss_his()
                     # self.plot_feature_distr(bg_train)
+                    per_class_size = 50 
+                    classes = []
+                    for i in bg_train_full.classes:
+                        classes += [i] * per_class_size
+                    for i in bg_test.classes:
+                        classes += [i] * per_class_size
+
+                    self.plot_cm_for_G(bg_train_full,
+                                    bg_test,
+                                    classes)
 
                 if e % (100 // (self.resolution // 32)) == 0:
                     self.backup_point(e)
