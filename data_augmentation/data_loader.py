@@ -14,12 +14,8 @@ def load_gen(ds_name, version=1):
     return x,y
 
 
-def _load_multi_chest(rst, large, classes):
-    file_name = 'imgs_labels'
-    if not large:
-        file_name += '_' + str(rst)
-    file_name += '.pkl'
-    x, y = pickle_load(BASE_DIR + '/dataset/multi_chest/'  + file_name)
+def _load_multi_chest(rst, classes):
+    x, y = pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
     to_keep = [i for i, l in enumerate(y) if '|' not in l]
     to_keep = np.array(to_keep)
     x = x[to_keep]
@@ -71,7 +67,7 @@ def load_dataset(dataset='multi_chest',
     return: train_pair, val_pair, test_pair, unseen_pair
     """
     if dataset == 'multi_chest':
-        x_train, y_train, x_unseen, y_unseen = _load_multi_chest(resolution, large, classes)
+        x_train, y_train, x_unseen, y_unseen = _load_multi_chest(resolution, classes)
 
     elif dataset == 'chest':
         x_train, y_train, x_test, y_test = _load_chest(resolution)
@@ -88,11 +84,13 @@ def load_dataset(dataset='multi_chest',
 
     x_train, x_val, y_train, y_val = train_test_split(x_train,
                                                     y_train,
-                                                    test_size=test_val_split[1])
+                                                    test_size=0.1,
+                                                    random_state=42)
     if dataset != 'chest':
         x_train, x_test, y_train, y_test = train_test_split(x_train,
                                                 y_train,
-                                                test_size=test_val_split[0])
+                                                test_size=0.3,
+                                                random_state=42)
     # if x_unseen is not None:
         # x_unseen = triple_channels(x_unseen)
 
