@@ -306,7 +306,7 @@ def train_one_epoch(model, batch_gen, class_weight):
         )
         total_loss.append(loss_)
 
-    return np.mean(np.array(total_loss))
+    return np.mean(np.array(total_loss), axis=0)
 
 
 class BatchGen:
