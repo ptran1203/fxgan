@@ -47,7 +47,7 @@ import pickle
 import cv2
 import utils
 import logger
-from const import BASE_DIR, COUNTER, MAX
+from const import BASE_DIR
 
 K.common.set_image_dim_ordering('tf')
 
@@ -481,9 +481,14 @@ class BalancingGAN:
     def gen_augment_data(self, bg, bg_test=None, size=1000):
         total = None
         labels = None
+        counter = dict(Counter(
+            np.concatenate([bg.dataset_y, bg_test.dataset_y]) \
+                    if bg_test is not None else bg.dataset_y
+        ))
+        max_ = max(counter.values())
         for i in bg.classes:
-            acctual_size = max((MAX - COUNTER[i]), 0)
-            print(acctual_size, size, MAX, COUNTER[i])
+            acctual_size = max((max_ - counter[i]), 0)
+            print(acctual_size, size, max_, counter[i])
             if acctual_size == 0:
                 print("Skip class", i)
                 continue

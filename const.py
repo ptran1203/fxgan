@@ -23,18 +23,3 @@ INVERT_CATEGORIES_MAP = ['No Finding', 'Infiltration', 'Atelectasis',
 
 # Project dir
 BASE_DIR = '/content/drive/My Drive/bagan'
-
-COUNTER = {0: 3128,
-         1: 2101,
-         2: 972,
-         3: 853,
-         4: 594,
-         5: 482,
-         6: 485,
-         7: 298,
-         8: 252,
-         9: 242,
-         10: 185,
-         11: 153,
-         12: 133}
-MAX = max(COUNTER.values())
