@@ -348,12 +348,12 @@ def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
         name="center_loss"
     ) if loss_type == Losses.center else train_model
 
-    fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, 128)
+    fname = '/content/drive/My Drive/bagan/{}/latent_encoder_{}'.format(dataset, train_model.layers[0].input_shape[1])
     with open(fname + '.json', 'w', encoding='utf-8') as f:
         print('Save json model')
         f.write(embbeding_model.to_json())
     embbeding_model.save(fname + '.h5')
-    print("Save model for dataset ", dataset)
+    print("Save model ", fname)
 
 
 def confusion_mt(model, test_x, test_y):
