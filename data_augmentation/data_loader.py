@@ -15,7 +15,10 @@ def load_gen(ds_name, version=1):
 
 
 def _load_multi_chest(rst, classes):
-    x, y = pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
+    try:
+        x, y = pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
+    except:
+        x, y = pickle_load("/content/imgs_labels_{}.pkl".format(rst))
     to_keep = [i for i, l in enumerate(y) if '|' not in l]
     to_keep = np.array(to_keep)
     x = x[to_keep]
