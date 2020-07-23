@@ -7,9 +7,14 @@ from sklearn.model_selection import train_test_split
 
 
 def load_gen(ds_name, version=1):
-    x,y = pickle_load(
-        '/content/drive/My Drive/generated/{}/imgs_train_gen_v{}.pkl'.format(ds_name, version)
-    )
+    try:
+        x,y = pickle_load(
+            '/content/drive/My Drive/generated/{}/imgs_train_gen_v{}.pkl'.format(ds_name, version)
+        )
+    except:
+        x,y = pickle_load(
+            '/content/imgs_train_gen_v{}.pkl'.format(version)
+        )
     x = (x - 127.5) / 127.5
     return x,y
 
