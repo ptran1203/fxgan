@@ -11,6 +11,9 @@ class BatchGenerator:
     to_train_classes = list(range(1, 80))
     to_test_classes = list(range(81, 86))
 
+    def _load_data(self, rst):
+        return utils.pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
+
     def __init__(
         self,
         data_src,
@@ -35,7 +38,7 @@ class BatchGenerator:
                 self.dataset_y = y
 
         elif dataset == 'flowers':
-            x, y = utils.pickle_load(BASE_DIR + '/dataset/flowers/imgs_labels.pkl')
+            x, y = self._load_data(rst)
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
