@@ -111,7 +111,7 @@ def pickle_load(path):
         print("Loading data from {}".format(path))
         with open(path, "rb") as f:
             data = pickle.load(f)
-             print('load data successfully'.format(path))
+            print('load data successfully'.format(path))
             return data
     except Exception as e:
         print(str(e))
