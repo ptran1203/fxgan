@@ -1068,18 +1068,18 @@ class BalancingGAN:
         # Load last bck
         load_dir = self.res_dir if self.env == "colab" else "/content"
         try:
-            self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
+            self.generator.load_weights(os.path.join(load_dir, generator_fname))
             logger.info("generator weigths loaded")
-            self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
+            self.discriminator.load_weights(os.path.join(load_dir, discriminator_fname))
             logger.info("discriminator weigths loaded")
             return epoch
 
         except Exception as e:
             e = str(e)
             try:
-                utils.set_weights(self.generator, self.res_dir)
+                utils.set_weights(self.generator, load_dir)
                 logger.info("generator weigths loaded manually")
-                self.discriminator.load_weights(os.path.join(self.res_dir, discriminator_fname))
+                self.discriminator.load_weights(os.path.join(load_dir, discriminator_fname))
                 logger.info("discriminator weigths loaded")
             except Exception as err:
                 e += '\n, Load weigths array error ' + str(err)
