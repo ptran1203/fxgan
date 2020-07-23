@@ -1066,6 +1066,7 @@ class BalancingGAN:
         new_e, discriminator_fname = self._get_lst_bck_name("discriminator")
 
         # Load last bck
+        load_dir = self.res_dir if self.env == "colab" else "/content"
         try:
             self.generator.load_weights(os.path.join(self.res_dir, generator_fname))
             logger.info("generator weigths loaded")
