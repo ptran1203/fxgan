@@ -389,6 +389,9 @@ class BalancingGAN:
         fname = '{}/{}/latent_encoder_{}'.format(BASE_DIR,
                                                 self.dataset,
                                                 self.resolution)
+        if self.env != "colab":
+            fname = "/content/latent_encoder_128"
+
         json_file = open(fname + '.json', 'r')
         model = json_file.read()
         json_file.close()
@@ -565,6 +568,7 @@ class BalancingGAN:
                 dataset = 'chest', attention=True,
                 k_shot=5, sampling='normal',
                 advance_losses={'triplet': 0.1},
+                env="colab",
                 ):
         self.classes = classes
         self.dataset = dataset
@@ -577,6 +581,7 @@ class BalancingGAN:
         self.resnet = resnet
         self.attention = attention
         self.k_shot = k_shot
+        self.env=env
         # normal: sampling from normal distribution
         # code: sampling from latent code distribution (computed by classifier)
         self.sampling = sampling
@@ -1087,6 +1092,7 @@ class BalancingGAN:
             return
 
         print('Save weights at epochs : ', epoch)
+        save_dir = self.res_dir if self.env == "colab" else "/content"
         generator_fname = "{}/bck_generator.h5".format(self.res_dir)
         discriminator_fname = "{}/bck_discriminator.h5".format(self.res_dir)
 
