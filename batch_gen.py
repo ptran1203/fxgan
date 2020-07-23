@@ -57,7 +57,7 @@ class BatchGenerator:
 
 
         else: # multi chest
-            x, y = utils.pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
+            x, y = self._load_data(rst)
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
