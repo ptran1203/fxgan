@@ -108,9 +108,11 @@ def set_weights(model, dir):
 
 def pickle_load(path):
     try:
-        print('load data from {} successfully'.format(path))
+        print("Loading data from {}".format(path))
         with open(path, "rb") as f:
-            return pickle.load(f)
+            data = pickle.load(f)
+             print('load data successfully'.format(path))
+            return data
     except Exception as e:
         print(str(e))
         return None
