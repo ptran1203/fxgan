@@ -51,7 +51,6 @@ from const import BASE_DIR
 
 K.common.set_image_dim_ordering('tf')
 
-from google.colab.patches import cv2_imshow
 from PIL import Image
 
 def wasserstein_loss(y_true, y_pred):

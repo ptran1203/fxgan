@@ -18,8 +18,11 @@ import cv2
 import urllib.request
 from const import BASE_DIR
 
+try:
+    from google.colab.patches import cv2_imshow
+except:
+    from cv2 import imshow as cv2_imshow
 
-from google.colab.patches import cv2_imshow
 from PIL import Image
 DS_SAVE_DIR = BASE_DIR + '/dataset/save'
 DS_DIR = BASE_DIR + '/dataset/chest_xray'

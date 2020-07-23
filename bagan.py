@@ -47,7 +47,6 @@ import cv2
 import utils
 import logger
 
-from google.colab.patches import cv2_imshow
 from PIL import Image
 
 K.common.set_image_dim_ordering('tf')
