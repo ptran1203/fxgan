@@ -309,8 +309,7 @@ class BalancingGAN:
     
         generated_images = self.generate(support_images, latent)
         print("predicts: ", self.classify_by_metric(bg, generated_images))
-        for idx in range(support_images.shape[1]):
-            utils.show_samples(support_images[:,idx,])
+        utils.show_samples(support_images)
         utils.show_samples(generated_images)
 
     def build_latent_encoder(self):
@@ -689,10 +688,10 @@ class BalancingGAN:
         attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         activation = 'relu'
-        connections, content_code = self.encode_image(image)
+        # connections, content_code = self.encode_image(image)
 
-        latent_vector = Concatenate()([attribute_code, content_code, latent_code])
-        latent_vector = GaussianNoise(0.1)(latent_vector)
+        latent_vector = Concatenate()([attribute_code, latent_code])
+        # latent_vector = GaussianNoise(0.1)(latent_vector)
 
         latent = Dense(4 * 4 * init_channels)(latent_vector)
         latent = self._norm()(latent)
@@ -702,16 +701,16 @@ class BalancingGAN:
         kernel_size = 3
         interpolation = 'nearest'
         init_channels //= 2
-        de = Add()([de, connections[-1]])
+        # de = Add()([de, connections[-1]])
         de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
-        de = Add()([de, connections[-2]])
+        # de = Add()([de, connections[-2]])
         init_channels //= 2
         de = self._up_resblock(de, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
-        de = Add()([de, connections[-3]])
+        # de = Add()([de, connections[-3]])
 
         if self.attention:
             de = SelfAttention(init_channels)(de)
