@@ -700,13 +700,13 @@ class BalancingGAN:
 
         kernel_size = 3
         interpolation = 'nearest'
-        init_channels // = 2
+        init_channels //= 2
         de = Add()([de, connections[-1]])
         de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
         de = Add()([de, connections[-2]])
-        init_channels // = 2
+        init_channels //= 2
         de = self._up_resblock(de, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
