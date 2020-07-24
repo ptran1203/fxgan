@@ -207,12 +207,12 @@ class BatchGenerator:
             )
 
     def ramdom_kshot_images(self, k_shot, labels, triple=True):
-        imgs = []
+        ids = []
         for label in labels:
             np.random.shuffle(self.per_class_ids[label])
-            ids = self.per_class_ids[label][:k_shot]
-            imgs.append(self.dataset_x[ids])
-        imgs = np.array(imgs)
+            ids.append(self.per_class_ids[label][0])
+
+        imgs = self.dataset_x[np.array(ids)]
 
         if triple:
             imgs = utils.triple_channels(imgs)

@@ -593,9 +593,9 @@ class BalancingGAN:
             )
 
         # Define combined for training generator.
-        real_images_for_G = Input((self.resolution, self.resolution, 3))
+        real_images_for_G = Input((self.resolution, self.resolution, self.channels))
          # real attr
-        attr_features = self.latent_encoder(real_images_for_G)
+        attr_features = self.latent_encoder(self._triple_tensor(real_images_for_G))
         fake = self.generator([
             real_images_for_G, attr_features, latent_code
         ])
@@ -674,6 +674,7 @@ class BalancingGAN:
             x_temp = Conv2D(channels, kernel_size, strides=2, padding='same')(connections[i])
             x_temp = self._norm()(x_temp)
             x_temp = Activation('relu')(x_temp)
+            connections.append(x_temp)
             width //= 2
             channels *= 2
             i += 1
@@ -732,16 +733,6 @@ class BalancingGAN:
             outputs = outputs,
             name='resnet_gen'
         )
-
-    def selection_module(self, latent1, latent2):
-        x = Concatenate()([latent1, latent2])
-        x = Dense(128, activation='relu')(x)
-        x = Dense(64, activation = 'relu')(x)
-
-        s1 = Dense(1, activation='sigmoid')(x)
-        s2 = Dense(1, activation='sigmoid')(x)
-        return s1, s2
-
 
     def build_perceptual_model(self):
         """
