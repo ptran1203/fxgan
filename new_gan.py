@@ -674,7 +674,7 @@ class BalancingGAN:
             x_temp = Conv2D(channels, kernel_size, strides=2, padding='same')(connections[i])
             x_temp = self._norm()(x_temp)
             x_temp = Activation('relu')(x_temp)
-            width // = 2
+            width //= 2
             channels *= 2
             i += 1
 
