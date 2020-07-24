@@ -1085,10 +1085,9 @@ class BalancingGAN:
             f = self.generate_latent([crt_c] * 10)
             img_samples = np.array([
                 [
-                    # batch, k_shot, h, w, c
-                    act_img_samples[:, 0,:,:,:self.channels] \
-                        for i in range(self.k_shot)
-                ] + [self.generate(act_img_samples, f)]
+                    act_img_samples[:,:,:,:self.channels],
+                    self.generate(act_img_samples, f)
+                ]
             ])
             for crt_c in range(1, min(self.nclasses, 3)): # more 3 classes
                 # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
@@ -1096,10 +1095,9 @@ class BalancingGAN:
                                                             np.full(10, crt_c))
                 new_samples = np.array([
                     [
-                        # batch, k_shot, h, w, c
-                        act_img_samples[:, 0,:,:,:self.channels] \
-                            for i in range(self.k_shot)
-                    ] + [self.generate(act_img_samples, f)]
+                        act_img_samples[:,:,:,:self.channels],
+                        self.generate(act_img_samples, f)
+                    ]
                 ])
                 img_samples = np.concatenate((img_samples, new_samples), axis=0)
 
@@ -1185,10 +1183,7 @@ class BalancingGAN:
                     f = self.generate_latent([crt_c] * 10)
                     img_samples = np.array([
                         [
-                            # batch, k_shot, h, w, c
-                            act_img_samples[:, 0,:,:,:self.channels] \
-                                for i in range(self.k_shot)
-                        ] + [
+                            act_img_samples[:,:,:,:self.channels],
                             self.generate(act_img_samples, f)
                         ]
                     ])
@@ -1199,10 +1194,7 @@ class BalancingGAN:
                         f = self.generate_latent([crt_c] * 10)
                         new_samples = np.array([
                             [
-                                # batch, k_shot, h, w, c
-                                act_img_samples[:, 0,:,:,:self.channels] \
-                                    for i in range(self.k_shot)
-                            ] + [
+                                act_img_samples[:,:,:,:self.channels],
                                 self.generate(act_img_samples, f)
                             ]
                         ])
