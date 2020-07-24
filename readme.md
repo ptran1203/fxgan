@@ -3,6 +3,8 @@
 - This repository is implemented based on https://github.com/IBM/BAGAN
 - To run the experiment please check the file **try_gan.ipynb**
 
+Back to pre-version: d6a254db86d0596dc2afa8c3dc04c06e6dd26a39
+
 ### Chest-xray 14 dataset
 
 1. samples count (multi-class sample are removed)
