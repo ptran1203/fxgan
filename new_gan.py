@@ -1065,7 +1065,7 @@ class BalancingGAN:
     def generate(self, image, latent):
         attr_code = self.latent_code(image)
         return self.generator.predict([
-            image,attr_code, latent
+            image[:,:,:,:self.channels], attr_code, latent
         ])
 
     def train(self, bg_train, bg_test, epochs=50):
