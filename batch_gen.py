@@ -38,7 +38,7 @@ class BatchGenerator:
                 self.dataset_y = y
 
         elif dataset == 'flowers':
-            x, y = self._load_data(rst)
+            x, y = utils.pickle_load(BASE_DIR + '/dataset/flowers/imgs_labels.pkl')
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
