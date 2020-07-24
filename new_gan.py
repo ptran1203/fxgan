@@ -930,7 +930,7 @@ class BalancingGAN:
             negative_samples = bg_train.get_samples_by_labels(bg_train.other_labels(label_batch))
             gloss, gacc = self.combined.train_on_batch(
                 [
-                    utils.triple_channels(np.expand_dims(image_batch, axis=1)),
+                    image_batch,
                     negative_samples, f
                 ],
                 real_label,
