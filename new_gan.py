@@ -228,11 +228,6 @@ class BalancingGAN:
             return x
         return Concatenate()([x,x,x])
 
-    def _apply_feature_norm(self, x, image):
-        scale, bias = self.attribute_net(image, K.int_shape(x)[-1])
-        return FeatureNorm(norm=self.norm)([x, scale, bias])
-
-
     def _up_resblock(self,
                   x,
                   units = 64,
@@ -245,10 +240,6 @@ class BalancingGAN:
                 x = BatchNormalization()(x)
             elif norm == 'in':
                 x = InstanceNormalization()(x)
-            else:
-                if img is None:
-                    raise ValueError('Attribute image is None')
-                x = self._apply_feature_norm(x, img)
             return x
 
         interpolation = 'nearest'
@@ -321,69 +312,6 @@ class BalancingGAN:
         for idx in range(support_images.shape[1]):
             utils.show_samples(support_images[:,idx,])
         utils.show_samples(generated_images)
-
-
-    def build_attribute_encoder(self):
-        """
-        Mapping image to latent code
-        """
-        image = Input(shape=(self.resolution, self.resolution, 3))
-        kernel_size = 5
-
-        x = Conv2D(32, kernel_size+2, strides = 1, padding='same')(image)
-        x = self._norm()(x)
-        x = Activation('relu')(x)
-        # 32 * 32 * 32
-
-        x = Conv2D(64, kernel_size, strides=1, padding='same')(x)
-        x = self._norm()(x)
-        x = Activation('relu')(x)
-        # 16 * 16 * 64
-
-        x = Conv2D(128, kernel_size, strides=2, padding='same')(x)
-        x = self._norm()(x)
-        x = Activation('relu')(x)
-        # 8*8*128
-
-        x = Conv2D(256, kernel_size, strides=2, padding='same')(x)
-        x = self._norm()(x)
-        x = Activation('relu')(x)
-
-        x = Conv2D(self.latent_size, kernel_size, strides=2, padding='same')(x)
-        x = self._norm()(x)
-        x = Activation('relu')(x)
-
-        code = GlobalAveragePooling2D()(x)
-
-        self.attribute_encoder = Model(
-            inputs = image,
-            outputs = code,
-            name='attribute_encoder',
-        )
-
-    def get_attribute_tensor(self, images, average=True):
-        attr_features = [
-            self.latent_encoder(
-                Lambda(lambda x: x[:, i,])(images)
-            ) for i in range(self.k_shot)
-        ]
-        if len(attr_features) == 1:
-            return attr_features[0]
-
-        return Average()(attr_features) if average else attr_features
-
-
-    def attribute_net(self, images, channels):
-        attr_feature = self.get_attribute_tensor(images)
-
-        scale = Dense(256, activation = 'relu')(attr_feature)
-        scale = Dense(channels)(scale)
-
-        bias = Dense(256, activation = 'relu')(attr_feature)
-        bias = Dense(channels)(bias)
-
-        return scale, bias
-
 
     def build_latent_encoder(self):
         fname = '{}/{}/latent_encoder_{}'.format(BASE_DIR,
@@ -619,7 +547,6 @@ class BalancingGAN:
         # Build networks
         self.build_perceptual_model()
         self.build_latent_encoder()
-        self.build_attribute_encoder()
         self.build_discriminator()
         self.build_features_from_d_model()
         if self.resnet:
@@ -666,11 +593,11 @@ class BalancingGAN:
             )
 
         # Define combined for training generator.
-        real_images_for_G = Input((self.k_shot, self.resolution, self.resolution, 3))
+        real_images_for_G = Input((self.resolution, self.resolution, 3))
          # real attr
-        attr_features = self.get_attribute_tensor(real_images_for_G, average=False)
+        attr_features = self.latent_encoder(real_images_for_G)
         fake = self.generator([
-            attr_features, latent_code
+            real_images_for_G, attr_features, latent_code
         ])
 
         self.discriminator.trainable = False
@@ -691,76 +618,30 @@ class BalancingGAN:
         # triplet function
         margin = 1.0
         if 'triplet' in advance_losses:
-            print("Triplet OP")
             k_op = K.sum
-            metric_op = K.square
-            # metric_op = cosine_sim_op
         else:
-            print("L2 OP")
             k_op =  K.mean
-            # metric_op = cosine_sim_op
-            metric_op = K.square
 
-        if len(attr_features.shape) < 5:
-            d_pos = k_op(metric_op(fake_attribute - attr_features), axis=1)
-        else:
-            d_pos = Average()([
-                k_op(metric_op(fake_attribute - attr_feature), axis=1) \
-                    for attr_feature in attr_features
-            ])
-        d_neg = k_op(metric_op(
+        d_pos = k_op(K.square(fake_attribute - attr_features), axis=1)
+        d_neg = k_op(K.square(
                 fake_attribute -
                 self.latent_encoder(self._triple_tensor(negative_samples))
                 ), axis=1)
 
         triplet = K.maximum(d_pos - d_neg + margin, 0.0)
 
-
-        # Feature matching from D net
-        fm_features = [
-            # Only use 1 channel
-            self.features_from_d_model(Lambda(lambda x: x[:, i,:,:,:self.channels])(real_images_for_G)) \
-                for i in range(self.k_shot)
-        ]
-
-        fake_fm = self.features_from_d_model(fake)
-
         if 'triplet_D' in advance_losses:
             k_op_d = K.sum
         else:
             k_op_d =  K.mean
 
-        if len(fm_features) == 1:
-            fm_D = k_op_d(K.square(fake_fm - fm_features[0]), axis=1)
-        else:
-            fm_D = Average()([
-                k_op_d(K.square(fake_fm - fm_feature), axis=1) \
-                    for fm_feature in fm_features
-            ])
-
-        fm_D_neg = k_op_d(K.square(fake_fm - self.features_from_d_model(negative_samples)), axis=1)
-        triplet_D = K.maximum(fm_D - fm_D_neg + margin, 0.0)
         # Recontruction loss
-        real_imgs = [
-            Lambda(lambda x: x[:,i,:,:,:self.channels])(real_images_for_G) \
-                for i in range(self.k_shot)
-        ]
-        if len(real_imgs) == 1:
-            recontruction_loss = K.square(fake - real_imgs[0])
-        else:
-            recontruction_loss = Average()([
-                K.square(fake - real_img) \
-                    for real_img in real_imgs
-            ])
+        recontruction_loss = K.square(fake - real_images_for_G)
 
         if 'triplet' in advance_losses:
             self.combined.add_loss(advance_losses['triplet'] * triplet)
         if 'l2_feat' in advance_losses:
             self.combined.add_loss(advance_losses['l2_feat'] * d_pos)
-        if 'fm_D' in advance_losses:
-            self.combined.add_loss(advance_losses['fm_D'] *fm_D)
-        if 'triplet_D' in advance_losses:
-            self.combined.add_loss(advance_losses['triplet_D'] * triplet_D)
         if 'recon' in advance_losses:
             self.combined.add_loss(advance_losses['recon'] * K.mean(recontruction_loss))
 
@@ -774,31 +655,62 @@ class BalancingGAN:
         )
         self._show_settings()
 
+    def encode_image(self, image):
+        """
+        Mapping image to latent code
+        """
+        kernel_size = 3
+
+        x = Conv2D(32, kernel_size, strides = 2, padding='same')(image)
+        x = self._norm()(x)
+        x = Activation('relu')(x)
+
+        # until downsample to 4x4
+        connections = [x]
+        channels = 64
+        width = x.shape[-2]
+        i = 0
+        while width != 4:
+            x_temp = Conv2D(channels, kernel_size, strides=2, padding='same')(connections[i])
+            x_temp = self._norm()(x_temp)
+            x_temp = Activation('relu')(x_temp)
+            width // = 2
+            channels *= 2
+            i += 1
+
+        code = GlobalAveragePooling2D()(connections[-1])
+
+        return connections, code
+
     def build_resnet_generator(self):
-        init_channels = 2 * self.resolution
+        init_channels = 4 * self.resolution
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
         activation = 'relu'
+        connections, content_code = self.encode_image(image)
 
+        latent_vector = Concatenate()([attribute_code, content_code, latent_code])
+        latent_vector = GaussianNoise(0.1)(latent_vector)
 
-        latent_from_i = GaussianNoise(0.1)(attribute_code)
-        latent_from_i = Concatenate()([latent_from_i, latent_code])
-        latent_from_i = GaussianNoise(0.1)(latent_from_i)
-
-        latent = Dense(4 * 4 * init_channels)(latent_from_i)
+        latent = Dense(4 * 4 * init_channels)(latent_vector)
         latent = self._norm()(latent)
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
         kernel_size = 3
         interpolation = 'nearest'
-       
+        init_channels // = 2
+        de = Add()([de, connections[-1]])
         de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
+        de = Add()([de, connections[-2]])
+        init_channels // = 2
         de = self._up_resblock(de, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
+        de = Add()([de, connections[-3]])
 
         if self.attention:
             de = SelfAttention(init_channels)(de)
@@ -816,7 +728,7 @@ class BalancingGAN:
         outputs = Activation('tanh')(final)
 
         self.generator = Model(
-            inputs = [attribute_code, latent_code],
+            inputs = [image, attribute_code, latent_code],
             outputs = outputs,
             name='resnet_gen'
         )
@@ -1159,17 +1071,10 @@ class BalancingGAN:
         plt.show()
 
 
-    def generate(self, images, latent):
-        attr_codes = [
-            self.latent_code(images[:,i, ]) \
-                for i in range(self.k_shot)
-        ]
-        if len(attr_codes) == 1:
-            attr_code = attr_codes[0]
-        else:
-            attr_code = np.mean(attr_codes, axis=1)
+    def generate(self, image, latent):
+        attr_code = self.latent_code(image)
         return self.generator.predict([
-            attr_code, latent
+            image,attr_code, latent
         ])
 
     def train(self, bg_train, bg_test, epochs=50):
