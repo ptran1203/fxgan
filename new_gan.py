@@ -976,14 +976,7 @@ class BalancingGAN:
 
         except Exception as e:
             e = str(e)
-            try:
-                utils.set_weights(self.generator, load_dir)
-                logger.info("generator weigths loaded manually")
-                self.discriminator.load_weights(os.path.join(load_dir, discriminator_fname))
-                logger.info("discriminator weigths loaded")
-            except Exception as err:
-                e += '\n, Load weigths array error ' + str(err)
-                logger.warn('Reload error, restart from scratch ' + e)
+            logger.warn('Reload error, restart from scratch, ' + e)
             return 0
 
 
