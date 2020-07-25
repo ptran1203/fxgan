@@ -220,6 +220,14 @@ def actv(activation):
         return LeakyReLU()
     return Activation(activation)
 
+def norm_layer(norm, x):
+    if norm is None:
+        return x
+    if norm == 'batch':
+        x = BatchNormalization()(x)
+    elif norm == 'in':
+        x = InstanceNormalization()(x)
+    return x
 
 class BalancingGAN:
     D_RATE = 1
@@ -235,21 +243,15 @@ class BalancingGAN:
                   activation = 'leaky_relu',
                   norm = 'batch',
                   attr_image=None):
-        def norm_layer(x, img):
-            if norm == 'batch':
-                x = BatchNormalization()(x)
-            elif norm == 'in':
-                x = InstanceNormalization()(x)
-            return x
 
         interpolation = 'nearest'
 
-        out = norm_layer(x, attr_image)
+        out = norm_layer(norm, x)
         out = actv(activation)(out)
         out = UpSampling2D(size=(2, 2), interpolation=interpolation)(out)
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
 
-        out = norm_layer(out, attr_image)
+        out = norm_layer(norm, out)
         out = actv(activation)(out)
         out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
 
@@ -276,6 +278,13 @@ class BalancingGAN:
         x = AveragePooling2D(pool_size=(2, 2))(x)
 
         return Add()([out, x])
+
+    def _dc_block(self, x, units, 
+                kernel_size=3,activation='relu',
+                norm='batch'):
+        x = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
+        x = norm_layer(norm, x)
+        x = actv(activation)(x)
 
 
     def show_samples_for_class(self,bg,classid, mode='00'):
@@ -551,7 +560,7 @@ class BalancingGAN:
         if self.resnet:
             self.build_resnet_generator()
         else:
-            raise("Should use resnet")
+            self.build_dc_generator()
 
         if self.loss_type == 'categorical':
             self.discriminator.compile(
@@ -682,6 +691,50 @@ class BalancingGAN:
 
         return connections, code
 
+    def build_dc_generator(self):
+        init_channels = self.resolution * 4
+        latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
+        attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
+        image = Input(shape=(self.resolution, self.resolution, self.channels))
+        activation = 'relu'
+        # connections, content_code = self.encode_image(image)
+
+        latent_vector = Concatenate()([attribute_code, latent_code])
+        latent_vector = GaussianNoise(0.1)(latent_vector)
+
+        latent = Dense(4 * 4 * init_channels)(latent_vector)
+        latent = self._norm()(latent)
+        latent = Activation(activation)(latent)
+        latent = Reshape((4, 4, init_channels))(latent)
+
+        kernel_size = 5
+        de = self._dc_block(latent, init_channels, kernel_size,
+                            activation=activation,
+                            norm='in')
+        de = self._dc_block(de, init_channels, kernel_size,
+                            activation=activation,
+                            norm='in')
+
+        if self.attention:
+            de = SelfAttention(init_channels)(de)
+
+        while de.shape[-2] != self.resolution // 2:
+            init_channels //= 2
+            de = self._dc_block(de, init_channels, kernel_size,
+                            activation=activation,
+                            norm='in')
+
+        final = self._dc_block(de, self.channels, kernel_size,
+                        activation='tanh',
+                        norm=None)
+
+        self.generator = Model(
+            inputs = [image, attribute_code, latent_code],
+            outputs = final,
+            name='dc_gen'
+        )
+
+
     def build_resnet_generator(self):
         init_channels = self.resolution * 4
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
@@ -691,7 +744,7 @@ class BalancingGAN:
         # connections, content_code = self.encode_image(image)
 
         latent_vector = Concatenate()([attribute_code, latent_code])
-        # latent_vector = GaussianNoise(0.1)(latent_vector)
+        latent_vector = GaussianNoise(0.1)(latent_vector)
 
         latent = Dense(4 * 4 * init_channels)(latent_vector)
         latent = self._norm()(latent)
@@ -825,7 +878,7 @@ class BalancingGAN:
         channels = 256
         # downsample to 4
         while x.shape[-2] != 4:
-            x = Conv2D(max(512, channels), kernel_size, strides=2, padding='same')(x)
+            x = Conv2D(channels, kernel_size, strides=2, padding='same')(x)
             x = LeakyReLU()(x)
             x = Dropout(0.3)(x)
             channels *= 2
