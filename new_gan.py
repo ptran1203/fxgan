@@ -683,7 +683,7 @@ class BalancingGAN:
         return connections, code
 
     def build_resnet_generator(self):
-        init_channels = 4 * self.resolution
+        init_channels = 256
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
         image = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -827,7 +827,7 @@ class BalancingGAN:
         channels = 256
         # downsample to 4
         while x.shape[-2] != 4:
-            x = Conv2D(channels, kernel_size, strides=2, padding='same')(x)
+            x = Conv2D(max(512, channels), kernel_size, strides=2, padding='same')(x)
             x = LeakyReLU()(x)
             x = Dropout(0.3)(x)
             channels *= 2
