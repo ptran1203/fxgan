@@ -683,7 +683,7 @@ class BalancingGAN:
         return connections, code
 
     def build_resnet_generator(self):
-        init_channels = 256
+        init_channels = self.resolution * 4
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         attribute_code = Input(shape=(self.latent_size,), name = 'attribute_code')
         image = Input(shape=(self.resolution, self.resolution, self.channels))
@@ -700,13 +700,11 @@ class BalancingGAN:
 
         kernel_size = 3
         interpolation = 'nearest'
-        init_channels //= 2
         # de = Add()([de, connections[-1]])
         de = self._up_resblock(latent, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
         # de = Add()([de, connections[-2]])
-        init_channels //= 2
         de = self._up_resblock(de, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
