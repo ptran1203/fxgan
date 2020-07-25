@@ -285,6 +285,7 @@ class BalancingGAN:
         x = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
         x = norm_layer(norm, x)
         x = actv(activation)(x)
+        return x
 
 
     def show_samples_for_class(self,bg,classid, mode='00'):
