@@ -56,7 +56,7 @@ def draw_md_table(scores):
     return table
 
 
-def auc_score(y_true, y_pred, verbose=1, plot=0):
+def auc_score(y_true, y_pred, verbose=1):
     # y_true is not one-hot
     if y_true.shape != y_pred.shape:
         _y_true = to_categorical(y_true, y_pred.shape[-1])
@@ -68,9 +68,6 @@ def auc_score(y_true, y_pred, verbose=1, plot=0):
         print('AUC score: \n')
         for i in range(len(scores)):
             print('{}: {}'.format(_safe_get(i), scores[i])) 
-
-    if plot:
-        print('[WARN] Function is not implemented')
 
     return scores
 

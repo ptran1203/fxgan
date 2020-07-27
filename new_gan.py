@@ -719,8 +719,10 @@ class BalancingGAN:
         if self.attention:
             de = SelfAttention(init_channels)(de)
 
-        while de.shape[-2] != self.resolution // 2:
+        output_shape = 16
+        while output_shape != self.resolution // 2:
             init_channels //= 2
+            output_shape *= 2
             de = self._dc_block(de, init_channels, kernel_size,
                             activation=activation,
                             norm='in')
