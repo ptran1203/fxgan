@@ -186,16 +186,15 @@ class BalancingGAN:
 
 
     def gen_for_class(self, bg, classid,size=1000):
+        print("Gen for class {}, size: {}".format(classid, size))
         total = None
         for i in range(1000):
-            labels = [classid] * size
+            labels = [classid] * 2000
             labels = np.array(labels)
             latent = self.generate_latent(labels)
-            print("Predict...")
             gen = self.generator.predict(latent)
             d_outputs = self.discriminator.predict(gen)
             d_outputs = np.argmax(d_outputs, axis=1)
-            print(Counter(d_outputs))
             to_keep = np.where(labels == d_outputs)[0]
             gen = gen[to_keep]
             if total is None:
@@ -204,7 +203,9 @@ class BalancingGAN:
                 total = np.concatenate([total, gen], axis=0)
             
             if len(total) >= size:
+                total = total[:size]
                 break
+            print("{}/{}".format(len(total), size))
 
         print("done class {}, size {}".format(classid, len(total)))
         return total, np.array([classid] * len(total))
@@ -212,8 +213,15 @@ class BalancingGAN:
     def gen_augment_data(self, bg, size=1000):
         total = None
         labels = None
+        counter = dict(Counter(bg.dataset_y))
+        max_ = max(counter.values())
         for i in bg.classes:
-            gen , label = self.gen_for_class(bg, i, size)
+            acctual_size = max((max_ - counter[i]), 0)
+            print(acctual_size, size, max_, counter[i])
+            if acctual_size == 0:
+                print("Skip class", i)
+                continue
+            gen , label = gen_for_class(self,bg, i, acctual_size)
             if total is None:
                 total = gen
                 labels = label
