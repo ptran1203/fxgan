@@ -154,9 +154,6 @@ def re_balance(imgs, labels, per_class_samples=None):
     counter = [0] * size
     if per_class_samples is None:
         per_class_samples = [1000] * size
-
-    print(counter)
-    print(per_class_samples)
     # original
     for i in range(imgs.shape[0]):
         
@@ -173,8 +170,6 @@ def re_balance(imgs, labels, per_class_samples=None):
                 labels_.append(l_idx)
                 counter[l_idx] += 1
 
-        print(counter)
-        print(counter.count(-1), size)
         if counter.count(-1) == size:
             break
 
