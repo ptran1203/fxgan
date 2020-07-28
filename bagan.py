@@ -221,7 +221,7 @@ class BalancingGAN:
             if acctual_size == 0:
                 print("Skip class", i)
                 continue
-            gen , label = gen_for_class(self,bg, i, acctual_size)
+            gen , label = self.gen_for_class(bg, i, acctual_size)
             if total is None:
                 total = gen
                 labels = label
