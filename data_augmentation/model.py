@@ -15,7 +15,10 @@ from keras.layers import (
     Average,GlobalAveragePooling2D,
     MaxPooling2D, AveragePooling2D,
 )
-from classification_models.keras import Classifiers
+try:
+    from classification_models.keras import Classifiers
+except:
+    print("Can not import classification_models.keras.Classifiers")
 from mlxtend.plotting import plot_confusion_matrix
 from sklearn.utils import class_weight as sk_weight
 from sklearn.model_selection import train_test_split
