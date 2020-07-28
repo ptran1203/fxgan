@@ -410,8 +410,8 @@ class BalancingGAN:
                 total = np.concatenate([total, gen], axis=0)
                 labels = np.concatenate([labels, label], axis=0)
         if bg_test is not None:
-            acctual_size = max((max_ - counter[i]), 0)
             for i in bg_test.classes:
+                acctual_size = max((max_ - counter[i]), 0)
                 gen, label = self.gen_for_class(bg, bg_test, i, acctual_size)
                 if total is None:
                     total = gen
