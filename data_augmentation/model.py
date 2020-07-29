@@ -150,6 +150,7 @@ def augment(imgs, labels,plus = 1, target_labels=None):
 
 
 def re_balance(imgs, labels, per_class_samples=None):
+    print("balane ", per_class_samples)
     deimgs = imgs *127.5 + 127.5
     imgs_ = []
     labels_ = []
@@ -402,6 +403,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
 
     x_test, y_test = test_data
     class_counter = dict(Counter(y_train))
+    max_ = max(class_counter.values())
     classes = np.unique(y_train)
     num_of_classes = len(classes)
 
@@ -429,7 +431,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
         x_train_aug, y_train_aug = re_balance(
             x_train,
             y_train,
-            [(class_counter[0] - class_counter[i]) + 0 for i in range(num_of_classes)])
+            [(max_ - class_counter[i]) for i in range(num_of_classes)])
     else:
         print("Train on fake data")
         x_train_aug, y_train_aug = load_gen(dataset, k_shot, mode)
