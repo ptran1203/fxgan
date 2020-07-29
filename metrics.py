@@ -32,7 +32,7 @@ def draw_md_table(scores):
     len_head = len(head)
     avgs = [sum(v)/len_head for v in scores.values()]
     for i in range(len_head):
-        # use i + 1 because we don't care No Finding case 
+        # use i + 1 because we don't care No Finding case
         table += '| ' + _safe_get(i) + ' |'
         # find the best score value
         best = 0
