@@ -177,7 +177,7 @@ class DAGAN:
 
     def gen_for_class(self, bg, bg_test=None, classid=0,size=1000):
         total = None
-            abels = [classid] * size
+            labels = [classid] * size
             labels = np.array(labels)
             latent = self.generate_latent(labels)
             if classid in bg.classes:
