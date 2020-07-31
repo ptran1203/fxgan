@@ -245,7 +245,7 @@ class DAGAN:
                 res_dir = "./res-tmp", image_shape=[32, 32, 1],
                 g_lr = 0.000005, norm = 'batch', beta_1 = 0.5,
                 dataset = 'chest',
-                k_shot=5, sampling='normal',
+                k_shot=5,
                 env="colab",
                 ):
         self.classes = classes
@@ -256,13 +256,10 @@ class DAGAN:
         self.channels = image_shape[-1]
         self.resolution = image_shape[0]
         self.g_lr = g_lr
-        self.resnet = resnet
-        self.attention = attention
         self.k_shot = k_shot
         self.env=env
         # normal: sampling from normal distribution
         # code: sampling from latent code distribution (computed by classifier)
-        self.sampling = sampling
         self.norm = norm
         self.loss_type = loss_type
 
@@ -270,10 +267,6 @@ class DAGAN:
             self.g_loss = keras.losses.BinaryCrossentropy()
             self.d_fake_loss = keras.losses.BinaryCrossentropy()
             self.d_real_loss = keras.losses.BinaryCrossentropy()
-        elif loss_type == 'categorical':
-            self.g_loss = 'sparse_categorical_crossentropy'
-            self.d_fake_loss = 'sparse_categorical_crossentropy'
-            self.d_real_loss = 'sparse_categorical_crossentropy'
         elif loss_type == 'hinge':
             self.g_loss = hinge_G_loss
             self.d_fake_loss = hinge_D_fake_loss
