@@ -484,6 +484,7 @@ class DAGAN:
     def generate_latent(self, c, size = 1):
         return np.array([
             np.random.normal(0, 1, self.latent_size)
+            for i in c
         ])
 
 
