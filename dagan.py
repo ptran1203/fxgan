@@ -82,6 +82,20 @@ def cosine_sim_op(vests):
     y = K.l2_normalize(y, axis=-1)
     return -K.mean(x * y, axis=-1, keepdims=True)
 
+def actv(activation):
+    if activation == 'leaky_relu':
+        return LeakyReLU()
+    return Activation(activation)
+
+def norm_layer(norm, x):
+    if norm is None:
+        return x
+    if norm == 'batch':
+        x = BatchNormalization()(x)
+    elif norm == 'in':
+        x = InstanceNormalization()(x)
+    return x
+
 class DAGAN:
     D_RATE = 1
     def _triple_tensor(self, x):
@@ -344,7 +358,7 @@ class DAGAN:
 
     def encoder(self, kernel_size ,img):
         def conv_block(units, kernel_size, ip):
-            x = Conv2D(units, kernel_size, strides=2)(ip)
+            x = Conv2D(units, kernel_size, strides=2, padding='same')(ip)
             x = LeakyReLU()(x)
             x = BatchNormalization()(x)
             return x
@@ -375,17 +389,17 @@ class DAGAN:
         de = self._dc_block(latent, 256, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Concatenate()([en3, de])
+        de = Add()([en3, de])
 
         de = self._dc_block(de, 128, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Concatenate()([en2, de])
+        de = Add()([en2, de])
 
         de = self._dc_block(de, 64, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Concatenate()([en1, de])
+        de = Add()([en1, de])
 
         final = self._dc_block(de, self.channels, kernel_size,
                         activation='tanh',
