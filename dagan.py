@@ -444,8 +444,8 @@ class DAGAN:
         if len(train_g) == 0:
             return 
 
-        plot_g(train_g, test_g)
-        plot_d(train_d, test_d)
+        plot_g(train_g)
+        plot_d(train_d)
 
 
     def _discriminator_feature(self, image):
