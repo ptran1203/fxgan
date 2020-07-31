@@ -461,7 +461,7 @@ class DAGAN:
         features = self._discriminator_feature(combined_img)
         features = Dropout(0.4)(features)
         aux = Dense(1,name='auxiliary')(features)
-        self.discriminator = Model(inputs=image,
+        self.discriminator = Model(inputs=[image, same_image],
                                    outputs=aux,
                                    name='discriminator')
 
