@@ -367,7 +367,7 @@ class DAGAN:
         x2 = conv_block(128, kernel_size, x1)
         x3 = conv_block(256, kernel_size, x2)
         x4 = conv_block(256, kernel_size, x3)
-        x5 = conv_block(256, kernel_size, x3)
+        x5 = conv_block(256, kernel_size, x4)
         return x2, x3, x4, x5
 
 
