@@ -347,6 +347,7 @@ class DAGAN:
             x = Conv2D(units, kernel_size, strides=2)(ip)
             x = LeakyReLU()(x)
             x = BatchNormalization()(x)
+            return x
 
         x1 = conv_block(64, kernel_size, img)
         x2 = conv_block(128, kernel_size, x1)
