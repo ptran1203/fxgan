@@ -341,7 +341,7 @@ class DAGAN:
         self.discriminator.trainable = False
         self.generator.trainable = True
 
-        aux_fake = self.discriminator([real_images_for_G, fake])
+        aux_fake = self.discriminator([fake, real_images_for_G])
         self.combined = Model(
             inputs=[real_images_for_G, latent_code],
             outputs=aux_fake,
