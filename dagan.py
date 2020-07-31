@@ -177,6 +177,7 @@ class DAGAN:
 
     def gen_for_class(self, bg, bg_test=None, classid=0,size=1000):
         total = None
+        for i in range(1000):
             labels = [classid] * size
             labels = np.array(labels)
             latent = self.generate_latent(labels)
@@ -212,16 +213,23 @@ class DAGAN:
                     if bg_test is not None else bg.dataset_y
         ))
         max_ = max(counter.values())
-            f acctual_size == 0:
-                continu
-            if total is None
+        for i in bg.classes:
+            acctual_size = max((max_ - counter[i]), 0)
+            if acctual_size == 0:
+                print("Skip class", i)
+                continue
+            gen, label = self.gen_for_class(bg, bg_test, i, acctual_size)
+            if total is None:
                 total = gen
                 labels = label
             else:
                 total = np.concatenate([total, gen], axis=0)
                 labels = np.concatenate([labels, label], axis=0)
         if bg_test is not None:
-                f total is None:
+            for i in bg_test.classes:
+                acctual_size = max((max_ - counter[i]), 0)
+                gen, label = self.gen_for_class(bg, bg_test, i, acctual_size)
+                if total is None:
                     total = gen
                     labels = label
                 else:
@@ -468,7 +476,7 @@ class DAGAN:
     def generate_latent(self, c, size = 1):
         return np.array([
             np.random.normal(0, 1, self.latent_size)
-        ]
+        ])
 
 
     def _norm(self):
