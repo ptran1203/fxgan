@@ -506,10 +506,10 @@ class DAGAN:
             fake_label = np.ones((crt_batch_size, 1))
             real_label = -np.ones((crt_batch_size, 1))
 
-            loss_fake, acc_fake, *rest = \
+            loss_fake = \
                     self.discriminator_fake.train_on_batch([generated_images, k_shot_batch],
                                                             fake_label)
-            loss_real, acc_real, *rest = \
+            loss_real = \
                     self.discriminator_real.train_on_batch([image_batch, k_shot_batch],
                                                             real_label)
             loss = 0.5 * (loss_fake + loss_real)
@@ -519,7 +519,7 @@ class DAGAN:
 
             ################## Train Generator ##################
             f = self.generate_latent(label_batch)
-            gloss, gacc = self.combined.train_on_batch(
+            gloss = self.combined.train_on_batch(
                 [
                     image_batch,
                     f
