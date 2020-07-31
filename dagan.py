@@ -513,7 +513,6 @@ class DAGAN:
                     self.discriminator_real.train_on_batch([image_batch, k_shot_batch],
                                                             real_label)
             loss = 0.5 * (loss_fake + loss_real)
-            acc = 0.5 * (acc_fake + acc_real)
 
             epoch_disc_loss.append(loss)
 
