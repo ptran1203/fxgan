@@ -381,14 +381,14 @@ class DAGAN:
         latent_code = Input(shape=(self.latent_size,), name = 'latent_code')
         image = Input(shape=(self.resolution, self.resolution, self.channels))
         activation = 'relu'
-        kernel_size = 5
+        kernel_size = 3
 
         encoded = self.encoder(kernel_size, image)
 
-        latent = Dense(4 * 4 * 256)(latent_code)
+        latent = Dense(4 * 4 * 512)(latent_code)
         latent = BatchNormalization()(latent)
         latent = Activation(activation)(latent)
-        latent = Reshape((4, 4, 256))(latent)
+        latent = Reshape((4, 4, 512))(latent)
 
         latent = Concatenate()([encoded[-1], latent])
 
@@ -407,9 +407,9 @@ class DAGAN:
                             norm='batch')
         de = Add()([encoded[-4], de])
 
-        # de = self._dc_block(de, 64, kernel_size,
-        #                     activation=activation,
-        #                     norm='batch')
+        de = self._dc_block(de, 64, kernel_size,
+                            activation=activation,
+                            norm='batch')
 
         final = self._dc_block(de, self.channels, kernel_size,
                         activation='tanh',
