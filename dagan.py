@@ -390,22 +390,21 @@ class DAGAN:
         de = self._dc_block(latent, 256, kernel_size,
                             activation=activation,
                             norm='batch')
+        de = Add()([en3, de])
 
         de = self._dc_block(de, 128, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Add()([en3, de])
+        de = Add()([en2, de])
 
         de = self._dc_block(de, 64, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Add()([en2, de])
+        de = Add()([en1, de])
 
         de = self._dc_block(de, 32, kernel_size,
                             activation=activation,
                             norm='batch')
-
-        de = Add()([en1, de])
 
         final = self._dc_block(de, self.channels, kernel_size,
                         activation='tanh',
