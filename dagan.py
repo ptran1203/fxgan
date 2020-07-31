@@ -628,7 +628,7 @@ class DAGAN:
             f = self.generate_latent([crt_c] * 10)
             img_samples = np.array([
                 [
-                    act_img_samples[:,:,:,:self.channels],
+                    act_img_samples,
                     self.generate(act_img_samples, f)
                 ]
             ])
@@ -638,7 +638,7 @@ class DAGAN:
                                                             np.full(10, crt_c), False)
                 new_samples = np.array([
                     [
-                        act_img_samples[:,:,:,:self.channels],
+                        act_img_samples,
                         self.generate(act_img_samples, f)
                     ]
                 ])
@@ -662,7 +662,7 @@ class DAGAN:
                     f = self.generate_latent([crt_c] * 10)
                     img_samples = np.array([
                         [
-                            act_img_samples[:,:,:,:self.channels],
+                            act_img_samples,
                             self.generate(act_img_samples, f)
                         ]
                     ])
@@ -673,7 +673,7 @@ class DAGAN:
                         f = self.generate_latent([crt_c] * 10)
                         new_samples = np.array([
                             [
-                                act_img_samples[:,:,:,:self.channels],
+                                act_img_samples,
                                 self.generate(act_img_samples, f)
                             ]
                         ])
