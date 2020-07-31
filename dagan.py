@@ -368,16 +368,11 @@ class DAGAN:
         width = img.shape[-2]
         i = 0
         while width != 4:
-            connections.append(conv_block(connections[i]))
+            connections.append(conv_block(channels, kernel_size, connections[i]))
             width //= 2
             channels *= 2
             i += 1
 
-        x1 = conv_block(64, kernel_size, img)
-        x2 = conv_block(128, kernel_size, x1)
-        x3 = conv_block(256, kernel_size, x2)
-        x4 = conv_block(256, kernel_size, x3)
-        x5 = conv_block(256, kernel_size, x4)
         return connections[1:]
 
 
@@ -402,19 +397,19 @@ class DAGAN:
                             norm='batch')
         de = Add()([encoded[-2], de])
 
-        de = self._dc_block(de, 256, kernel_size,
+        de = self._dc_block(de, 128, kernel_size,
                             activation=activation,
                             norm='batch')
         de = Add()([encoded[-3], de])
 
-        de = self._dc_block(de, 128, kernel_size,
+        de = self._dc_block(de, 64, kernel_size,
                             activation=activation,
                             norm='batch')
         de = Add()([encoded[-4], de])
 
-        de = self._dc_block(de, 64, kernel_size,
-                            activation=activation,
-                            norm='batch')
+        # de = self._dc_block(de, 64, kernel_size,
+        #                     activation=activation,
+        #                     norm='batch')
 
         final = self._dc_block(de, self.channels, kernel_size,
                         activation='tanh',
