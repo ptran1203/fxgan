@@ -363,12 +363,22 @@ class DAGAN:
             x = BatchNormalization()(x)
             return x
 
+        connections = [img]
+        channels = 64
+        width = img.shape[-2]
+        i = 0
+        while width != 4:
+            connections.append(conv_block(connections[i]))
+            width //= 2
+            channels *= 2
+            i += 1
+
         x1 = conv_block(64, kernel_size, img)
         x2 = conv_block(128, kernel_size, x1)
         x3 = conv_block(256, kernel_size, x2)
         x4 = conv_block(256, kernel_size, x3)
         x5 = conv_block(256, kernel_size, x4)
-        return x2, x3, x4, x5
+        return connections[1:]
 
 
     def build_generator(self):
@@ -378,29 +388,29 @@ class DAGAN:
         activation = 'relu'
         kernel_size = 5
 
-        en1, en2, en3, en4 = self.encoder(kernel_size, image)
+        encoded = self.encoder(kernel_size, image)
 
         latent = Dense(4 * 4 * 256)(latent_code)
         latent = BatchNormalization()(latent)
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, 256))(latent)
 
-        latent = Concatenate()([en4, latent])
+        latent = Concatenate()([encoded[-1], latent])
 
         de = self._dc_block(latent, 256, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Add()([en3, de])
+        de = Add()([encoded[-2], de])
 
         de = self._dc_block(de, 256, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Add()([en2, de])
+        de = Add()([encoded[-3], de])
 
         de = self._dc_block(de, 128, kernel_size,
                             activation=activation,
                             norm='batch')
-        de = Add()([en1, de])
+        de = Add()([encoded[-4], de])
 
         de = self._dc_block(de, 64, kernel_size,
                             activation=activation,
