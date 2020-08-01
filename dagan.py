@@ -9,6 +9,7 @@ from keras.layers.convolutional import (
     UpSampling2D, Convolution2D,
     Conv2D, Conv2DTranspose
 )
+import math
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
 from keras.losses import mean_squared_error
@@ -385,31 +386,20 @@ class DAGAN:
 
         encoded = self.encoder(kernel_size, image)
 
-        latent = Dense(4 * 4 * 512)(latent_code)
+        latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = BatchNormalization()(latent)
         latent = Activation(activation)(latent)
-        latent = Reshape((4, 4, 512))(latent)
+        latent = Reshape((4, 4, init_channels))(latent)
 
-        latent = Concatenate()([encoded[-1], latent])
+        de = Concatenate()([encoded[-1], latent])
 
-        de = self._dc_block(latent, 256, kernel_size,
-                            activation=activation,
-                            norm='batch')
-        de = Add()([encoded[-2], de])
-
-        de = self._dc_block(de, 128, kernel_size,
-                            activation=activation,
-                            norm='batch')
-        de = Add()([encoded[-3], de])
-
-        de = self._dc_block(de, 64, kernel_size,
-                            activation=activation,
-                            norm='batch')
-        de = Add()([encoded[-4], de])
-
-        de = self._dc_block(de, 64, kernel_size,
-                            activation=activation,
-                            norm='batch')
+        # how much loops to upscale to the resolution?
+        for i in range(int(math.log(self.resolution / 4) // math.log(2)) - 1):
+            init_channels //= 2
+            de = self._dc_block(de, init_channels, kernel_size,
+                                activation=activation,
+                                norm='batch')
+            de = Add()([encoded[-i + 2], de])
 
         final = self._dc_block(de, self.channels, kernel_size,
                         activation='tanh',
