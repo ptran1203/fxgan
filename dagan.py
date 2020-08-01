@@ -313,13 +313,12 @@ class DAGAN:
         real_images = Input(shape=(self.resolution, self.resolution, self.channels))
         similiar_images = Input(shape=(self.resolution, self.resolution, self.channels))
         fake_images = Input(shape=(self.resolution, self.resolution, self.channels))
-        fake_similiar_images = Input(shape=(self.resolution, self.resolution, self.channels))
 
         real_output_for_d = self.discriminator([real_images, similiar_images])
-        fake_output_for_d = self.discriminator([fake_images, fake_similiar_images])
+        fake_output_for_d = self.discriminator([fake_images, similiar_images])
 
         self.discriminator_fake = Model(
-            inputs = [fake_images, fake_similiar_images],
+            inputs = [fake_images, similiar_images],
             outputs = fake_output_for_d,
             name='D_fake',
         )
