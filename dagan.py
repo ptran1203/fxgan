@@ -410,6 +410,7 @@ class DAGAN:
                                     norm=self.norm,
                                     transpose=False, strides=1)
                 de = self._upsample(de)
+            print("build G: ", i)
             de = Add()([encoded[-i + 2], de])
             
         if self.upsample == 'dc':
