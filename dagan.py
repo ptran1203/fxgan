@@ -147,10 +147,13 @@ class DAGAN:
 
         return Add()([out, x])
 
-    def _dc_block(self, x, units, 
+    def _conv_block(self, x, units, 
                 kernel_size=3,activation='relu',
-                norm='batch'):
-        x = Conv2DTranspose(units, kernel_size, strides=2, padding='same')(x)
+                norm='batch', transpose=True, strides=2):
+        if transpose:
+            x = Conv2DTranspose(units, kernel_size, strides=strides, padding='same')(x)
+        else:
+            x = Conv2D(units, kernel_size, strides=strides, padding='same')(x)
         x = norm_layer(norm, x)
         x = actv(activation)(x)
         return x
@@ -262,6 +265,7 @@ class DAGAN:
                 dataset = 'chest',
                 k_shot=5,
                 env="colab",
+                upsample="dc",
                 ):
         self.classes = classes
         self.dataset = dataset
@@ -273,6 +277,7 @@ class DAGAN:
         self.g_lr = g_lr
         self.k_shot = k_shot
         self.env=env
+        self.upsample=upsample
         # normal: sampling from normal distribution
         # code: sampling from latent code distribution (computed by classifier)
         self.norm = norm
@@ -396,20 +401,42 @@ class DAGAN:
         # how much loops to upscale to the resolution?
         for i in range(int(math.log(self.resolution / 4) // math.log(2)) - 1):
             init_channels //= 2
-            de = self._dc_block(de, init_channels, kernel_size,
-                                activation=activation,
-                                norm='batch')
+            if self.upsample == "dc":
+                de = self._conv_block(de, init_channels, kernel_size,
+                                    activation=activation,
+                                    norm='batch')
+            else:
+                de = self._conv_block(de, init_channels, kernel_size,
+                                    activation=activation,
+                                    norm='batch',
+                                    transpose=False, strides=1)
+                de = self._upsample(de)
             de = Add()([encoded[-i + 2], de])
-
-        final = self._dc_block(de, self.channels, kernel_size,
-                        activation='tanh',
-                        norm=None)
+            
+        if self.upsample == 'dc':
+            final = self._conv_block(de, self.channels, kernel_size,
+                            activation='tanh',
+                            norm=None)
+        else:
+            final = self._conv_block(de, init_channels, kernel_size,
+                                    activation=activation,
+                                    norm='batch',
+                                    transpose=False, strides=1)
+            final = self._upsample(de)
+            final = self._conv_block(de, self.channels, kernel_size,
+                                    activation=activation,
+                                    norm='batch',
+                                    transpose=False, strides=1)
 
         self.generator = Model(
             inputs = [image, latent_code],
             outputs = final,
             name='dc_gen'
         )
+
+    def _upsample(self, x, interpolation='nearest'):
+        return UpSampling2D(size=(2, 2), interpolation=interpolation)(x)
+
 
     def plot_loss_his(self):
         def plot_g(train_g):
