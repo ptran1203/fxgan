@@ -365,7 +365,7 @@ class DAGAN:
         def conv_block(units, kernel_size, ip):
             x = Conv2D(units, kernel_size, strides=2, padding='same')(ip)
             x = LeakyReLU()(x)
-            x = BatchNormalization()(x)
+            x = norm_layer(self.norm, x)
             return x
 
         connections = [img]
@@ -391,7 +391,7 @@ class DAGAN:
         encoded = self.encoder(kernel_size, image)
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
-        latent = BatchNormalization()(latent)
+        latent = norm_layer(self.norm, latent)
         latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
@@ -403,11 +403,11 @@ class DAGAN:
             if self.upsample == "dc":
                 de = self._conv_block(de, init_channels, kernel_size,
                                     activation=activation,
-                                    norm='batch')
+                                    norm=self.norm)
             else:
                 de = self._conv_block(de, init_channels, kernel_size,
                                     activation=activation,
-                                    norm='batch',
+                                    norm=self.norm,
                                     transpose=False, strides=1)
                 de = self._upsample(de)
             de = Add()([encoded[-i + 2], de])
@@ -419,12 +419,12 @@ class DAGAN:
         else:
             final = self._conv_block(de, init_channels, kernel_size,
                                     activation=activation,
-                                    norm='batch',
+                                    norm=self.norm,
                                     transpose=False, strides=1)
             final = self._upsample(final)
             final = self._conv_block(final, self.channels, kernel_size,
-                                    activation=activation,
-                                    norm='batch',
+                                    activation='tanh',
+                                    norm=None,
                                     transpose=False, strides=1)
 
         self.generator = Model(
@@ -499,9 +499,9 @@ class DAGAN:
 
         combined_img = Concatenate()([image, same_image])
 
-        features = self._discriminator_feature(combined_img)
+        features = self._discriminator_feature(image)
         features = Dropout(0.4)(features)
-        aux = Dense(1,name='auxiliary')(features)
+        aux = Dense(1, name='auxiliary')(features)
         self.discriminator = Model(inputs=[image, same_image],
                                    outputs=aux,
                                    name='discriminator')
@@ -515,7 +515,7 @@ class DAGAN:
 
 
     def _norm(self):
-        return BatchNormalization() #if 'batch' in self.norm else InstanceNormalization()
+        return BatchNormalization() if 'batch' in self.norm else InstanceNormalization()
 
     def _train_one_epoch(self, bg_train):
         epoch_disc_loss = []
