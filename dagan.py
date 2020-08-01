@@ -422,8 +422,8 @@ class DAGAN:
                                     activation=activation,
                                     norm='batch',
                                     transpose=False, strides=1)
-            final = self._upsample(de)
-            final = self._conv_block(de, self.channels, kernel_size,
+            final = self._upsample(final)
+            final = self._conv_block(final, self.channels, kernel_size,
                                     activation=activation,
                                     norm='batch',
                                     transpose=False, strides=1)
