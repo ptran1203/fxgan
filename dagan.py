@@ -412,7 +412,7 @@ class DAGAN:
                 de = self._upsample(de)
             print("build G: ", i)
             de = Add()([encoded[-(i + 2)], de])
-            
+
         if self.upsample == 'dc':
             final = self._conv_block(de, self.channels, kernel_size,
                             activation='tanh',
