@@ -47,7 +47,7 @@ model_map = [0, 'GAN v1', 'GAN v2', 'BAGAN',
 
 class Option:
     gan_v1 = 1
-    gan_v2 = 2
+    dagan = 2
     bagan = 3
     vgg16 = 4
     vgg16_st_aug = 5

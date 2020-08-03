@@ -2,6 +2,26 @@
 
 # Experiment results
 
+### 1 shot
+|  | standard - 1 shot | Ours - 1 shot |
+|--|--|--|
+| No Finding | 0.676 | **0.698** |
+| Infiltration | 0.682 | **0.721** |
+| Atelectasis | 0.749 | **0.766** |
+| Effusion | 0.78 | **0.811** |
+| Nodule | 0.724 | **0.729** |
+| Pneumothorax | 0.751 | **0.763** |
+| Mass | **0.771** | 0.767 |
+| Consolidation | 0.657 | **0.681** |
+| Pleural_Thickening | 0.695 | **0.722** |
+| Cardiomegaly | 0.879 | **0.891** |
+| Emphysema | **0.733** | 0.732 |
+| Fibrosis | 0.653 | **0.664** |
+| Edema | 0.521 | **0.622** |
+| Pneumonia | 0.424 | **0.45** |
+| Hernia | **0.656** | 0.539 |
+| **Average** | 0.69 | **0.704** |
+
 ### 5 shot
 |  | standart - 5 shot | Ours - 5 shot | BAGAN - 5 shot |
 |--|--|--|--|
