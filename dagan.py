@@ -391,8 +391,6 @@ class DAGAN:
         encoded = self.encoder(kernel_size, image)
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
-        latent = norm_layer(self.norm, latent)
-        latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
 
         de = Concatenate()([encoded[-1], latent])
@@ -528,16 +526,16 @@ class DAGAN:
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(label_batch)
             k_shot_batch = bg_train.ramdom_kshot_images(self.k_shot, label_batch,False)
-            generated_images = self.generate(k_shot_batch, f)
+            generated_images = self.generate(image_batch, f)
 
             fake_label = np.ones((crt_batch_size, 1))
             real_label = -np.ones((crt_batch_size, 1))
 
             loss_fake = \
-                    self.discriminator_fake.train_on_batch([generated_images, k_shot_batch],
+                    self.discriminator_fake.train_on_batch([generated_images, image_batch],
                                                             fake_label)
             loss_real = \
-                    self.discriminator_real.train_on_batch([image_batch, k_shot_batch],
+                    self.discriminator_real.train_on_batch([k_shot_batch, image_batch],
                                                             real_label)
             loss = 0.5 * (loss_fake + loss_real)
 
