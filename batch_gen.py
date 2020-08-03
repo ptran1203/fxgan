@@ -208,8 +208,8 @@ class BatchGenerator:
 
     def ramdom_kshot_images(self, k_shot, labels, triple=True, original=None):
         ids = []
-        np.random.shuffle(self.per_class_ids[label])
         for idx, label in enumerate(labels):
+            np.random.shuffle(self.per_class_ids[label])
             for i in range(2):
                 selected = self.per_class_ids[label][i]
                 if original is None or not (original[idx] == self.dataset_x[selected]).all():
