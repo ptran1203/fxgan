@@ -533,7 +533,8 @@ class DAGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(label_batch)
-            k_shot_batch = bg_train.ramdom_kshot_images(self.k_shot, label_batch,False)
+            k_shot_batch = bg_train.ramdom_kshot_images(self.k_shot, label_batch,
+                                                        False, image_batch)
             generated_images = self.generate(image_batch, f)
 
             fake_label = np.ones((crt_batch_size, 1))

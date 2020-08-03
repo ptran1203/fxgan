@@ -206,11 +206,15 @@ class BatchGenerator:
                 # dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
 
-    def ramdom_kshot_images(self, k_shot, labels, triple=True):
+    def ramdom_kshot_images(self, k_shot, labels, triple=True, original=None):
         ids = []
-        for label in labels:
-            np.random.shuffle(self.per_class_ids[label])
-            ids.append(self.per_class_ids[label][0])
+        np.random.shuffle(self.per_class_ids[label])
+        for idx, label in enumerate(labels):
+            for i in range(2):
+                selected = self.per_class_ids[label][i]
+                if original is None or not (original[idx] == self.dataset_x[selected]).all():
+                    ids.append(selected)
+                    break
 
         imgs = self.dataset_x[np.array(ids)]
 
