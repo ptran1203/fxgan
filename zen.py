@@ -7,7 +7,15 @@ def _safe_get(idx):
     except:
         return idx
 
-def draw_md_table(scores):
+def draw_md_table(scores, kshot = None):
+    if kshot:
+        toremove=[]
+        kshot = str(kshot)
+        for k in scores.keys():
+            if kshot not in k:
+                toremove.append(k)
+        for k in toremove:
+            del scores[k]
     """
     sample input:
     {
@@ -53,7 +61,7 @@ def draw_md_table(scores):
     return table
 
 
-
+kshot = 10
 t = draw_md_table(
     {
     'standard - 10 shot': [
@@ -177,5 +185,5 @@ t = draw_md_table(
         0.5514056224899597
         ]
     }
-)
+, kshot)
 print(t)

@@ -393,6 +393,13 @@ class DAGAN:
         latent = Dense(4 * 4 * init_channels)(latent_code)
         latent = Reshape((4, 4, init_channels))(latent)
 
+        latent1 = Dense(8 * 8 * init_channels//2)(latent_code)
+        latent1 = Reshape((8, 8, init_channels//2))(latent1)
+
+        latent2 = Dense(16 * 16 * init_channels//4)(latent_code)
+        latent2 = Reshape((16, 16, init_channels//4))(latent2)
+        latents = [latent1,latent2]
+
         de = Concatenate()([encoded[-1], latent])
 
         # how much loops to upscale to the resolution?
@@ -408,8 +415,9 @@ class DAGAN:
                                     norm=self.norm,
                                     transpose=False, strides=1)
                 de = self._upsample(de)
-            print("build G: ", i)
             de = Add()([encoded[-(i + 2)], de])
+            if i < 2:
+                de = Concatenate()([de, latents[i]])
 
         if self.upsample == 'dc':
             final = self._conv_block(de, self.channels, kernel_size,
