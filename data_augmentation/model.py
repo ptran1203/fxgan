@@ -428,6 +428,7 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
     if mode == 4:
         x_train_aug, y_train_aug = x_train, y_train
     elif mode == 5:
+        class_counter = dict(Counter(y_train))
         x_train_aug, y_train_aug = re_balance(
             x_train,
             y_train,
