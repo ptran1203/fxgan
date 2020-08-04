@@ -36,9 +36,14 @@ import numpy as np
 import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
 from utils import *
+from batch_gen import *
 import triplet_loss
 from data_augmentation.data_loader import load_gen
 import metrics
+class BG(BatchGenerator):
+    # to_train_classes = list(range(0, 80))
+    to_train_classes = range(12)
+    to_test_classes = list(range(81, 101))
 
 classifier = None
 train_model = None
@@ -396,12 +401,19 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
     return (y_pred == y_test).mean(), 0
 
 ## ==== Run training ==== ##
-def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
+def _get_train_data(k_shot):
+    seen = BG(BG.TRAIN, 1, 'multi_chest', 128,k_shot=k_shot)
+    unseen = BG(BG.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
+    return np.concatenate([seen.dataset_x, unseen.dataset_x]), np.concatenate([seen.dataset_y, unseen.dataset_y])
+
+
+def run(mode, test_data ,experiments = 1, frozen_block=[],
         name='vgg16', save=False, lr=1e-5,
         loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
         k_shot=1, metric='l2', dataset='multi_chest'):
 
     x_test, y_test = test_data
+    x_train, y_train = _get_train_data(k_shot)
     class_counter = dict(Counter(y_train))
     max_ = max(class_counter.values())
     classes = np.unique(y_train)
