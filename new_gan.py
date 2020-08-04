@@ -340,13 +340,15 @@ class BalancingGAN:
         self.latent_encoder.trainable = False
 
 
-    def classify_by_metric(self, bg, images, metric='l2', bg_test=None):
+    def classify_by_metric(self, bg, images, metric='l2', bg_test=None, anchor=None):
         # currently do one-shot classification
         size = len(bg.classes)
         if bg_test is not None:
             size += len(bg_test.classes)
 
         sp_vectors = self.means[:size].reshape(-1, 1, self.latent_size)
+        if anchor is not None:
+            sp_vectors[anchor[1]] = self.latent_code(utils.triple_channels(anchor[0]))
         vectors = self.latent_code(utils.triple_channels(images))
         metric_func = l2_distance if metric == 'l2' else cosine_sim
         similiarity = np.array([metric_func(vector, sp_vector) \
@@ -373,7 +375,7 @@ class BalancingGAN:
                                                 np.full(size, classid))
 
             gen = self.generate(support, latent)
-            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test)
+            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test, anchor=(support, classid))
             to_keep = np.where(labels == d_outputs)[0]
             gen = gen[to_keep]
             if total is None:
