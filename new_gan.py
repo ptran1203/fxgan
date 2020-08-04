@@ -375,7 +375,7 @@ class BalancingGAN:
                                                 np.full(size, classid))
 
             gen = self.generate(support, latent)
-            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test, anchor=(support, classid))
+            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test, anchor=(support[0], classid))
             to_keep = np.where(labels == d_outputs)[0]
             gen = gen[to_keep]
             if total is None:
