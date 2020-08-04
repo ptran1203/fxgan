@@ -42,7 +42,7 @@ import metrics
 
 classifier = None
 train_model = None
-model_map = [0, 'GAN v1', 'GAN v2', 'BAGAN',
+model_map = [0, 'FX-GAN', 'DAGAN', 'BAGAN',
              'VGG16', 'VGG16 + standard augment']
 
 class Option:
