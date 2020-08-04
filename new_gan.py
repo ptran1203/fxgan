@@ -348,12 +348,17 @@ class BalancingGAN:
 
         sp_vectors = self.means[:size].reshape(-1, 1, self.latent_size)
         if anchor is not None:
-            sp_vectors[anchor[1]] = self.latent_code(utils.triple_channels(anchor[0]))
+            anchors = self.latent_code(utils.triple_channels(anchor[0]))
         vectors = self.latent_code(utils.triple_channels(images))
         metric_func = l2_distance if metric == 'l2' else cosine_sim
-        similiarity = np.array([metric_func(vector, sp_vector) \
-                            for vector in vectors \
-                            for sp_vector in sp_vectors]).reshape(-1, size)
+        similiarity = []
+        for i, vector in enumerate(vectors):
+            for c, sp_vector in enumerate(sp_vectors.reshape(-1, size)):
+                if anchor is not None and c == anchor[1]:
+                    similiarity.append(metric_func(vector, anchors[i]))
+                else:
+                    similiarity.append(metric_func(vector, sp_vector))
+    
         pred = np.argmin(np.array(similiarity), axis=1)
         return pred
 
@@ -375,7 +380,7 @@ class BalancingGAN:
                                                 np.full(size, classid))
 
             gen = self.generate(support, latent)
-            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test, anchor=(support[0], classid))
+            d_outputs = self.classify_by_metric(bg, gen, bg_test=bg_test, anchor=(support, classid))
             to_keep = np.where(labels == d_outputs)[0]
             gen = gen[to_keep]
             if total is None:
