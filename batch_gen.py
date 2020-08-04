@@ -67,12 +67,12 @@ class BatchGenerator:
                     x, y = x[to_keep[:k_shot]], y[to_keep[:k_shot]]
                 print(to_keep[:k_shot])
                 self.dataset_x = x
-                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
+                self.dataset_y = np.array([l for l in y])
             else:
                 to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
-                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
+                self.dataset_y = np.array([l for l in y])
 
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
