@@ -62,7 +62,12 @@ class BatchGenerator:
             to_test_classes = self.to_test_classes
 
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                to_keep = []
+                np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                for i, l in enumerate(y):
+                    if l not in to_train_classes and to_keep.count(i) < k_shot:
+                        to_keep.append(i)
+                to_keep = np.array(to_keep)
                 if len(to_keep) > 0:
                     x, y = x[to_keep[:k_shot]], y[to_keep[:k_shot]]
                 print(to_keep[:k_shot])
