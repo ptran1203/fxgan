@@ -63,14 +63,14 @@ class BatchGenerator:
 
             if self.data_src == self.TEST:
                 to_keep = []
-                np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                counter = {12:0,13:0,14:0}
                 for i, l in enumerate(y):
-                    if l not in to_train_classes and to_keep.count(i) < k_shot:
+                    if l not in to_train_classes and counter[l] < k_shot:
                         to_keep.append(i)
+                        counter[l] += 1
                 to_keep = np.array(to_keep)
                 if len(to_keep) > 0:
-                    x, y = x[to_keep[:k_shot]], y[to_keep[:k_shot]]
-                print(to_keep[:k_shot])
+                    x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = np.array([l for l in y])
             else:
