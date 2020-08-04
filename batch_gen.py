@@ -58,6 +58,7 @@ class BatchGenerator:
 
         else: # multi chest
             x, y = self._load_data(rst)
+            x = x  * 127.5 + 127.5
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
