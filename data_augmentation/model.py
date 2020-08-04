@@ -456,6 +456,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
         if mode == Option.bagan:
             x_train_aug = x_train_aug *127.5+127.5
         show_samples(x_train_aug[:10])
+        show_samples(x_train[:10])
 
         x_train_aug, y_train_aug = (np.concatenate([x_train,x_train_aug]),
                                     np.concatenate([y_train, y_train_aug]))
