@@ -352,14 +352,15 @@ class BalancingGAN:
         vectors = self.latent_code(utils.triple_channels(images))
         metric_func = l2_distance if metric == 'l2' else cosine_sim
         similiarity = []
+        print(anchors.shape, vectors.shape, sp_vectors.shape)
         for i, vector in enumerate(vectors):
-            for c, sp_vector in enumerate(sp_vectors.reshape(-1, size)):
+            for c, sp_vector in enumerate(sp_vectors):
                 if anchor is not None and c == anchor[1]:
                     similiarity.append(metric_func(vector, anchors[i]))
                 else:
                     similiarity.append(metric_func(vector, sp_vector))
     
-        pred = np.argmin(np.array(similiarity), axis=1)
+        pred = np.argmin(np.array(similiarity).reshape(-1, size), axis=1)
         return pred
 
 
