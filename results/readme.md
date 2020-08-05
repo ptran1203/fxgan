@@ -2,62 +2,42 @@
 
 # Experiment results
 
-### 1 shot
-|  | standard - 1 shot | Ours - 1 shot |
-|--|--|--|
-| No Finding | 0.676 | **0.698** |
-| Infiltration | 0.682 | **0.721** |
-| Atelectasis | 0.749 | **0.766** |
-| Effusion | 0.78 | **0.811** |
-| Nodule | 0.724 | **0.729** |
-| Pneumothorax | 0.751 | **0.763** |
-| Mass | **0.771** | 0.767 |
-| Consolidation | 0.657 | **0.681** |
-| Pleural_Thickening | 0.695 | **0.722** |
-| Cardiomegaly | 0.879 | **0.891** |
-| Emphysema | **0.733** | 0.732 |
-| Fibrosis | 0.653 | **0.664** |
-| Edema | 0.521 | **0.622** |
-| Pneumonia | 0.424 | **0.45** |
-| Hernia | **0.656** | 0.539 |
-| **Average** | 0.69 | **0.704** |
-
 ### 5 shot
-|  | standart - 5 shot | Ours - 5 shot | BAGAN - 5 shot |
+|  | dagan - 5 shot | Ours - 5 shot | BAGAN - 5 shot |
 |--|--|--|--|
-| No Finding | 0.673 | **0.7** | 0.692 |
-| Infiltration | 0.687 | **0.72** | **0.72** |
-| Atelectasis | 0.762 | **0.765** | 0.762 |
-| Effusion | 0.795 | **0.802** | 0.794 |
-| Nodule | 0.721 | **0.726** | 0.719 |
-| Pneumothorax | **0.747** | 0.746 | 0.726 |
-| Mass | 0.761 | **0.762** | 0.728 |
-| Consolidation | 0.66 | **0.677** | 0.653 |
-| Pleural_Thickening | **0.711** | 0.702 | 0.69 |
-| Cardiomegaly | 0.88 | 0.879 | **0.888** |
-| Emphysema | **0.745** | 0.736 | 0.698 |
-| Fibrosis | 0.65 | **0.686** | 0.586 |
-| Edema | 0.576 | **0.735** | 0.639 |
-| Pneumonia | **0.471** | 0.46 | 0.437 |
-| Hernia | 0.682 | **0.698** | 0.551 |
-| **Average** | 0.701 | **0.719** | 0.686 |
+| No Finding | 0.674 | **0.698** | 0.682 |
+| Infiltration | 0.686 | **0.717** | 0.705 |
+| Atelectasis | 0.75 | 0.753 | **0.757** |
+| Effusion | 0.798 | **0.809** | 0.796 |
+| Nodule | 0.684 | **0.751** | 0.724 |
+| Pneumothorax | 0.723 | **0.748** | 0.693 |
+| Mass | 0.742 | **0.747** | 0.73 |
+| Consolidation | 0.649 | **0.666** | 0.664 |
+| Pleural_Thickening | 0.673 | **0.694** | 0.678 |
+| Cardiomegaly | **0.892** | 0.873 | 0.884 |
+| Emphysema | 0.716 | **0.725** | 0.706 |
+| Fibrosis | 0.618 | **0.66** | 0.607 |
+| Edema | 0.624 | **0.644** | 0.579 |
+| Pneumonia | **0.497** | 0.47 | 0.412 |
+| Hernia | 0.665 | 0.7 | **0.71** |
+| **Average** | 0.693 | **0.71** | 0.688 |
 
 ### 10 shot
-|  | standard - 10 shot | Ours - 10 shot | BAGAN - 10 shot |        
+|  | dagan - 10 shot | Ours - 10 shot | BAGAN - 10 shot |
 |--|--|--|--|
-| No Finding | 0.676 | **0.697** | 0.688 |
-| Infiltration | 0.677 | **0.722** | 0.713 |
-| Atelectasis | 0.753 | **0.758** | 0.755 |
-| Effusion | 0.782 | **0.803** | 0.798 |
-| Nodule | 0.724 | **0.741** | 0.717 |
-| Pneumothorax | 0.741 | **0.768** | 0.731 |
-| Mass | 0.751 | **0.76** | 0.755 |
-| Consolidation | **0.693** | 0.672 | 0.674 |
-| Pleural_Thickening | 0.694 | 0.692 | **0.699** |
-| Cardiomegaly | 0.874 | **0.899** | 0.898 |
-| Emphysema | 0.735 | **0.747** | 0.724 |
-| Fibrosis | **0.648** | 0.646 | 0.618 |
-| Edema | 0.653 | **0.748** | 0.485 |
-| Pneumonia | 0.515 | 0.463 | **0.586** |
-| Hernia | **0.697** | **0.697** | 0.593 |
-| **Average** | 0.708 | **0.721** | 0.696 |
+| No Finding | 0.675 | **0.694** | 0.686 |
+| Infiltration | 0.688 | **0.712** | 0.702 |
+| Atelectasis | 0.739 | **0.757** | 0.748 |
+| Effusion | 0.797 | **0.818** | 0.799 |
+| Nodule | 0.698 | **0.745** | 0.721 |
+| Pneumothorax | 0.727 | **0.756** | 0.704 |
+| Mass | 0.738 | **0.753** | 0.732 |
+| Consolidation | 0.661 | **0.686** | 0.679 |
+| Pleural_Thickening | **0.699** | 0.695 | 0.683 |
+| Cardiomegaly | **0.899** | 0.856 | 0.881 |
+| Emphysema | 0.696 | **0.753** | 0.692 |
+| Fibrosis | 0.656 | **0.667** | 0.612 |
+| Edema | 0.595 | **0.743** | 0.551 |
+| Pneumonia | **0.581** | 0.502 | 0.515 |
+| Hernia | 0.673 | **0.686** | 0.649 |
+| **Average** | 0.702 | **0.722** | 0.69 |
