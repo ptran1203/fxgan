@@ -191,7 +191,7 @@ class BatchGenerator:
                 # dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
 
-    def ramdom_kshot_images(self, k_shot, labels, triple=True, original=None):
+    def ramdom_kshot_images_dagan(self, k_shot, labels, triple=True, original=None):
         ids = []
         for idx, label in enumerate(labels):
             np.random.shuffle(self.per_class_ids[label])
@@ -207,3 +207,14 @@ class BatchGenerator:
             imgs = utils.triple_channels(imgs)
         return imgs
 
+    def ramdom_kshot_images(self, k_shot, labels, triple=True):
+        ids = []
+        for label in labels:
+            np.random.shuffle(self.per_class_ids[label])
+            ids.append(self.per_class_ids[label][0])
+
+        imgs = self.dataset_x[np.array(ids)]
+
+        if triple:
+            imgs = utils.triple_channels(imgs)
+        return imgs

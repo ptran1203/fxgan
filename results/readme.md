@@ -3,7 +3,7 @@
 # Experiment results
 
 ### 5 shot
-|  | dagan - 5 shot | Ours - 5 shot | BAGAN - 5 shot |
+| label | dagan - 5 shot | Ours - 5 shot | BAGAN - 5 shot |
 |--|--|--|--|
 | No Finding | 0.674 | **0.698** | 0.682 |
 | Infiltration | 0.686 | **0.717** | 0.705 |
@@ -23,7 +23,7 @@
 | **Average** | 0.693 | **0.71** | 0.688 |
 
 ### 10 shot
-|  | dagan - 10 shot | Ours - 10 shot | BAGAN - 10 shot |
+| label | dagan - 10 shot | Ours - 10 shot | BAGAN - 10 shot |
 |--|--|--|--|
 | No Finding | 0.675 | **0.694** | 0.686 |
 | Infiltration | 0.688 | **0.712** | 0.702 |
