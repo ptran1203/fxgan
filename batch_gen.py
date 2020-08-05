@@ -115,15 +115,6 @@ class BatchGenerator:
         for c in classes:
             self.per_class_ids[c] = ids[self.labels == c]
 
-        self.class_weights = sk_weight.compute_class_weight('balanced',
-                                                 np.unique(self.dataset_y),
-                                                 self.dataset_y)
-        
-        min_w = np.min(self.class_weights)
-        # add fakes label weight
-        self.class_weights = dict(enumerate(self.class_weights))
-        self.class_weights[len(self.classes)] = min_w
-
 
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
