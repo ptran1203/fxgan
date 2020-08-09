@@ -415,7 +415,7 @@ class DAGAN:
                                     norm=self.norm,
                                     transpose=False, strides=1)
                 de = self._upsample(de)
-            if i > 1:
+            if i > 2:
                 de = Add()([encoded[-(i + 2)], de])
             if i < 2:
                 de = Concatenate()([de, latents[i]])
