@@ -1,5 +1,6 @@
 
 # The FX-GAN for chest-xray classification
+
 ![model](./images/GAN_model.png)
 - This repository is implemented based on https://github.com/IBM/BAGAN
 - To run the experiment please check the file **notebooks/fxgan.ipynb**
