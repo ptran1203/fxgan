@@ -437,7 +437,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                                                  y_train)
 
     class_weight = dict(enumerate(class_weight))
-    if loss_type == Losses.triplet or mode != Option.vgg16 or mode != Option.vgg16_st_aug:
+    if loss_type == Losses.triplet or mode != Option.vgg16_st_aug:
         class_weight  =  None
     if mode == 4:
         x_train_aug, y_train_aug = x_train, y_train
