@@ -240,7 +240,7 @@ def visualize_scatter_with_images(X_2d_data, images, figsize=(10,10), image_zoom
     ax.autoscale()
     plt.show()
 
-def visualize_scatter(data_2d, label_ids, figsize=(8,8)):
+def visualize_scatter(data_2d, label_ids, figsize=(8,8), legend=True):
     plt.figure(figsize=figsize)
     plt.grid()
     
@@ -255,10 +255,14 @@ def visualize_scatter(data_2d, label_ids, figsize=(8,8)):
                     linewidth='1',
                     alpha=0.8,
                     label=label_id)
-    plt.legend(loc='best')
+    if legend:
+        plt.legend(loc='best')
+    else:
+        plt.axis('off')
+
     plt.show()
 
-def scatter_plot(x, y, encoder, name='chart', opt='pca', plot_img=None):
+def scatter_plot(x, y, encoder, name='chart', opt='pca', plot_img=None,legend=True):
     step = 1
     if encoder.input_shape[-1] != x.shape[-1]:
         x = triple_channels(x)
@@ -269,7 +273,7 @@ def scatter_plot(x, y, encoder, name='chart', opt='pca', plot_img=None):
     decomposed_embeddings = decomposers[opt].fit_transform(x_embeddings)
     if plot_img:
         return visualize_scatter_with_images(decomposed_embeddings,x)
-    visualize_scatter(decomposed_embeddings, y)
+    visualize_scatter(decomposed_embeddings, y, legend=legend)
 
 
 def plot_model_history(H, opt = 0):
