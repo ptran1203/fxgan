@@ -310,7 +310,7 @@ def prune(x, y, prune_classes):
     """
     for class_to_prune in range(len(prune_classes)):
         remove_size = prune_classes[class_to_prune]
-        if remove_size == 0:
+        if remove_size <= 0:
             continue
         print(class_to_prune)
         all_ids = list(np.arange(len(x)))

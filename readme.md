@@ -1,32 +1,27 @@
 
-## The GAN project for chest-xray classification
+# The FX-GAN for chest-xray classification
+
+![model](./images/GAN_model.png)
 - This repository is implemented based on https://github.com/IBM/BAGAN
-- To run the experiment please check the file **try_gan.ipynb**
+- To run the experiment please check the file **notebooks/fxgan.ipynb**
 
-Back to pre-version: d6a254db86d0596dc2afa8c3dc04c06e6dd26a39
+### Generator architecture
 
-### Chest-xray 14 dataset
+![G](./images/generator.png)
 
-1. samples count (multi-class sample are removed)
 
-| Category | samples |
-|--|--|
-| No Finding | 60361 |
-| Infiltration | 9547 |
-| Atelectasis | 4215 |
-| Effusion | 3955 |
-| Nodule | 2705 |
-| Pneumothorax | 2194 |
-| Mass | 2139 |
-| Consolidation | 1310 |
-| Pleural_Thickening | 1126 |
-| Cardiomegaly | 1093 |
-| Emphysema | 892 |
-| Fibrosis | 727 |
-| Edema | 628 |
-| Pneumonia | 322 |
-| Hernia | 110 |
+### Discriminator architecture
 
-2. Data distribution (Without No finding case)
+![D](./images/discriminator.png)
 
-![label_counts](images/label_counts_2.png)  
+
+# Experiment results
+
+### Data distribution of generated images (feature extracted from pre-trained metric model)
+![data_dis](./images/data_dis.png)
+
+### Generated images for 05 seen classes
+![gen_seen](./images/gen_seen.png)
+
+### Generated images for 03 unseen classes
+![gen_unseen](./images/gen_unseen.png)

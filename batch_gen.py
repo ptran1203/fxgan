@@ -12,7 +12,7 @@ class BatchGenerator:
     to_test_classes = list(range(81, 86))
 
     def _load_data(self, rst):
-        return utils.pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
+        return utils.pickle_load('/content/drive/My Drive/GAN/data/multi_chest/train_{}.pkl'.format(rst))
 
     def __init__(
         self,
@@ -21,7 +21,7 @@ class BatchGenerator:
         dataset='MNIST',
         rst=64,
         prune_classes=None,
-        split=0
+        k_shot=5,
     ):
         self.batch_size = batch_size
         self.data_src = data_src
@@ -58,24 +58,27 @@ class BatchGenerator:
 
         else: # multi chest
             x, y = self._load_data(rst)
+            x = x  * 127.5 + 127.5
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
-            to_keep = [i for i, l in enumerate(y) if '|' not in l]
-            to_keep = np.array(to_keep)
-            x = x[to_keep]
-            y = y[to_keep]
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                to_keep = []
+                counter = {12:0,13:0,14:0}
+                for i, l in enumerate(y):
+                    if l not in to_train_classes and counter[l] < k_shot:
+                        to_keep.append(i)
+                        counter[l] += 1
+                to_keep = np.array(to_keep)
                 if len(to_keep) > 0:
                     x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
-                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
+                self.dataset_y = np.array([l for l in y])
             else:
                 to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
-                self.dataset_y = np.array([CATEGORIES_MAP[l] for l in y])
+                self.dataset_y = np.array([l for l in y])
 
         # Normalize between -1 and 1
         self.dataset_x = (self.dataset_x - 127.5) / 127.5
@@ -90,8 +93,7 @@ class BatchGenerator:
         for c in classes:
             per_class_count.append(np.sum(np.array(self.dataset_y == c)))
 
-        if split > 0:
-            self.split_data(split)
+
         if prune_classes:
             self.dataset_x, self.dataset_y = utils.prune(self.dataset_x, self.dataset_y, prune_classes)
 
@@ -112,23 +114,6 @@ class BatchGenerator:
         ids = np.array(range(len(self.dataset_x)))
         for c in classes:
             self.per_class_ids[c] = ids[self.labels == c]
-
-        self.class_weights = sk_weight.compute_class_weight('balanced',
-                                                 np.unique(self.dataset_y),
-                                                 self.dataset_y)
-        
-        min_w = np.min(self.class_weights)
-        # add fakes label weight
-        self.class_weights = dict(enumerate(self.class_weights))
-        self.class_weights[len(self.classes)] = min_w
-
-    def split_data(self, split):
-        self.dataset_x, _, self.dataset_y, _ = train_test_split(
-            self.dataset_x, self.dataset_y, test_size=0.1, random_state=42
-        )
-        self.dataset_x, _, self.dataset_y, _ = train_test_split(
-            self.dataset_x, self.dataset_y, test_size=0.3, random_state=42
-        )
 
 
     def get_samples_for_class(self, c, samples=None):
@@ -206,6 +191,22 @@ class BatchGenerator:
                 # dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
 
+    def ramdom_kshot_images_dagan(self, k_shot, labels, triple=True, original=None):
+        ids = []
+        for idx, label in enumerate(labels):
+            np.random.shuffle(self.per_class_ids[label])
+            for i in range(2):
+                selected = self.per_class_ids[label][i]
+                if original is None or not (original[idx] == self.dataset_x[selected]).all():
+                    ids.append(selected)
+                    break
+
+        imgs = self.dataset_x[np.array(ids)]
+
+        if triple:
+            imgs = utils.triple_channels(imgs)
+        return imgs
+
     def ramdom_kshot_images(self, k_shot, labels, triple=True):
         ids = []
         for label in labels:
@@ -217,4 +218,3 @@ class BatchGenerator:
         if triple:
             imgs = utils.triple_channels(imgs)
         return imgs
-

@@ -172,11 +172,11 @@ class DAGAN:
         samples = 10 - self.k_shot
         if mode_x == 0:
             print("difference images")
-            support_images = bg.ramdom_kshot_images(self.k_shot,
+            support_images = bg.ramdom_kshot_images_dagan(self.k_shot,
                                                     [classid] * samples,False)
         else:
             print("same images")
-            support_images = bg.ramdom_kshot_images(self.k_shot,
+            support_images = bg.ramdom_kshot_images_dagan(self.k_shot,
                                                     [classid],False)
             support_images = np.repeat(support_images,
                                         samples,
@@ -200,13 +200,13 @@ class DAGAN:
             labels = np.array(labels)
             latent = self.generate_latent(labels)
             if classid in bg.classes:
-                support = bg.ramdom_kshot_images(self.k_shot,
+                support = bg.ramdom_kshot_images_dagan(self.k_shot,
                                                 np.full(size, classid),False)
             else:
                 if bg_test is None:
                     raise("bg_test is None, please give it, boi")
 
-                support = bg_test.ramdom_kshot_images(self.k_shot,
+                support = bg_test.ramdom_kshot_images_dagan(self.k_shot,
                                                 np.full(size, classid),False)
 
             gen = self.generate(support, latent)
@@ -391,9 +391,14 @@ class DAGAN:
         encoded = self.encoder(kernel_size, image)
 
         latent = Dense(4 * 4 * init_channels)(latent_code)
-        latent = norm_layer(self.norm, latent)
-        latent = Activation(activation)(latent)
         latent = Reshape((4, 4, init_channels))(latent)
+
+        latent1 = Dense(8 * 8 * init_channels//2)(latent_code)
+        latent1 = Reshape((8, 8, init_channels//2))(latent1)
+
+        latent2 = Dense(16 * 16 * init_channels//4)(latent_code)
+        latent2 = Reshape((16, 16, init_channels//4))(latent2)
+        latents = [latent1,latent2]
 
         de = Concatenate()([encoded[-1], latent])
 
@@ -410,8 +415,11 @@ class DAGAN:
                                     norm=self.norm,
                                     transpose=False, strides=1)
                 de = self._upsample(de)
-            de = Add()([encoded[-i + 2], de])
-            
+            if i > 2:
+                de = Add()([encoded[-(i + 2)], de])
+            if i < 2:
+                de = Concatenate()([de, latents[i]])
+
         if self.upsample == 'dc':
             final = self._conv_block(de, self.channels, kernel_size,
                             activation='tanh',
@@ -526,17 +534,18 @@ class DAGAN:
             ################## Train Discriminator ##################
             fake_size = crt_batch_size // self.nclasses
             f = self.generate_latent(label_batch)
-            k_shot_batch = bg_train.ramdom_kshot_images(self.k_shot, label_batch,False)
-            generated_images = self.generate(k_shot_batch, f)
+            k_shot_batch = bg_train.ramdom_kshot_images_dagan(self.k_shot, label_batch,
+                                                        False, image_batch)
+            generated_images = self.generate(image_batch, f)
 
             fake_label = np.ones((crt_batch_size, 1))
             real_label = -np.ones((crt_batch_size, 1))
 
             loss_fake = \
-                    self.discriminator_fake.train_on_batch([generated_images, k_shot_batch],
+                    self.discriminator_fake.train_on_batch([generated_images, image_batch],
                                                             fake_label)
             loss_real = \
-                    self.discriminator_real.train_on_batch([image_batch, k_shot_batch],
+                    self.discriminator_real.train_on_batch([k_shot_batch, image_batch],
                                                             real_label)
             loss = 0.5 * (loss_fake + loss_real)
 
@@ -649,7 +658,7 @@ class DAGAN:
 
             crt_c = 0
             # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-            act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
+            act_img_samples = bg_train.ramdom_kshot_images_dagan(self.k_shot,
                                                         np.full(10, crt_c), False)
             f = self.generate_latent([crt_c] * 10)
             img_samples = np.array([
@@ -660,7 +669,7 @@ class DAGAN:
             ])
             for crt_c in range(1, min(self.nclasses, 3)): # more 3 classes
                 # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
+                act_img_samples = bg_train.ramdom_kshot_images_dagan(self.k_shot,
                                                             np.full(10, crt_c), False)
                 new_samples = np.array([
                     [
@@ -682,7 +691,7 @@ class DAGAN:
                     self.backup_point(e)
                     crt_c = 0
                     # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                    act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
+                    act_img_samples = bg_train.ramdom_kshot_images_dagan(self.k_shot,
                                                                    np.full(10, crt_c), False)
 
                     f = self.generate_latent([crt_c] * 10)
@@ -694,7 +703,7 @@ class DAGAN:
                     ])
                     for crt_c in range(1, min(self.nclasses, 3)):
                         # act_img_samples = bg_train.get_samples_for_class(crt_c, 10)
-                        act_img_samples = bg_train.ramdom_kshot_images(self.k_shot,
+                        act_img_samples = bg_train.ramdom_kshot_images_dagan(self.k_shot,
                                                                    np.full(10, crt_c),False)
                         f = self.generate_latent([crt_c] * 10)
                         new_samples = np.array([
@@ -725,7 +734,7 @@ class DAGAN:
 
     def plot_feature_distr(self, bg, size=50):
         x, y = bg.dataset_x, bg.dataset_y
-        real = bg.ramdom_kshot_images(self.k_shot,
+        real = bg.ramdom_kshot_images_dagan(self.k_shot,
                                     np.full(size, bg.classes[0]),False)
 
         fakes = self.generate(real, self.generate_latent([0] * size))
@@ -733,7 +742,7 @@ class DAGAN:
         fake_labels = [np.full((size,), 'fake of 0')]
 
         for classid in bg.classes[1:5]:
-            real = bg.ramdom_kshot_images(self.k_shot,
+            real = bg.ramdom_kshot_images_dagan(self.k_shot,
                                     np.full(size, classid))
             fake = self.generate(real, self.generate_latent([classid] * size),False)
             fakes = np.concatenate([fakes, fake])
