@@ -258,7 +258,7 @@ def visualize_scatter(data_2d, label_ids, figsize=(8,8), legend=True,title="None
     if legend:
         plt.legend(loc='best')
     else:
-        plt.title(title)
+        # plt.title(title)
         plt.axis('off')
 
     plt.show()
