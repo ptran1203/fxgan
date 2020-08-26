@@ -475,6 +475,15 @@ def run(mode, x_train, y_train, test_data ,experiments = 1, frozen_block=[],
             ))
             losses.append(loss_mean)
 
+            if i % 5 == 0:
+                # plot
+                embbeding_model = Model(
+                    inputs = train_model.inputs[0],
+                    outputs = train_model.get_layer('side_out').get_output_at(-1),
+                    name="center_loss"
+                )
+                scatter_plot(x_train, y_train, embbeding_model, 'train', 'tsne')
+
 
 
         if loss_type == Losses.center:
