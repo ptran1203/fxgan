@@ -412,7 +412,8 @@ def _get_train_data(k_shot):
 def run(mode, test_data ,experiments = 1, frozen_block=[],
         name='vgg16', save=False, lr=1e-5,
         loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
-        k_shot=1, metric='l2', dataset='multi_chest'):
+        k_shot=1, metric='l2', dataset='multi_chest',
+        plot_interval=2):
 
     x_test, y_test = test_data
     x_train, y_train = _get_train_data(k_shot)
@@ -491,6 +492,15 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
             ))
             losses.append(loss_mean)
 
+            if i % plot_interval == 0:
+                # plot
+                embbeding_model = Model(
+                    inputs = train_model.inputs[0],
+                    outputs = train_model.get_layer('side_out').get_output_at(-1),
+                    name="center_loss"
+                )
+                scatter_plot(x_train, y_train, embbeding_model, 'train', 'tsne',
+                            legend=False, title="epoch {}".format(i+1))
 
 
         if loss_type == Losses.center:
