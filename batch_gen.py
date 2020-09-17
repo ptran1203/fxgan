@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
-    D_SIZE = 400
     to_train_classes = list(range(1, 80))
     to_test_classes = list(range(81, 86))
 

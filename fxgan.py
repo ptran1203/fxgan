@@ -11,39 +11,23 @@ from keras.layers.convolutional import (
 )
 from keras.models import Sequential, Model, model_from_json
 from keras.optimizers import Adam
-from keras.losses import mean_squared_error
 from keras.layers import (
     Input, Dense, Reshape,
-    Flatten, Embedding, Dropout,
+    Flatten, Dropout,
     BatchNormalization, Activation,
-    Lambda,Layer, Add, Concatenate,
-    Average,GaussianNoise,
-    MaxPooling2D, AveragePooling2D,
-    RepeatVector,GlobalAveragePooling2D,
+    Lambda, Layer, Add, Concatenate,
+    Average, GaussianNoise,
+    AveragePooling2D, GlobalAveragePooling2D,
 )
-from keras_contrib.losses import DSSIMObjective
 from keras_contrib.layers.normalization.instancenormalization import InstanceNormalization
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import math_ops
-from tensorflow.python.framework import dtypes
-
 from keras.applications.vgg16 import VGG16
-
-from keras.utils import np_utils
 import sklearn.metrics as metrics
-from sklearn.model_selection import train_test_split
 from mlxtend.plotting import plot_confusion_matrix
-from keras.utils import to_categorical
-
 import matplotlib.pyplot as plt
-import seaborn as sns
-
 import os
-import sys
 import re
 import numpy as np
 import datetime
-import pickle
 import cv2
 import utils
 import logger
@@ -51,11 +35,8 @@ from const import BASE_DIR
 
 K.common.set_image_dim_ordering('tf')
 
-from PIL import Image
-
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
-
 
 def hinge_G_loss(y_true, y_pred):
     return -K.mean(y_pred)
@@ -66,22 +47,12 @@ def hinge_D_real_loss(y_true, y_pred):
 def hinge_D_fake_loss(y_true, y_pred):
     return K.mean(K.relu(1+y_pred))
 
-def safe_average(list_inputs):
-    if len(list_inputs) == 1:
-        return list_inputs[0]
-    return Average()(list_inputs)
-
 def l2_distance(a, b):
     return np.mean(np.square(a - b))
 
 def cosine_sim(a, b):
     return - (np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b)))
 
-def cosine_sim_op(vests):
-    x, y = vests
-    x = K.l2_normalize(x, axis=-1)
-    y = K.l2_normalize(y, axis=-1)
-    return -K.mean(x * y, axis=-1, keepdims=True)
 
 class SelfAttention(Layer):
     def __init__(self, ch, **kwargs):
@@ -180,40 +151,6 @@ def down_sample(x, scale_factor_h, scale_factor_w) :
     new_size = [h // scale_factor_h, w // scale_factor_w]
 
     return tf.image.resize_nearest_neighbor(x, size=new_size)
-class Spade(keras.layers.Layer):
-    def __init__(self, channels):
-        super(Spade, self).__init__()
-        self.channels = channels
-        self.epsilon = 1e-4
-
-    def call(self, inputs):
-        x, image = inputs
-        # x = [batch, height, width, channels]
-        x_n, x_h, x_w, x_c = K.int_shape(x)
-        _, i_h, i_w, _ = K.int_shape(image)
-
-        factor_h = i_h // x_h  # 256 // 4 = 64
-        factor_w = i_w // x_w
-
-        image_down = Lambda(lambda x: down_sample(x, factor_h, factor_w))(image)
-        image_down = Conv2D(128, kernel_size=5, strides=1,
-                            padding='same',
-                            activation='relu')(image_down)
-        
-        image_gamma = Conv2D(self.channels, kernel_size=5,
-                            strides=1, padding='same')(image_down)
-        image_beta = Conv2D(self.channels, kernel_size=5,
-                            strides=1, padding='same')(image_down)
-
-        # axis = [0, 1, 2] # batch
-        # mean = K.mean(x, axis = axis, keepdims = True)
-        # std = K.std(x, axis = axis, keepdims = True)
-        # norm = (x - mean) * (1 / (std + self.epsilon))
-
-        return x * (1 + image_beta) + image_gamma
-
-    def compute_output_shape(self, input_shape):
-        return input_shape[0]
 
 def actv(activation):
     if activation == 'leaky_relu':
@@ -229,9 +166,12 @@ def norm_layer(norm, x):
         x = InstanceNormalization()(x)
     return x
 
-class BalancingGAN:
+class FXGAN:
     D_RATE = 1
     def _triple_tensor(self, x):
+        """
+        Convert 1 channel image to 3 channels image
+        """
         if x.shape[-1] == 3:
             return x
         return Concatenate()([x,x,x])
@@ -260,24 +200,6 @@ class BalancingGAN:
 
         return Add()([out, x])
 
-    def _donw_resblock(self,
-                      x,
-                      units=64,
-                      kernel_size=3,
-                      activation='leaky_relu',
-                      norm=None):
-
-        out = actv(activation)(x)
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
-
-        out = actv(activation)(out)
-        out = Conv2D(units, kernel_size, strides = 1, padding='same')(out)
-        out = AveragePooling2D(pool_size=(2, 2))(out)
-
-        x = Conv2D(units, 1, strides = 1, padding='same')(x)
-        x = AveragePooling2D(pool_size=(2, 2))(x)
-
-        return Add()([out, x])
 
     def _dc_block(self, x, units, 
                 kernel_size=3,activation='relu',
@@ -837,14 +759,6 @@ class BalancingGAN:
         channels = self.channels
 
         kernel_size = 3
-        if False: # dont use this!
-            x = self._donw_resblock(image, 64, kernel_size)
-            x = self._donw_resblock(x, 128, kernel_size)
-            if self.attention:
-                x = SelfAttention(128)(x)
-            x = self._donw_resblock(x, 256, kernel_size)
-            x = self._donw_resblock(x, 512, kernel_size)
-            return GlobalAveragePooling2D()(x)
 
         x = Conv2D(64, kernel_size, strides=2, padding='same')(image)
         x = LeakyReLU()(x)
@@ -930,7 +844,6 @@ class BalancingGAN:
             for i in range(self.D_RATE):
                 generated_images = self.generate(k_shot_batch, f)
 
-                # X, aux_y = self.shuffle_data(X, aux_y)
                 fake_label = np.ones((crt_batch_size, 1))
                 real_label = -np.ones((crt_batch_size, 1))
 
@@ -976,10 +889,6 @@ class BalancingGAN:
             np.mean(np.array(epoch_gen_loss), axis=0),
         )
 
-    def shuffle_data(self, data_x, data_y):
-        rd_idx = np.arange(data_x.shape[0])
-        np.random.shuffle(rd_idx)
-        return data_x[rd_idx], data_y[rd_idx]
 
     def _get_lst_bck_name(self, element):
         # Find last bck name
@@ -1092,6 +1001,7 @@ class BalancingGAN:
         return self.generator.predict([
             image[:,:,:,:self.channels], attr_code, latent
         ])
+
 
     def train(self, bg_train, bg_test, epochs=50):
         if not self.trained:
@@ -1244,9 +1154,6 @@ class BalancingGAN:
                 if e % (100 // (self.resolution // 32)) == 0:
                     self.backup_point(e)
 
-                self.interval_process(e)
-
-
                 print("- D_loss {}, G_loss {} - {}".format(
                     train_disc_loss, train_gen_loss,
                     datetime.datetime.now() - start_time
@@ -1288,8 +1195,3 @@ class BalancingGAN:
             print("can not draw fake real space")
         labels = np.concatenate([y, np.concatenate(fake_labels)])
         utils.scatter_plot(imgs, labels, self.latent_encoder, 'latent encoder')
-
-    def interval_process(self, epoch, interval = 20):
-        if epoch % interval != 0:
-            return
-        # do bussiness thing
