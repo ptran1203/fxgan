@@ -409,7 +409,7 @@ def _get_train_data(dataset, k_shot):
         unseen = BG(BG.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
         return np.concatenate([seen.dataset_x, unseen.dataset_x]), np.concatenate([seen.dataset_y, unseen.dataset_y])
 
-    return  pickle_load('/content/drive/My Drive/GAN/data/flowers/imgs_labels.pkl')
+    return  pickle_load('/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl')
 
 
 def run(mode, test_data ,experiments = 1, frozen_block=[],
