@@ -48,7 +48,6 @@ import pickle
 import cv2
 import utils
 import logger
-from const import BASE_DIR
 
 K.common.set_image_dim_ordering('tf')
 
@@ -615,33 +614,6 @@ class DAGAN:
 
         self.generator.save(generator_fname)
         self.discriminator.save(discriminator_fname)
-
-
-    def evaluate_d(self, test_x, test_y):
-        y_pre = self.discriminator.predict(test_x)
-        if y_pre[0].shape[0] > 1:
-            y_pre = np.argmax(y_pre, axis=1)
-        else:
-            y_pre = utils.pred2bin(y_pre)
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)  # shape=(12, 12)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
-        plt.show()
-
-
-    def evaluate_g(self, test_x, test_y):
-        fakes = self.generate(test_x[0], test_x[1])
-        y_pre = self.discriminator.predict(fakes)
-        if y_pre[0].shape[0] > 1:
-            y_pre = np.argmax(y_pre, axis=1)
-        else:
-            y_pre = pred2bin(y_pre)
-
-        cm = metrics.confusion_matrix(y_true=test_y, y_pred=y_pre)
-        plt.figure()
-        plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues,figsize=(8,8))
-        plt.show()
-
 
     def generate(self, image, latent):
         return self.generator.predict([

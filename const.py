@@ -22,4 +22,4 @@ INVERT_CATEGORIES_MAP = ['No Finding', 'Infiltration', 'Atelectasis',
     'Emphysema', 'Fibrosis', 'Edema', 'Pneumonia','Hernia']
 
 # Project dir
-BASE_DIR = '/content/drive/My Drive/bagan'
+BASE_DIR = '/content/drive/My Drive/GAN'
