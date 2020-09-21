@@ -403,10 +403,13 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
     return (y_pred == y_test).mean(), 0
 
 ## ==== Run training ==== ##
-def _get_train_data(k_shot):
-    seen = BG(BG.TRAIN, 1, 'multi_chest', 128,k_shot=k_shot)
-    unseen = BG(BG.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
-    return np.concatenate([seen.dataset_x, unseen.dataset_x]), np.concatenate([seen.dataset_y, unseen.dataset_y])
+def _get_train_data(dataset, k_shot):
+    if dataset == 'multi_chest':
+        seen = BG(BG.TRAIN, 1, 'multi_chest', 128,k_shot=k_shot)
+        unseen = BG(BG.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
+        return np.concatenate([seen.dataset_x, unseen.dataset_x]), np.concatenate([seen.dataset_y, unseen.dataset_y])
+
+    return  pickle_load('/content/drive/My Drive/GAN/data/flowers/imgs_labels.pkl')
 
 
 def run(mode, test_data ,experiments = 1, frozen_block=[],
