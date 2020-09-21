@@ -419,7 +419,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
         plot_interval=2):
 
     x_test, y_test = test_data
-    x_train, y_train = _get_train_data(k_shot)
+    x_train, y_train = _get_train_data(dataset, k_shot)
     class_counter = dict(Counter(y_train))
     max_ = max(class_counter.values())
     classes = np.unique(y_train)
