@@ -332,9 +332,14 @@ def evaluate_model(train_model, x_test, y_test,
     classifier.compile(optimizer='adam', metrics = ['accuracy'],
                         loss='categorical_crossentropy')
     accuracy = classifier.evaluate(x_test_3, y_test_onehot, verbose=0)[1]
-    auc = metrics.auc_score(y_test, classifier.predict(x_test_3), verbose=0)
+    try:
+        auc = metrics.auc_score(y_test, classifier.predict(x_test_3), verbose=0)
+    except:
+        auc = -1
+
     confusion_mt(classifier, x_test_3, y_test)
     return accuracy, auc
+
 
 def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='l2'):
     x_test_3 = triple_channels(x_test)
@@ -449,7 +454,8 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                     outputs = train_model.get_layer('side_out').get_output_at(-1),
                     name="center_loss"
                 )
-                scatter_plot(x_train, y_train, embbeding_model, 'train', 'pca', title="epoch {}".format(i+1))
+                scatter_plot(x_train, y_train, embbeding_model, 'train', 'pca',
+                            legend=False, title="epoch {}".format(i+1))
 
 
         if loss_type == Losses.center:
