@@ -57,7 +57,7 @@ class BatchGenerator:
 
         else: # multi chest
             x, y = self._load_data(rst)
-            x = x  * 127.5 + 127.5
+            x = utils.denormalize(x)
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
 
@@ -80,7 +80,7 @@ class BatchGenerator:
                 self.dataset_y = np.array([l for l in y])
 
         # Normalize between -1 and 1
-        self.dataset_x = (self.dataset_x - 127.5) / 127.5
+        self.dataset_x = utils.normalize(self.dataset_x)
 
         print(self.dataset_x.shape[0] , self.dataset_y.shape[0])
         assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])

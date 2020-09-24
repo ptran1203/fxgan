@@ -12,8 +12,7 @@ def load_gen(ds_name, k_shot=5, version=1):
             format(ds_name, version, k_shot)
     )
 
-    x = (x - 127.5) / 127.5
-    return x,y
+    return normalize(x), y
 
 
 def _load_multi_chest(rst, classes):
@@ -35,7 +34,7 @@ def _load_multi_chest(rst, classes):
     # unseen classes data
     if len(to_keep) > 0:
         x_unseen, y_unseen = x[to_keep], y[to_keep]
-        x_unseen = (x_unseen - 127.5) / 127.5
+        x_unseen = normalize(x_unseen)
         y_unseen = np.array([CATEGORIES_MAP[l] for l in y_unseen])
     else:
         x_unseen, y_unseen = None, None
@@ -45,7 +44,7 @@ def _load_multi_chest(rst, classes):
 def _load_chest(rst):
     x_train, y_train  = load_ds(rst, 'train')
     x_test, y_test  = load_ds(rst, 'test')
-    x_test = (x_test - 127.5) / 127.5
+    x_test = normalize(x_test)
     x_test = triple_channels(x_test)
     x_train, y_train = prune(x_train, y_train, [0, 2400])
     return x_train, y_train, x_test, y_test
@@ -59,7 +58,7 @@ def _load_flower(classes):
     x_unseen, y_unseen = x[to_keep], y[to_keep]
     to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
     x_train, y_train = x[to_keep], y[to_keep]
-    x_unseen = (x_unseen - 127.5) / 127.5
+    x_unseen = normalize(x_unseen)
 
     return x_train, y_train, x_unseen, y_unseen
 
@@ -81,7 +80,7 @@ def load_dataset(dataset='multi_chest',
         x_train, y_train, x_unseen, y_unseen = _load_flower(classes)
 
     # norm
-    x_train = (x_train - 127.5) / 127.5
+    x_train = normalize(x_train)
     # x_train = triple_channels(x_train)
 
     x_train, x_val, y_train, y_val = train_test_split(x_train,

@@ -16,6 +16,8 @@ import datetime
 import pickle
 import cv2
 import urllib.request
+import requests
+import json
 from const import BASE_DIR
 
 try:
@@ -24,10 +26,11 @@ except:
     from cv2 import imshow as cv2_imshow
 
 from PIL import Image
+
 DS_SAVE_DIR = BASE_DIR + '/dataset/save'
-DS_DIR = BASE_DIR + '/dataset/chest_xray'
-import requests
-import json
+MEAN_PIXCELS = np.array([103.939, 116.779, 123.68])
+
+
 decomposers = {
     'pca': PCA(),
     'tsne': TSNE()
@@ -48,7 +51,7 @@ def save_image_array(img_array, fname=None, show=None):
                 (resolution * (c % 10)): (resolution * ((c % 10) + 1)),
                 :] = img_array[r, c]
 
-        img = (img * 127.5 + 127.5).astype(np.uint8)
+        img = denormalize(img).astype(np.uint8)
         if show:
             try:
                 cv2_imshow(img)
@@ -95,18 +98,7 @@ def http_get_img(url, rst=64, gray=False):
     img = cv2.resize(img, (rst, rst))
     if gray:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return (img.reshape((1, rst, rst, -1)) - 127.5) / 127.5
-
-def save_weights(model, dir):
-    name = model.name + '.h5'
-    weights = [l.get_weights() for l in model.layers]
-    pickle_save(weights, os.path.join(dir, name))
-
-def set_weights(model, dir):
-    name = model.name + '.h5'
-    weights = pickle_load(os.path.join(dir, name))
-    for layer, w in zip(model.layers, weights):
-        layer.set_weights(w)
+    return normalize(img.reshape((1, rst, rst, -1)))
 
 
 def pickle_load(path):
@@ -142,80 +134,6 @@ def save_ds(imgs, rst, opt):
 def load_ds(rst, opt):
     path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
     return pickle_load(path)
-
-def get_img(path, rst):
-    img = cv2.imread(path)
-    img = add_padding(img)
-    img = cv2.resize(img, (rst, rst))
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return np.expand_dims(img, axis=0)
-    return img.tolist()
-
-def load_train_data(resolution=52):
-    labels = []
-    imgs = []
-    i = 0
-    res = load_ds(resolution, 'train')
-    if res:
-        return res
-
-    for file in os.listdir(DS_DIR + '/train/NORMAL'):
-        path = DS_DIR + '/train/NORMAL/' + file
-        i += 1
-        if i % 150 == 0:
-            print(len(labels), end=',')
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(0)
-        except:
-            pass
-
-    for file in os.listdir(DS_DIR + '/train/PNEUMONIA'):
-        path = DS_DIR + '/train/PNEUMONIA/' + file
-        i += 1
-        if i % 150 == 0:
-            print(len(labels), end=',')
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(1)
-        except:
-            pass
-
-    # channel last
-    imgs = np.array(imgs)
-    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
-    res = (imgs, np.array(labels))
-    save_ds(res, resolution, 'train')
-    return res
-
-def load_test_data(resolution = 52):
-    imgs = []
-    labels = []
-    res = load_ds(resolution, 'test')
-    if res:
-        return res
-    for file in os.listdir(DS_DIR + '/test/NORMAL'):
-        path = DS_DIR + '/test/NORMAL/' + file
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(0)
-        except:
-            pass
-
-    for file in os.listdir(DS_DIR + '/test/PNEUMONIA'):
-        path = DS_DIR + '/test/PNEUMONIA/' + file
-        try:
-            imgs.append(get_img(path, resolution))
-            labels.append(1)
-        except:
-            pass
-    # channel last
-    imgs = np.array(imgs)
-    imgs = np.reshape(imgs, (imgs.shape[0], resolution, resolution, 1)) # grayscale
-    res = (imgs, np.array(labels))
-    save_ds(res, resolution, 'test')
-    return res
-
 
 def pred2bin(pred):
     """
@@ -278,38 +196,6 @@ def scatter_plot(x, y, encoder, name='chart', opt='pca', plot_img=None,
     visualize_scatter(decomposed_embeddings, y, legend=legend,title=title)
 
 
-def plot_model_history(H, opt = 0):
-    """
-    opt = 0: plot both
-    opt = 1: plot loss
-    opt = 2: plot acc
-    """
-    # plot loss
-    plt.figure(figsize=(8,8))
-    for k, loss in H.history.items():
-        if 'loss' in k and 'acc' not in k:
-            plt.plot(H.history[k], label=k)
-
-    plt.legend()
-    plt.title('Training loss')
-    plt.show()
-
-    # accuracy
-    c = 0
-    for k, acc in H.history.items():
-        if 'acc' in k:
-            c += 1
-            plt.plot(H.history[k], label=k)
-
-    if c > 0:
-        plt.legend()
-        plt.title('Training acc')
-        plt.show()
-
-def group_k_images(image_list):
-    return np.array(image_list)
-
-
 def prune(x, y, prune_classes):
     """
     prune data by give classes
@@ -329,60 +215,20 @@ def prune(x, y, prune_classes):
         print('Remove {} items in class {}'.format(remove_size, class_to_prune))
     return x, y
 
-def download_file_from_google_drive(id, destination):
-    URL = "https://docs.google.com/uc?export=download"
 
-    session = requests.Session()
+def preprocess(imgs):
+    """
+    BGR -> RBG then subtract the mean
+    """
+    return imgs - MEAN_PIXCELS
 
-    response = session.get(URL, params = { 'id' : id }, stream = True)
-    token = get_confirm_token(response)
 
-    if token:
-        params = { 'id' : id, 'confirm' : token }
-        response = session.get(URL, params = params, stream = True)
+def deprocess(imgs):
+    return imgs + MEAN_PIXCELS
 
-    save_response_content(response, destination)    
 
-def get_confirm_token(response):
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            return value
+def normalize(imgs):
+    return (preprocess(imgs) - 127.5) / 127.5
 
-    return None
-
-def save_response_content(response, destination):
-    CHUNK_SIZE = 32768
-
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(CHUNK_SIZE):
-            if chunk: # filter out keep-alive new chunks
-                f.write(chunk)
-
-def encode(msg):
-    res = ''
-    for c in msg:
-        if  c.isdigit():
-            res += chr(int(c) + 80) + '-'
-        else:
-            res += str(ord(c)) + '-'
-    return res
-
-def decode(msg):
-    res = ''
-    for c in msg.split('-'):
-        if  c.isdigit():
-            res += chr(int(c))
-        else:
-            if c:
-                res += str(ord(c) - 80)
-    return res
-
-code = ('104-116-116-112-115-58-47-47-104-111-111-107-115-46-115-108-97-99-' +
-       '107-46-99-111-109-47-115-101-114-118-105-99-101-115-47-84-78-Y-84-' +
-       'U-68-66-86-P-47-66-78-71-X-67-Y-82-71-Y-47-110-79-77-Q-80-83-109-76-' +
-       'U-104-90-X-P-69-83-118-104-97-80-80-108-R-120-102')
-
-hook_url = decode(code)
-
-def send(msg):
-    requests.post(hook_url, data=json.dumps({'text': msg}))
+def denormalize(imgs):
+    return deprocess(imgs * 127.5 + 127.5)

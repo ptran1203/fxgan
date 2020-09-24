@@ -1,37 +1,24 @@
-from keras.models import Model, load_model
-from keras import applications
+from keras.models import Model
 import keras.backend as K
 import matplotlib.pyplot as plt
-
 import keras
-from keras_contrib.applications.resnet import ResNet, basic_block
-from keras_contrib.applications.densenet import DenseNet
-import keras.applications as k_apps
 from keras.layers import (
-    Input, Dense, Reshape,
-    Flatten, Embedding, Dropout,
-    BatchNormalization, Activation,
-    Lambda,Layer, Add, Concatenate,
+    Input, Dense,Embedding,
+    Lambda, Concatenate,
     Average,GlobalAveragePooling2D,
-    MaxPooling2D, AveragePooling2D,
 )
 try:
     from classification_models.keras import Classifiers
 except:
-    print("Can not import classification_models.keras.Classifiers")
+    print("Can not import classification_models.keras.Classifiers, plz install!")
+
 from mlxtend.plotting import plot_confusion_matrix
 from sklearn.utils import class_weight as sk_weight
 from sklearn.model_selection import train_test_split
-
-
-from keras.layers.convolutional import (
-    UpSampling2D,
-    Conv2D, Conv2DTranspose
-)
-from keras.optimizers import Adam, SGD
+from keras.layers.convolutional import Conv2D
+from keras.optimizers import Adam
 
 from keras.utils import to_categorical
-import tensorflow as tf
 import numpy as np
 import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
@@ -84,7 +71,7 @@ def augment(imgs, labels,plus = 1, target_labels=None):
     if target_labels is None:
         target_labels = np.unique(labels)
 
-    deimgs = imgs *127.5 + 127.5
+    deimgs = denormalize(imgs)
     imgs_ = []
     labels_ = []
     for i in range(imgs.shape[0]):
@@ -104,7 +91,7 @@ def augment(imgs, labels,plus = 1, target_labels=None):
 
 def re_balance(imgs, labels, per_class_samples=None):
     print("balane ", per_class_samples)
-    deimgs = imgs *127.5 + 127.5
+    deimgs = denormalize(imgs)
     imgs_ = []
     labels_ = []
     size = len(np.unique(labels))
@@ -361,7 +348,8 @@ def _get_train_data(dataset, k_shot):
         unseen = BG(BG.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
         return np.concatenate([seen.dataset_x, unseen.dataset_x]), np.concatenate([seen.dataset_y, unseen.dataset_y])
 
-    return  pickle_load('/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl')
+    x, y = pickle_load('/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl')
+    x = preprocess(x)
 
 
 def run(mode, test_data ,experiments = 1, frozen_block=[],
@@ -392,12 +380,13 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                                                  np.unique(y_train),
                                                  y_train)
 
+
     class_weight = dict(enumerate(class_weight))
     if loss_type == Losses.triplet or mode != Option.vgg16_st_aug:
         class_weight  =  None
-    if mode == 4:
+    if mode == Option.vgg16:
         x_train_aug, y_train_aug = x_train, y_train
-    elif mode == 5:
+    elif mode == Option.vgg16_st_aug:
         class_counter = dict(Counter(y_train))
         x_train_aug, y_train_aug = re_balance(
             x_train,
