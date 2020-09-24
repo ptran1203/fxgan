@@ -462,9 +462,10 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
             if save:
                 save_embbeding(train_model, dataset, loss_type=loss_type)
 
-            y_test_onehot = to_categorical(y_test, num_of_classes)
+            y_test_onehot = to_categorical(y_test, len(np.unique(y_test)))
+            y_train_onehot = to_categorical(y_train, len(np.unique(y_train)))
             acc, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
-            train_acc, train_auc = evaluate_model(train_model, x_train, y_train, y_test_onehot)
+            train_acc, train_auc = evaluate_model(train_model, x_train, y_train, y_train_onehot)
             print("Test acc, auc = [{}, {}] - Train acc, auc = [{}, {}]".format(
                 acc, auc, train_acc, train_auc
             ))
