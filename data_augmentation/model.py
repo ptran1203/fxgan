@@ -64,65 +64,11 @@ class Losses:
     triplet = 2
 
 def get_pretrained_model(name, input_shape, weights):
-    """
-    name should be: [
-        'resnet18',
-        'resnet34',
-        'resnet50',
-        'resnet101',
-        'resnet152',
-        'seresnet18',
-        'seresnet34',
-        'seresnet50',
-        'seresnet101',
-        'seresnet152',
-        'seresnext50',
-        'seresnext101',
-        'senet154',
-        'resnet50v2',
-        'resnet101v2',
-        'resnet152v2',
-        'resnext50',
-        'resnext101',
-        'vgg16',
-        'vgg19',
-        'densenet121',
-        'densenet169',
-        'densenet201',
-        'inceptionresnetv2',
-        'inceptionv3',
-        'xception',
-        'nasnetlarge',
-        'nasnetmobile',
-        'mobilenet',
-        'mobilenetv2'
-    ]
-    """
-
     model, _ = Classifiers.get(name)
     return model(input_shape=input_shape,
                  weights=weights,
                  include_top=False)
 
-def plot_history(losses):
-      # plot loss
-    plt.plot(losses, label='train')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.title('Training loss')
-    plt.legend()
-    plt.show()
-
-def flatten_model(model_nested):
-    layers_flat = []
-    for layer in model_nested.layers:
-        try:
-            layers_flat.extend(layer.layers)
-        except AttributeError:
-            layers_flat.append(layer)
-
-    model_flat = keras.models.Sequential(layers_flat)
-    return model_flat
 
 def tran_one(img, d=15):
     degree = np.random.randint(-d, d)
@@ -358,6 +304,7 @@ def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
     with open(fname + '.json', 'w', encoding='utf-8') as f:
         print('Save json model')
         f.write(embbeding_model.to_json())
+
     embbeding_model.save(fname + '.h5')
     print("Save model ", fname)
 
@@ -502,18 +449,20 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                     outputs = train_model.get_layer('side_out').get_output_at(-1),
                     name="center_loss"
                 )
-                scatter_plot(x_train, y_train, embbeding_model, 'train', 'tsne',
-                            legend=False, title="epoch {}".format(i+1))
+                scatter_plot(x_train, y_train, embbeding_model, 'train', 'pca',
+                            , title="epoch {}".format(i+1))
 
 
         if loss_type == Losses.center:
             if save:
                 save_embbeding(train_model, dataset, loss_type=loss_type)
+
             y_test_onehot = to_categorical(y_test, num_of_classes)
-            accuracy, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
-            train_acc, train_auc = evaluate_model(train_model, x_train, y_train,
-                                                to_categorical(y_train, num_of_classes))
-            print("Train acc: ", train_acc)
+            acc, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
+            train_acc, train_auc = evaluate_model(train_model, x_train, y_train, y_test_onehot)
+            print("Test acc, auc = [{}, {}] - Train acc, auc = [{}, {}]".format(
+                acc, auc, train_acc, train_auc
+            ))
         else:
             embedder = Model(inputs = train_model.inputs[0],
                     outputs = train_model.layers[-2].get_output_at(-1),
@@ -521,7 +470,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
             if save:
                 save_embbeding(embedder, dataset, loss_type=loss_type)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
-            accuracy, auc = evaluate_model_metric(embedder,
+            acc, auc = evaluate_model_metric(embedder,
                                         ( x_sp_u, y_sp_u), 
                                         x_test_u, y_test_u - np.min(y_test_u),
                                         k_shot=k_shot, metric=metric)
@@ -532,13 +481,12 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                                     k_shot=k_shot, metric=metric)
             print("Train acc: ", train_acc)
 
-        print("Acc ", accuracy)
+        print("Acc ", acc)
         print("Auc ", auc)
-        acc.append(accuracy)
+        acc.append(acc)
         auc_scores.append(auc)
 
     ## calculate avg
     mean_acc = np.mean(np.array(acc))
     mean_auc = np.mean(np.array(auc_scores), axis=0)
     return mean_auc, train_model
-
