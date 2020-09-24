@@ -176,7 +176,7 @@ def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
                             outputs=[final_output, l2_loss]
                             )
         train_model.compile(optimizer=optimizer,
-                            loss=["categorical_crossentropy",lambda y_true,y_pred: y_pred],
+                            loss=["categorical_crossentropy", lambda y_true,y_pred: y_pred],
                             # loss = triplet_loss_adapted_from_tf,
                             loss_weights=loss_weights,
                             metrics=['accuracy'])

@@ -228,7 +228,7 @@ def deprocess(imgs):
 
 
 def normalize(imgs):
-    return (preprocess(imgs) - 127.5) / 127.5
+    return ((imgs) - 127.5) / 127.5
 
 def denormalize(imgs):
-    return deprocess(imgs * 127.5 + 127.5)
+    return (imgs * 127.5 + 127.5)
