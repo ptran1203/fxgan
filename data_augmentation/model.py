@@ -449,8 +449,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                     outputs = train_model.get_layer('side_out').get_output_at(-1),
                     name="center_loss"
                 )
-                scatter_plot(x_train, y_train, embbeding_model, 'train', 'pca',
-                            , title="epoch {}".format(i+1))
+                scatter_plot(x_train, y_train, embbeding_model, 'train', 'pca', title="epoch {}".format(i+1))
 
 
         if loss_type == Losses.center:
