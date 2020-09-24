@@ -421,7 +421,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
         x_train_aug = triple_channels(x_train_aug)
 
     # run 5 experiments
-    acc = []
+    accs = []
     auc_scores = []
     batch_size = 128
     print("learning rate decay ", lr_decay)
@@ -439,6 +439,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
                             loss_type=loss_type)
 
         losses = []
+        print("METRICS: ", train_model.metrics_names)
         for i in range(epochs):
             start_time = datetime.datetime.now()
             loss_mean = train_one_epoch(train_model, batch_gen, class_weight)
@@ -489,7 +490,7 @@ def run(mode, test_data ,experiments = 1, frozen_block=[],
 
         print("Acc ", acc)
         print("Auc ", auc)
-        acc.append(acc)
+        accs.append(acc)
         auc_scores.append(auc)
 
     ## calculate avg
