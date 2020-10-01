@@ -24,7 +24,7 @@ class BatchGen:
         rebalance data in a batch
         """
         unique, counts = numpy.unique(y, return_counts=True)
-        counter = dict(zip(unique, counts)))
+        counter = dict(zip(unique, counts))
         most = max(counter.values())
 
         x_, y_ = [], []
