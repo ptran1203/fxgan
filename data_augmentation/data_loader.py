@@ -28,7 +28,6 @@ def _load_multi_chest(rst, classes):
     if len(to_keep) > 0:
         x_unseen, y_unseen = x[to_keep], y[to_keep]
         x_unseen = normalize(x_unseen)
-        y_unseen = np.array([CATEGORIES_MAP[l] for l in y_unseen])
     else:
         x_unseen, y_unseen = None, None
 
