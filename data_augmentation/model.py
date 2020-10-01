@@ -345,7 +345,7 @@ def run(mode ,experiments = 1, frozen_block=[],
     # run 5 experiments
     accs = []
     auc_scores = []
-    batch_size = 128
+    batch_size = 64
     batch_gen = BatchGen(x_train_aug, y_train_aug, batch_size)
     print("Train on {} samples".format(len(batch_gen.x)))
     show_samples(x_train_aug[:10])
