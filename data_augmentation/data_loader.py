@@ -21,6 +21,7 @@ def _load_multi_chest(rst, classes):
     except:
         x, y = pickle_load("/content/imgs_labels_{}.pkl".format(rst))
 
+    to_train_classes = range(12)
     to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
 
     # unseen classes data
