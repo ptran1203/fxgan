@@ -7,8 +7,7 @@ from sklearn.model_selection import train_test_split
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
-    to_train_classes = list(range(1, 80))
-    to_test_classes = list(range(81, 86))
+    to_train_classes = range(12)
 
     def __init__(
         self,
@@ -36,10 +35,9 @@ class BatchGenerator:
         elif dataset == 'flowers':
             x, y = utils.pickle_load(BASE_DIR + '/dataset/flowers/imgs_labels.pkl')
             to_train_classes = self.to_train_classes
-            to_test_classes = self.to_test_classes
 
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_test_classes])
+                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 # TODO start from 0
@@ -56,7 +54,6 @@ class BatchGenerator:
             x, y = utils.load_chestxray14_data(rst)
             x = utils.denormalize(x)
             to_train_classes = self.to_train_classes
-            to_test_classes = self.to_test_classes
 
             if self.data_src == self.TEST:
                 to_keep = []

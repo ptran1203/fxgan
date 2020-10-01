@@ -27,12 +27,6 @@ from batch_gen import *
 import triplet_loss
 from data_augmentation.data_loader import load_gen
 import metrics
-class BG(BatchGenerator):
-    def _load_data(self, rst):
-        return pickle_load('/content/drive/My Drive/GAN/data/multi_chest/.pkl'.format(rst))
-    # to_train_classes = list(range(0, 80))
-    to_train_classes = range(12)
-    to_test_classes = list(range(81, 101))
 
 classifier = None
 train_model = None
@@ -344,22 +338,21 @@ def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='
 ## ==== Run training ==== ##
 def _get_train_data(dataset, k_shot):
     if dataset == 'multi_chest':
-        seen = BG(BG.TRAIN, 1, 'multi_chest', 128,k_shot=k_shot)
-        unseen = BG(BG.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
-        return np.concatenate([seen.dataset_x, unseen.dataset_x]), np.concatenate([seen.dataset_y, unseen.dataset_y])
+        seen = BatchGenerator(BatchGenerator.TRAIN, 1, 'multi_chest', 128,k_shot=k_shot)
+        unseen = BatchGenerator(BatchGenerator.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
+        return seen.dataset_x, unseen.dataset_x, seen.dataset_y, unseen.dataset_y
 
     x, y = pickle_load('/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl')
     return normalize(x), y
 
 
-def run(mode, test_data ,experiments = 1, frozen_block=[],
+def run(mode ,experiments = 1, frozen_block=[],
         name='vgg16', save=False, lr=1e-5,
         loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
         k_shot=1, metric='l2', dataset='multi_chest',
         plot_interval=2):
 
-    x_test, y_test = test_data
-    x_train, y_train = _get_train_data(dataset, k_shot)
+    x_train, x_test, y_train, y_test = _get_train_data(dataset, k_shot)
     class_counter = dict(Counter(y_train))
     max_ = max(class_counter.values())
     classes = np.unique(y_train)
