@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 from const import BASE_DIR, INVERT_CATEGORIES_MAP, CATEGORIES_MAP
-from utils import *
+from utils import load_chestxray14_data, normalize, denormalize, pickle_load
 from collections import Counter
 from sklearn.model_selection import train_test_split
 
@@ -16,10 +16,7 @@ def load_gen(ds_name, k_shot=5, version=1):
 
 
 def _load_multi_chest(rst, classes):
-    try:
-        x, y = pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
-    except:
-        x, y = pickle_load("/content/imgs_labels_{}.pkl".format(rst))
+    x, y = load_chestxray14_data(rst)
 
     to_train_classes = range(12)
     seen_indices = np.array([i for i, l in enumerate(y) if l in to_train_classes])
@@ -29,14 +26,6 @@ def _load_multi_chest(rst, classes):
     x_unseen, y_unseen = x[unseen_indices], y[unseen_indices]
 
     return x_train, y_train, x_unseen, y_unseen
-
-def _load_chest(rst):
-    x_train, y_train  = load_ds(rst, 'train')
-    x_test, y_test  = load_ds(rst, 'test')
-    x_test = normalize(x_test)
-    x_test = triple_channels(x_test)
-    x_train, y_train = prune(x_train, y_train, [0, 2400])
-    return x_train, y_train, x_test, y_test
 
 def _load_flower(classes):
     x, y = pickle_load(BASE_DIR + '/dataset/flowers/imgs_labels.pkl')
@@ -62,9 +51,6 @@ def load_dataset(dataset='multi_chest',
     if dataset == 'multi_chest':
         x_train, y_train, x_unseen, y_unseen = _load_multi_chest(resolution, classes)
 
-    elif dataset == 'chest':
-        x_train, y_train, x_test, y_test = _load_chest(resolution)
-        x_unseen, y_unseen = None, None
     elif dataset == 'flowers':
         x_train, y_train, x_unseen, y_unseen = _load_flower(classes)
 

@@ -29,7 +29,7 @@ from data_augmentation.data_loader import load_gen
 import metrics
 class BG(BatchGenerator):
     def _load_data(self, rst):
-        return pickle_load('/content/drive/My Drive/GAN/data/multi_chest/train_{}_v1.pkl'.format(rst))
+        return pickle_load('/content/drive/My Drive/GAN/data/multi_chest/.pkl'.format(rst))
     # to_train_classes = list(range(0, 80))
     to_train_classes = range(12)
     to_test_classes = list(range(81, 101))

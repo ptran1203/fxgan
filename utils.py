@@ -75,6 +75,7 @@ def show_samples(img_array):
     )
     save_image_array(img_samples, None, True)
 
+
 def triple_channels(image):
     # axis = 2 for single image, 3 for many images
     if image.shape[-1] == 3:
@@ -112,39 +113,6 @@ def pickle_load(path):
         print(str(e))
         return None
 
-def add_padding(img):
-    """
-    Add black padding
-    """
-    w, h, _ = img.shape
-    size = abs(w - h) // 2
-    value= [0, 0, 0]
-    if w < h:
-        return cv2.copyMakeBorder(img, size, size, 0, 0,
-                                    cv2.BORDER_CONSTANT,
-                                    value=value)
-    return cv2.copyMakeBorder(img, 0, 0, size, size,
-                                    cv2.BORDER_CONSTANT,
-                                    value=value)
-
-def save_ds(imgs, rst, opt):
-    path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    pickle_save(imgs, path)
-
-def load_ds(rst, opt):
-    path = '{}/imgs_{}_{}.pkl'.format(DS_SAVE_DIR, opt, rst)
-    return pickle_load(path)
-
-def pred2bin(pred):
-    """
-    Convert probability prediction of sigmoid into binary
-    """
-    for x in pred:
-        if x[0] >= 0.5:
-            x[0] = 1
-        else:
-            x[0] = 0
-    return pred
 
 def visualize_scatter_with_images(X_2d_data, images, figsize=(10,10), image_zoom=0.5):
     fig, ax = plt.subplots(figsize=figsize)
@@ -157,6 +125,7 @@ def visualize_scatter_with_images(X_2d_data, images, figsize=(10,10), image_zoom
     ax.update_datalim(X_2d_data)
     ax.autoscale()
     plt.show()
+
 
 def visualize_scatter(data_2d, label_ids, figsize=(8,8), legend=True,title="None"):
     plt.figure(figsize=figsize)
@@ -180,6 +149,7 @@ def visualize_scatter(data_2d, label_ids, figsize=(8,8), legend=True,title="None
         plt.axis('off')
 
     plt.show()
+
 
 def scatter_plot(x, y, encoder, name='chart', opt='pca', plot_img=None,
                 legend=True, title="None"):
@@ -232,3 +202,10 @@ def normalize(imgs):
 
 def denormalize(imgs):
     return (imgs * 127.5 + 127.5)
+
+
+def load_chestxray14_data(rst=128):
+    return pickle_load(os.path.join(
+        BASE_DIR,
+        'dataset/multi_chest/imgs_labels_{}.pkl'.format(rst)
+    ))

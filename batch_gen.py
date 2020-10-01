@@ -10,9 +10,6 @@ class BatchGenerator:
     to_train_classes = list(range(1, 80))
     to_test_classes = list(range(81, 86))
 
-    def _load_data(self, rst):
-        return utils.pickle_load('/content/drive/My Drive/GAN/data/multi_chest/train_{}.pkl'.format(rst))
-
     def __init__(
         self,
         data_src,
@@ -56,7 +53,7 @@ class BatchGenerator:
 
 
         else: # multi chest
-            x, y = self._load_data(rst)
+            x, y = utils.load_chestxray14_data(rst)
             x = utils.denormalize(x)
             to_train_classes = self.to_train_classes
             to_test_classes = self.to_test_classes
