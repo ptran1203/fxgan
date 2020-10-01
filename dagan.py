@@ -65,23 +65,6 @@ def hinge_D_real_loss(y_true, y_pred):
 def hinge_D_fake_loss(y_true, y_pred):
     return K.mean(K.relu(1+y_pred))
 
-def safe_average(list_inputs):
-    if len(list_inputs) == 1:
-        return list_inputs[0]
-    return Average()(list_inputs)
-
-def l2_distance(a, b):
-    return np.mean(np.square(a - b))
-
-def cosine_sim(a, b):
-    return - (np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b)))
-
-def cosine_sim_op(vests):
-    x, y = vests
-    x = K.l2_normalize(x, axis=-1)
-    y = K.l2_normalize(y, axis=-1)
-    return -K.mean(x * y, axis=-1, keepdims=True)
-
 def actv(activation):
     if activation == 'leaky_relu':
         return LeakyReLU()

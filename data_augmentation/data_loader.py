@@ -22,14 +22,11 @@ def _load_multi_chest(rst, classes):
         x, y = pickle_load("/content/imgs_labels_{}.pkl".format(rst))
 
     to_train_classes = range(12)
-    to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+    seen_indices = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+    unseen_indices = np.array([i for i, l in enumerate(y) if l in to_train_classes])
 
-    # unseen classes data
-    if len(to_keep) > 0:
-        x_unseen, y_unseen = x[to_keep], y[to_keep]
-        x_unseen = normalize(x_unseen)
-    else:
-        x_unseen, y_unseen = None, None
+    x_train, y_train = x[seen_indices], y[seen_indices]
+    x_unseen, y_unseen = x[unseen_indices], y[unseen_indices]
 
     return x_train, y_train, x_unseen, y_unseen
 

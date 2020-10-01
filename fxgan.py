@@ -33,8 +33,6 @@ import utils
 import logger
 from const import BASE_DIR
 
-K.common.set_image_dim_ordering('tf')
-
 def wasserstein_loss(y_true, y_pred):
     return K.mean(y_true * y_pred)
 
