@@ -25,7 +25,6 @@ import sklearn.metrics as sk_metrics
 from utils import *
 from batch_gen import *
 import triplet_loss
-from data_augmentation.data_loader import load_gen
 import metrics
 
 classifier = None
@@ -49,6 +48,14 @@ def get_pretrained_model(name, input_shape, weights):
     return model(input_shape=input_shape,
                  weights=weights,
                  include_top=False)
+
+
+def load_gen(ds_name, k_shot=5, version=1):	
+    x,y = pickle_load(	
+        '/content/drive/My Drive/generated/{}/gen_v{}_{}shot.pkl'. \
+            format(ds_name, version, k_shot)
+    )
+    return normalize(x), y
 
 
 def tran_one(img, d=15):
