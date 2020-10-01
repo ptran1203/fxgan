@@ -20,14 +20,6 @@ def _load_multi_chest(rst, classes):
         x, y = pickle_load(BASE_DIR + '/dataset/multi_chest/imgs_labels_{}.pkl'.format(rst))
     except:
         x, y = pickle_load("/content/imgs_labels_{}.pkl".format(rst))
-    to_keep = [i for i, l in enumerate(y) if '|' not in l]
-    to_keep = np.array(to_keep)
-    x = x[to_keep]
-    y = y[to_keep]
-    to_train_classes = INVERT_CATEGORIES_MAP[:classes]
-    to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
-    x_train, y_train = x[to_keep], y[to_keep]
-    y_train = np.array([CATEGORIES_MAP[l] for l in y_train])
 
     to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
 
