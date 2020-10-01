@@ -346,7 +346,7 @@ def run(mode ,experiments = 1, frozen_block=[],
     accs = []
     auc_scores = []
     batch_size = 128
-    batch_gen = BatchGen(x_train_aug, y_train_aug, batch_size, loss_type=loss_type)
+    batch_gen = BatchGen(x_train_aug, y_train_aug, batch_size)
     print("Train on {} samples".format(len(batch_gen.x)))
     show_samples(x_train_aug[:10])
     for i in range(experiments):
