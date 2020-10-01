@@ -24,7 +24,7 @@ import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
 from utils import *
 from batch_gen import *
-from dataloader import BatchGen
+from data_augmentation.dataloader import BatchGen
 import triplet_loss
 import metrics
 
