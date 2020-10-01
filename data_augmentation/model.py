@@ -24,6 +24,7 @@ import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
 from utils import *
 from batch_gen import *
+from dataloader import BatchGen
 import triplet_loss
 import metrics
 
@@ -89,36 +90,6 @@ def augment(imgs, labels,plus = 1, target_labels=None):
 
     return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
-
-def re_balance(imgs, labels, per_class_samples=None):
-    print("balane ", per_class_samples)
-    deimgs = denormalize(imgs)
-    imgs_ = []
-    labels_ = []
-    size = len(np.unique(labels))
-    counter = [0] * size
-    if per_class_samples is None:
-        per_class_samples = [1000] * size
-    # original
-    for i in range(imgs.shape[0]):
-        
-        imgs_.append(deimgs[i])
-        labels_.append(labels[i])
-    # Augment
-    for _ in range(1000):
-        for i in range(imgs.shape[0]):
-            l_idx = labels[i]
-            if counter[l_idx] >= per_class_samples[l_idx]:
-                counter[l_idx] = -1 # Done
-            if counter[l_idx] != -1:
-                imgs_.append(tran_one(deimgs[i]))
-                labels_.append(l_idx)
-                counter[l_idx] += 1
-
-        if counter.count(-1) == size:
-            break
-
-    return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
 
 def feature_extractor(image, num_of_classes,
                     dims=64, rst=64,
@@ -249,38 +220,6 @@ def train_one_epoch(model, batch_gen, class_weight):
     return np.mean(np.array(total_loss), axis=0)
 
 
-class BatchGen:
-    """simple batch gen"""
-    def __init__(self, x, y, batch_size=64, loss_type=Losses.center):
-        self.x = triple_channels(x)
-        self.y = y
-        self.batch_size = batch_size
-        self.num_of_classes = len(np.unique(y))
-        self.dummy = np.zeros((self.batch_size, 129))
-        self.loss_type = loss_type
-
-
-    def next_batch(self):
-        dataset_x = self.x
-        labels = self.y
-        onehot_labels = to_categorical(labels, self.num_of_classes)
-
-        indices = np.arange(dataset_x.shape[0])
-        np.random.shuffle(indices)
-
-        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
-            access_pattern = indices[start_idx:start_idx + self.batch_size]
-
-            if self.loss_type == Losses.center:
-                batch_y = [onehot_labels[access_pattern], self.dummy]
-            else:
-                batch_y = self.dummy
-            yield (
-                [dataset_x[access_pattern, :, :, :], labels[access_pattern]],
-                batch_y,
-            )
-
-
 def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
     embbeding_model = Model(
         inputs = train_model.inputs[0],
@@ -384,14 +323,8 @@ def run(mode ,experiments = 1, frozen_block=[],
     class_weight = dict(enumerate(class_weight))
     if loss_type == Losses.triplet or mode != Option.vgg16_st_aug:
         class_weight  =  None
-    if mode == Option.vgg16:
+    if mode == Option.vgg16 or mode == Option.vgg16_st_aug:
         x_train_aug, y_train_aug = x_train, y_train
-    elif mode == Option.vgg16_st_aug:
-        class_counter = dict(Counter(y_train))
-        x_train_aug, y_train_aug = re_balance(
-            x_train,
-            y_train,
-            [(max_ - class_counter[i]) for i in range(num_of_classes)])
     else:
         print("Train on fake data")
         x_train_aug, y_train_aug = load_gen(dataset, k_shot, mode)
@@ -413,8 +346,6 @@ def run(mode ,experiments = 1, frozen_block=[],
     accs = []
     auc_scores = []
     batch_size = 128
-    print("learning rate decay ", lr_decay)
-    print(Counter(y_train_aug))
     batch_gen = BatchGen(x_train_aug, y_train_aug, batch_size, loss_type=loss_type)
     print("Train on {} samples".format(len(batch_gen.x)))
     show_samples(x_train_aug[:10])
