@@ -58,7 +58,8 @@ class BatchGenerator:
         elif dataset == "face":
             x, labels = utils.pickle_load(BASE_DIR + "/dataset/face/imgs_labels.pkl")
             self.dataset_x = x
-            self.dataset_y = labels
+            self.labels = labels
+            self.dataset_y = y = preprocessing.LabelEncoder().fit_transform(labels)
 
         else:  # multi chest
             x, y = utils.load_chestxray14_data(rst)

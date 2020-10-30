@@ -22,6 +22,7 @@ except ImportError:
 from mlxtend.plotting import plot_confusion_matrix
 from sklearn.utils import class_weight as sk_weight
 from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
 from keras.layers.convolutional import Conv2D
 from keras.optimizers import Adam
 
@@ -343,6 +344,7 @@ def _get_train_data(dataset, k_shot):
     )
 
     x = normalize(x)
+    y = preprocessing.LabelEncoder().fit_transform(y)
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
 
