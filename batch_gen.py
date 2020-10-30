@@ -4,6 +4,7 @@ from collections import Counter
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP, BASE_DIR
 from sklearn.utils import class_weight as sk_weight
 from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
 
 
 class BatchGenerator:
