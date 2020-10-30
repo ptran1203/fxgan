@@ -3,13 +3,20 @@ import keras.backend as K
 import matplotlib.pyplot as plt
 import keras
 from keras.layers import (
-    Input, Dense,Embedding,
-    Lambda, Concatenate,
-    Average,GlobalAveragePooling2D,
+    Input,
+    Dense,
+    Embedding,
+    Lambda,
+    Concatenate,
+    Average,
+    GlobalAveragePooling2D,
 )
+from collections import Counter
+import datetime
+
 try:
     from classification_models.keras import Classifiers
-except:
+except ImportError:
     print("Can not import classification_models.keras.Classifiers, plz install!")
 
 from mlxtend.plotting import plot_confusion_matrix
@@ -22,16 +29,25 @@ from keras.utils import to_categorical
 import numpy as np
 import keras.preprocessing.image as iprocess
 import sklearn.metrics as sk_metrics
-from utils import *
-from batch_gen import *
+from utils import (
+    normalize,
+    load_chestxray14_data,
+    pickle_load,
+    triple_channels,
+    denormalize,
+    prune,
+    scatter_plot,
+    show_samples,
+)
+from batch_gen import BatchGenerator
 from data_augmentation.dataloader import BatchGen
 import triplet_loss
 import metrics
 
 classifier = None
 train_model = None
-model_map = [0, 'FX-GAN', 'DAGAN', 'BAGAN',
-             'VGG16', 'VGG16 + standard augment']
+model_map = [0, "FX-GAN", "DAGAN", "BAGAN", "VGG16", "VGG16 + standard augment"]
+
 
 class Option:
     gan_v1 = 1
@@ -40,21 +56,22 @@ class Option:
     vgg16 = 4
     vgg16_st_aug = 5
 
+
 class Losses:
     center = 1
     triplet = 2
 
+
 def get_pretrained_model(name, input_shape, weights):
     model, _ = Classifiers.get(name)
-    return model(input_shape=input_shape,
-                 weights=weights,
-                 include_top=False)
+    return model(input_shape=input_shape, weights=weights, include_top=False)
 
 
-def load_gen(ds_name, k_shot=5, version=1):	
-    x,y = pickle_load(	
-        '/content/drive/My Drive/generated/{}/gen_v{}_{}shot.pkl'. \
-            format(ds_name, version, k_shot)
+def load_gen(ds_name, k_shot=5, version=1):
+    x, y = pickle_load(
+        "/content/drive/My Drive/generated/{}/gen_v{}_{}shot.pkl".format(
+            ds_name, version, k_shot
+        )
     )
     return normalize(x), y
 
@@ -63,11 +80,12 @@ def tran_one(img, d=15):
     degree = np.random.randint(-d, d)
     img = iprocess.random_brightness(img, (0.5, 1.5))
     if np.random.rand() >= 0.5:
-       img = np.fliplr(img)
- 
+        img = np.fliplr(img)
+
     return iprocess.apply_affine_transform(img, degree)
 
-def augment(imgs, labels,plus = 1, target_labels=None):
+
+def augment(imgs, labels, plus=1, target_labels=None):
     if plus == 0:
         return imgs, labels
     if target_labels is None:
@@ -88,21 +106,22 @@ def augment(imgs, labels,plus = 1, target_labels=None):
             imgs_.append(tran_one(deimgs[i]))
             labels_.append(labels[i])
 
-    return ((np.array(imgs_) -127.5) / 127.5), np.array(labels_)
+    return ((np.array(imgs_) - 127.5) / 127.5), np.array(labels_)
 
 
-def feature_extractor(image, num_of_classes,
-                    dims=64, rst=64,
-                    from_scratch=True,
-                    frozen_block=[],
-                    name='vgg16',
-                    loss_type=Losses.center):
-    weights = None if from_scratch else 'imagenet'
+def feature_extractor(
+    image,
+    num_of_classes,
+    dims=64,
+    rst=64,
+    from_scratch=True,
+    frozen_block=[],
+    name="vgg16",
+    loss_type=Losses.center,
+):
+    weights = None if from_scratch else "imagenet"
 
-    model = get_pretrained_model(name=name,
-                                input_shape=(rst, rst, 3),
-                                weights=weights,
-                                )
+    model = get_pretrained_model(name=name, input_shape=(rst, rst, 3), weights=weights,)
 
     for layer in model.layers:
         if any(x in layer.name for x in frozen_block):
@@ -114,64 +133,79 @@ def feature_extractor(image, num_of_classes,
     x = GlobalAveragePooling2D()(x)
     x = Dense(dims)(x)
     if loss_type == Losses.center:
-        out1 = keras.layers.advanced_activations.PReLU(name='side_out')(x)
-        out2 = Dense(num_of_classes, activation='softmax', name='main_out')(out1)
+        out1 = keras.layers.advanced_activations.PReLU(name="side_out")(x)
+        out2 = Dense(num_of_classes, activation="softmax", name="main_out")(out1)
         return out1, out2
 
     return x
 
 
-def main_model(num_of_classes, rst=64, feat_dims=128, lr=1e-5,
-                loss_weights=[1, 0.1],
-                from_scratch=True,frozen_block=[],
-                name='vgg16',decay=None,loss_type=Losses.center):
+def main_model(
+    num_of_classes,
+    rst=64,
+    feat_dims=128,
+    lr=1e-5,
+    loss_weights=[1, 0.1],
+    from_scratch=True,
+    frozen_block=[],
+    name="vgg16",
+    decay=None,
+    loss_type=Losses.center,
+):
     images = Input((rst, rst, 3))
     labels = Input((1,))
-    outputs = feature_extractor(images,
-                                num_of_classes,
-                                feat_dims,
-                                rst,
-                                from_scratch,
-                                frozen_block=frozen_block,
-                                name=name,loss_type=loss_type)
+    outputs = feature_extractor(
+        images,
+        num_of_classes,
+        feat_dims,
+        rst,
+        from_scratch,
+        frozen_block=frozen_block,
+        name=name,
+        loss_type=loss_type,
+    )
     optimizer = Adam(lr, decay=decay) if decay else Adam(lr)
 
     if loss_type == Losses.center:
         side_output, final_output = outputs
         centers = Embedding(num_of_classes, feat_dims)(labels)
-        l2_loss = Lambda(lambda x: K.sum(K.square(x[0]-x[1][:,0]),1,keepdims=True),
-                            name='l2_loss')([side_output ,centers])
+        l2_loss = Lambda(
+            lambda x: K.sum(K.square(x[0] - x[1][:, 0]), 1, keepdims=True),
+            name="l2_loss",
+        )([side_output, centers])
 
         labels_plus_embeddings = Concatenate()([labels, side_output])
-        train_model = Model(inputs=[images, labels],
-                            # outputs=labels_plus_embeddings,
-                            outputs=[final_output, l2_loss]
-                            )
-        train_model.compile(optimizer=optimizer,
-                            loss=["categorical_crossentropy", lambda y_true,y_pred: y_pred],
-                            # loss = triplet_loss_adapted_from_tf,
-                            loss_weights=loss_weights,
-                            metrics=['accuracy'])
+        train_model = Model(
+            inputs=[images, labels],
+            # outputs=labels_plus_embeddings,
+            outputs=[final_output, l2_loss],
+        )
+        train_model.compile(
+            optimizer=optimizer,
+            loss=["categorical_crossentropy", lambda y_true, y_pred: y_pred],
+            # loss = triplet_loss_adapted_from_tf,
+            loss_weights=loss_weights,
+            metrics=["accuracy"],
+        )
     else:
         # https://github.com/AdrianUng/keras-triplet-loss-mnist
         embeddings = outputs
         labels_plus_embeddings = Concatenate()([labels, embeddings])
-        train_model = Model(inputs=[images, labels],
-                            outputs=labels_plus_embeddings)
-        train_model.compile(loss=triplet_loss.loss,
-                            optimizer=optimizer)
+        train_model = Model(inputs=[images, labels], outputs=labels_plus_embeddings)
+        train_model.compile(loss=triplet_loss.loss, optimizer=optimizer)
 
     return train_model
-    
 
 
 def l2_distance(a, b):
     return np.mean(np.square(a - b))
 
-def cosine_sim(a, b):
-    return - (np.dot(a, b)/(np.linalg.norm(a)*np.linalg.norm(b)))
 
-def cal_sp_vectors(embbeder, supports,k_shot):
+def cosine_sim(a, b):
+    return -(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+
+
+def cal_sp_vectors(embbeder, supports, k_shot):
     means = []
     x_sp, y_sp = supports
     classes = np.unique(y_sp)
@@ -187,23 +221,28 @@ def cal_sp_vectors(embbeder, supports,k_shot):
         latent = embbeder.predict(triple_channels(imgs))
         means.append(np.mean(latent, axis=0))
     return np.array(means)
-    
-def classify_by_metric(embbeder, supports, images, k_shot=1,metric='l2'):
+
+
+def classify_by_metric(embbeder, supports, images, k_shot=1, metric="l2"):
     x_sp, y_sp = supports
     classes = np.unique(y_sp)
     # currently do one-shot classification
-    sp_vectors = cal_sp_vectors(embbeder, supports,k_shot)
+    sp_vectors = cal_sp_vectors(embbeder, supports, k_shot)
     vectors = embbeder.predict(triple_channels(images))
-    metric_func = l2_distance if metric == 'l2' else cosine_sim
-    similiarity = np.array([metric_func(vector, sp_vector) \
-                        for vector in vectors \
-                        for sp_vector in sp_vectors]).reshape(-1, len(classes))
+    metric_func = l2_distance if metric == "l2" else cosine_sim
+    similiarity = np.array(
+        [
+            metric_func(vector, sp_vector)
+            for vector in vectors
+            for sp_vector in sp_vectors
+        ]
+    ).reshape(-1, len(classes))
     pred = np.argmin(np.array(similiarity), axis=1)
     return pred
 
-def evaluate_by_metric(embbeder, supports, images, labels, k_shot=1,metric='l2'):
-    pred = classify_by_metric(embbeder, supports,
-                              images,k_shot=k_shot, metric=metric)
+
+def evaluate_by_metric(embbeder, supports, images, labels, k_shot=1, metric="l2"):
+    pred = classify_by_metric(embbeder, supports, images, k_shot=k_shot, metric=metric)
     acc = (pred == labels).mean()
     return acc
 
@@ -211,28 +250,31 @@ def evaluate_by_metric(embbeder, supports, images, labels, k_shot=1,metric='l2')
 def train_one_epoch(model, batch_gen, class_weight):
     total_loss = []
     for x, y in batch_gen.next_batch():
-        loss_ = model.train_on_batch(
-            x, y,
-            class_weight=class_weight
-        )
+        loss_ = model.train_on_batch(x, y, class_weight=class_weight)
         total_loss.append(loss_)
 
     return np.mean(np.array(total_loss), axis=0)
 
 
-def save_embbeding(train_model, dataset='multi_chest', loss_type=Losses.center):
-    embbeding_model = Model(
-        inputs = train_model.inputs[0],
-        outputs = train_model.get_layer('side_out').get_output_at(-1),
-        name="center_loss"
-    ) if loss_type == Losses.center else train_model
+def save_embbeding(train_model, dataset="multi_chest", loss_type=Losses.center):
+    embbeding_model = (
+        Model(
+            inputs=train_model.inputs[0],
+            outputs=train_model.get_layer("side_out").get_output_at(-1),
+            name="center_loss",
+        )
+        if loss_type == Losses.center
+        else train_model
+    )
 
-    fname = '/content/drive/My Drive/GAN/{}/latent_encoder_{}'.format(dataset, train_model.layers[0].input_shape[1])
-    with open(fname + '.json', 'w', encoding='utf-8') as f:
-        print('Save json model')
+    fname = "/content/drive/My Drive/GAN/{}/latent_encoder_{}".format(
+        dataset, train_model.layers[0].input_shape[1]
+    )
+    with open(fname + ".json", "w", encoding="utf-8") as f:
+        print("Save json model")
         f.write(embbeding_model.to_json())
 
-    embbeding_model.save(fname + '.h5')
+    embbeding_model.save(fname + ".h5")
     print("Save model ", fname)
 
 
@@ -241,8 +283,9 @@ def confusion_mt(model, test_x, test_y):
     y_pred = np.argmax(y_pred, axis=1)
     cm = sk_metrics.confusion_matrix(y_true=test_y, y_pred=y_pred)
     plt.figure()
-    plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+    plot_confusion_matrix(cm, hide_ticks=True, cmap=plt.cm.Blues)
     plt.show()
+
 
 def shuffle_data(data_x, data_y):
     rd_idx = np.arange(data_x.shape[0])
@@ -250,14 +293,16 @@ def shuffle_data(data_x, data_y):
     return data_x[rd_idx], data_y[rd_idx]
 
 
-def evaluate_model(train_model, x_test, y_test,
-                   y_test_onehot):
+def evaluate_model(train_model, x_test, y_test, y_test_onehot):
 
     x_test_3 = triple_channels(x_test)
-    classifier = Model(inputs = train_model.inputs[0],
-                        outputs = train_model.get_layer('main_out').get_output_at(-1))
-    classifier.compile(optimizer='adam', metrics = ['accuracy'],
-                        loss='categorical_crossentropy')
+    classifier = Model(
+        inputs=train_model.inputs[0],
+        outputs=train_model.get_layer("main_out").get_output_at(-1),
+    )
+    classifier.compile(
+        optimizer="adam", metrics=["accuracy"], loss="categorical_crossentropy"
+    )
     accuracy = classifier.evaluate(x_test_3, y_test_onehot, verbose=0)[1]
     try:
         auc = metrics.auc_score(y_test, classifier.predict(x_test_3), verbose=0)
@@ -268,35 +313,60 @@ def evaluate_model(train_model, x_test, y_test,
     return accuracy, auc
 
 
-def evaluate_model_metric(embbeder, supports, x_test, y_test ,k_shot=1, metric='l2'):
+def evaluate_model_metric(embbeder, supports, x_test, y_test, k_shot=1, metric="l2"):
     x_test_3 = triple_channels(x_test)
 
-    y_pred = classify_by_metric(embbeder, supports,
-                              x_test_3, k_shot=k_shot,
-                              metric=metric)
+    y_pred = classify_by_metric(
+        embbeder, supports, x_test_3, k_shot=k_shot, metric=metric
+    )
 
     cm = sk_metrics.confusion_matrix(y_true=y_test, y_pred=y_pred)
     plt.figure()
-    plot_confusion_matrix(cm, hide_ticks=True,cmap=plt.cm.Blues)
+    plot_confusion_matrix(cm, hide_ticks=True, cmap=plt.cm.Blues)
     plt.show()
     return (y_pred == y_test).mean(), 0
 
-## ==== Run training ==== ##
+
+# ==== Run training ==== #
 def _get_train_data(dataset, k_shot):
-    if dataset == 'multi_chest':
-        seen = BatchGenerator(BatchGenerator.TRAIN, 1, 'multi_chest', 128,k_shot=k_shot)
-        unseen = BatchGenerator(BatchGenerator.TEST, 1, 'multi_chest', 128, k_shot=k_shot)
+    if dataset == "multi_chest":
+        seen = BatchGenerator(
+            BatchGenerator.TRAIN, 1, "multi_chest", 128, k_shot=k_shot
+        )
+        unseen = BatchGenerator(
+            BatchGenerator.TEST, 1, "multi_chest", 128, k_shot=k_shot
+        )
         return seen.dataset_x, unseen.dataset_x, seen.dataset_y, unseen.dataset_y
 
-    x, y = pickle_load('/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl')
+    elif dataset == "face":
+        x, y = pickle_load(
+            "/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl"
+        )
+
+    elif dataset == "flower":
+        x, y = pickle_load(
+            "/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl"
+        )
+
     return normalize(x), y
 
 
-def run(mode ,experiments = 1, frozen_block=[],
-        name='vgg16', save=False, lr=1e-5,
-        loss_weights=[1, 0.1], epochs=25, loss_type=Losses.center, lr_decay=None,
-        k_shot=1, metric='l2', dataset='multi_chest',
-        plot_interval=2):
+def run(
+    mode,
+    experiments=1,
+    frozen_block=[],
+    name="vgg16",
+    save=False,
+    lr=1e-5,
+    loss_weights=[1, 0.1],
+    epochs=25,
+    loss_type=Losses.center,
+    lr_decay=None,
+    k_shot=1,
+    metric="l2",
+    dataset="multi_chest",
+    plot_interval=2,
+):
 
     x_train, x_test, y_train, y_test = _get_train_data(dataset, k_shot)
     class_counter = dict(Counter(y_train))
@@ -304,7 +374,6 @@ def run(mode ,experiments = 1, frozen_block=[],
     classes = np.unique(y_train)
     num_of_classes = len(classes)
 
-    
     if experiments > 1 and len(class_counter) == 15:
         # only use k_shot images in useen classes (pneumonia, herina)
         keep = [0] * 12
@@ -315,14 +384,13 @@ def run(mode ,experiments = 1, frozen_block=[],
         ]
         x_train, y_train = prune(x_train, y_train, keep + to_remove)
 
-    class_weight = sk_weight.compute_class_weight('balanced',
-                                                 np.unique(y_train),
-                                                 y_train)
-
+    class_weight = sk_weight.compute_class_weight(
+        "balanced", np.unique(y_train), y_train
+    )
 
     class_weight = dict(enumerate(class_weight))
     if loss_type == Losses.triplet or mode != Option.vgg16_st_aug:
-        class_weight  =  None
+        class_weight = None
     if mode == Option.vgg16 or mode == Option.vgg16_st_aug:
         x_train_aug, y_train_aug = x_train, y_train
     else:
@@ -334,12 +402,14 @@ def run(mode ,experiments = 1, frozen_block=[],
         print("Origin data: ", Counter(y_train))
 
         if mode == Option.bagan:
-            x_train_aug = x_train_aug *127.5+127.5
+            x_train_aug = x_train_aug * 127.5 + 127.5
         show_samples(x_train_aug[:10])
         show_samples(x_train[:10])
 
-        x_train_aug, y_train_aug = (np.concatenate([x_train,x_train_aug]),
-                                    np.concatenate([y_train, y_train_aug]))
+        x_train_aug, y_train_aug = (
+            np.concatenate([x_train, x_train_aug]),
+            np.concatenate([y_train, y_train_aug]),
+        )
         x_train_aug = triple_channels(x_train_aug)
 
     # run 5 experiments
@@ -351,35 +421,47 @@ def run(mode ,experiments = 1, frozen_block=[],
     show_samples(x_train_aug[:10])
     for i in range(experiments):
         print("run experiments {}/{} - {}".format(i + 1, experiments, model_map[mode]))
-        train_model = main_model(num_of_classes, x_train.shape[1],
-                            128, lr=lr,
-                            loss_weights=loss_weights,
-                            from_scratch=False,
-                            frozen_block=[],
-                            name=name,
-                            decay=lr_decay,
-                            loss_type=loss_type)
+        train_model = main_model(
+            num_of_classes,
+            x_train.shape[1],
+            128,
+            lr=lr,
+            loss_weights=loss_weights,
+            from_scratch=False,
+            frozen_block=[],
+            name=name,
+            decay=lr_decay,
+            loss_type=loss_type,
+        )
 
         losses = []
         print("METRICS: ", train_model.metrics_names)
         for i in range(epochs):
             start_time = datetime.datetime.now()
             loss_mean = train_one_epoch(train_model, batch_gen, class_weight)
-            print("epochs {}/{} - loss: {} - {}".format(
-                i + 1, epochs, loss_mean, datetime.datetime.now() - start_time
-            ))
+            print(
+                "epochs {}/{} - loss: {} - {}".format(
+                    i + 1, epochs, loss_mean, datetime.datetime.now() - start_time
+                )
+            )
             losses.append(loss_mean)
 
             if i % plot_interval == 0:
                 # plot
                 embbeding_model = Model(
-                    inputs = train_model.inputs[0],
-                    outputs = train_model.get_layer('side_out').get_output_at(-1),
-                    name="center_loss"
+                    inputs=train_model.inputs[0],
+                    outputs=train_model.get_layer("side_out").get_output_at(-1),
+                    name="center_loss",
                 )
-                scatter_plot(x_train, y_train, embbeding_model, 'train', 'pca',
-                            legend=False, title="epoch {}".format(i+1))
-
+                scatter_plot(
+                    x_train,
+                    y_train,
+                    embbeding_model,
+                    "train",
+                    "pca",
+                    legend=False,
+                    title="epoch {}".format(i + 1),
+                )
 
         if loss_type == Losses.center:
             if save:
@@ -388,26 +470,40 @@ def run(mode ,experiments = 1, frozen_block=[],
             y_test_onehot = to_categorical(y_test, num_of_classes)
             y_train_onehot = to_categorical(y_train, num_of_classes)
             acc, auc = evaluate_model(train_model, x_test, y_test, y_test_onehot)
-            train_acc, train_auc = evaluate_model(train_model, x_train, y_train, y_train_onehot)
-            print("Test acc, auc = [{}, {}] - Train acc, auc = [{}, {}]".format(
-                acc, auc, train_acc, train_auc
-            ))
+            train_acc, train_auc = evaluate_model(
+                train_model, x_train, y_train, y_train_onehot
+            )
+            print(
+                "Test acc, auc = [{}, {}] - Train acc, auc = [{}, {}]".format(
+                    acc, auc, train_acc, train_auc
+                )
+            )
         else:
-            embedder = Model(inputs = train_model.inputs[0],
-                    outputs = train_model.layers[-2].get_output_at(-1),
-                    name="triplet_net")
+            embedder = Model(
+                inputs=train_model.inputs[0],
+                outputs=train_model.layers[-2].get_output_at(-1),
+                name="triplet_net",
+            )
             if save:
                 save_embbeding(embedder, dataset, loss_type=loss_type)
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
-            acc, auc = evaluate_model_metric(embedder,
-                                        ( x_sp_u, y_sp_u), 
-                                        x_test_u, y_test_u - np.min(y_test_u),
-                                        k_shot=k_shot, metric=metric)
+            acc, auc = evaluate_model_metric(
+                embedder,
+                (x_sp_u, y_sp_u),
+                x_test_u,
+                y_test_u - np.min(y_test_u),
+                k_shot=k_shot,
+                metric=metric,
+            )
             x_test_u, x_sp_u, y_test_u, y_sp_u = train_test_split(x_test, y_test)
-            train_acc, train_auc = evaluate_model_metric(embedder,
-                                    ( x_sp_u, y_sp_u), 
-                                    x_test_u, y_test_u -np.min(y_test_u),
-                                    k_shot=k_shot, metric=metric)
+            train_acc, train_auc = evaluate_model_metric(
+                embedder,
+                (x_sp_u, y_sp_u),
+                x_test_u,
+                y_test_u - np.min(y_test_u),
+                k_shot=k_shot,
+                metric=metric,
+            )
             print("Train acc: ", train_acc)
 
         print("Acc ", acc)
@@ -415,7 +511,7 @@ def run(mode ,experiments = 1, frozen_block=[],
         accs.append(acc)
         auc_scores.append(auc)
 
-    ## calculate avg
+    # calculate avg
     mean_acc = np.mean(np.array(acc))
     mean_auc = np.mean(np.array(auc_scores), axis=0)
     return mean_auc, train_model

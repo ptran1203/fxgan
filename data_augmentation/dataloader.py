@@ -6,6 +6,7 @@ from keras.utils import to_categorical
 
 class BatchGen:
     """simple batch gen"""
+
     def __init__(self, x, y, batch_size=64):
         self.x = triple_channels(x)
         self.y = y
@@ -13,11 +14,9 @@ class BatchGen:
         self.num_of_classes = len(np.unique(y))
         self.dummy = np.zeros((self.batch_size, 129))
 
-
     def augment_one(self, x, y):
         new_x = _transform(x)
         return new_x, y
-
 
     def rebalance(self, x, y):
         """
@@ -40,7 +39,6 @@ class BatchGen:
 
         return np.array(x_), np.array(y_)
 
-
     def next_batch(self):
         dataset_x = self.x
         labels = self.y
@@ -49,13 +47,16 @@ class BatchGen:
         indices = np.arange(dataset_x.shape[0])
         np.random.shuffle(indices)
 
-        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
-            access_pattern = indices[start_idx:start_idx + self.batch_size]
+        for start_idx in range(
+            0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size
+        ):
+            access_pattern = indices[start_idx : start_idx + self.batch_size]
             batch_y = [onehot_labels[access_pattern], self.dummy]
 
-            balanced_x, balanced_y = self.rebalance(dataset_x[access_pattern, :, :, :],
-                                                    labels[access_pattern])
-            
+            balanced_x, balanced_y = self.rebalance(
+                dataset_x[access_pattern, :, :, :], labels[access_pattern]
+            )
+
             dummy = np.zeros((len(balanced_y), 129))
             one_hot = to_categorical(balanced_y, self.num_of_classes)
             yield (
