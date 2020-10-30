@@ -458,7 +458,7 @@ def run(
                     y_train,
                     embbeding_model,
                     "train",
-                    "pca",
+                    "tsne",
                     legend=False,
                     title="epoch {}".format(i + 1),
                 )
