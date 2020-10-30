@@ -342,9 +342,11 @@ def _get_train_data(dataset, k_shot):
         "/content/drive/My Drive/GAN/dataset/{}/imgs_labels.pkl".format(dataset)
     )
 
+    x = normalize(x)
+
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
 
-    return normalize(x), y
+    return x_train, x_test, y_train, y_test
 
 
 def run(
