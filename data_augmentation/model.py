@@ -338,15 +338,9 @@ def _get_train_data(dataset, k_shot):
         )
         return seen.dataset_x, unseen.dataset_x, seen.dataset_y, unseen.dataset_y
 
-    elif dataset == "face":
-        x, y = pickle_load(
-            "/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl"
-        )
-
-    elif dataset == "flower":
-        x, y = pickle_load(
-            "/content/drive/My Drive/GAN/dataset/flowers/imgs_labels.pkl"
-        )
+    x, y = pickle_load(
+        "/content/drive/My Drive/GAN/dataset/{}/imgs_labels.pkl".format(dataset)
+    )
 
     return normalize(x), y
 
