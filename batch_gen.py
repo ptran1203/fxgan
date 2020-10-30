@@ -4,6 +4,8 @@ from collections import Counter
 from const import CATEGORIES_MAP, INVERT_CATEGORIES_MAP, BASE_DIR
 from sklearn.utils import class_weight as sk_weight
 from sklearn.model_selection import train_test_split
+
+
 class BatchGenerator:
     TRAIN = 1
     TEST = 0
@@ -13,7 +15,7 @@ class BatchGenerator:
         self,
         data_src,
         batch_size=5,
-        dataset='MNIST',
+        dataset="multi chest",
         rst=64,
         prune_classes=None,
         k_shot=5,
@@ -21,7 +23,7 @@ class BatchGenerator:
         self.batch_size = batch_size
         self.data_src = data_src
 
-        if dataset == 'chest':
+        if dataset == "chest":
             if self.data_src == self.TEST:
                 x, y = utils.load_test_data(rst)
                 self.dataset_x = x
@@ -29,35 +31,43 @@ class BatchGenerator:
 
             else:
                 x, y = utils.load_train_data(rst)
-                self.dataset_x = x  
+                self.dataset_x = x
                 self.dataset_y = y
 
-        elif dataset == 'flowers':
-            x, y = utils.pickle_load(BASE_DIR + '/dataset/flowers/imgs_labels.pkl')
+        elif dataset == "flowers":
+            x, y = utils.pickle_load(BASE_DIR + "/dataset/flowers/imgs_labels.pkl")
             to_train_classes = self.to_train_classes
 
             if self.data_src == self.TEST:
-                to_keep = np.array([i for i, l in enumerate(y) if l not in to_train_classes])
+                to_keep = np.array(
+                    [i for i, l in enumerate(y) if l not in to_train_classes]
+                )
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 # TODO start from 0
                 self.dataset_y = y
             else:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
+                to_keep = np.array(
+                    [i for i, l in enumerate(y) if l in to_train_classes]
+                )
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 # TODO start from 0
                 self.dataset_y = y
 
+        elif dataset == "face":
+            x, labels = utils.pickle_load(BASE_DIR + "/dataset/face/imgs_labels.pkl")
+            self.dataset_x = x
+            self.dataset_y = labels
 
-        else: # multi chest
+        else:  # multi chest
             x, y = utils.load_chestxray14_data(rst)
             x = utils.denormalize(x)
             to_train_classes = self.to_train_classes
 
             if self.data_src == self.TEST:
                 to_keep = []
-                counter = {12:0,13:0,14:0}
+                counter = {12: 0, 13: 0, 14: 0}
                 for i, l in enumerate(y):
                     if l not in to_train_classes and counter[l] < k_shot:
                         to_keep.append(i)
@@ -68,7 +78,9 @@ class BatchGenerator:
                 self.dataset_x = x
                 self.dataset_y = np.array([l for l in y])
             else:
-                to_keep = np.array([i for i, l in enumerate(y) if l in to_train_classes])
+                to_keep = np.array(
+                    [i for i, l in enumerate(y) if l in to_train_classes]
+                )
                 x, y = x[to_keep], y[to_keep]
                 self.dataset_x = x
                 self.dataset_y = np.array([l for l in y])
@@ -76,8 +88,8 @@ class BatchGenerator:
         # Normalize between -1 and 1
         self.dataset_x = utils.normalize(self.dataset_x)
 
-        print(self.dataset_x.shape[0] , self.dataset_y.shape[0])
-        assert (self.dataset_x.shape[0] == self.dataset_y.shape[0])
+        print(self.dataset_x.shape[0], self.dataset_y.shape[0])
+        assert self.dataset_x.shape[0] == self.dataset_y.shape[0]
 
         # Compute per class instance count.
         classes = np.unique(self.dataset_y)
@@ -86,9 +98,10 @@ class BatchGenerator:
         for c in classes:
             per_class_count.append(np.sum(np.array(self.dataset_y == c)))
 
-
         if prune_classes:
-            self.dataset_x, self.dataset_y = utils.prune(self.dataset_x, self.dataset_y, prune_classes)
+            self.dataset_x, self.dataset_y = utils.prune(
+                self.dataset_x, self.dataset_y, prune_classes
+            )
 
         # Recount after pruning
         per_class_count = list()
@@ -108,7 +121,6 @@ class BatchGenerator:
         for c in classes:
             self.per_class_ids[c] = ids[self.labels == c]
 
-
     def get_samples_for_class(self, c, samples=None):
         if samples is None:
             samples = self.batch_size
@@ -122,8 +134,7 @@ class BatchGenerator:
             to_return = random[:samples]
             return self.dataset_x[to_return]
 
-
-    def get_samples_by_labels(self, labels, samples = None):
+    def get_samples_by_labels(self, labels, samples=None):
         if samples is None:
             samples = self.batch_size
 
@@ -139,7 +150,6 @@ class BatchGenerator:
 
         return self.dataset_x[np.array(new_arr)]
 
-
     def other_labels(self, labels):
         clone = np.arange(labels.shape[0])
         clone[:] = labels
@@ -148,22 +158,25 @@ class BatchGenerator:
             clone[i] = to_get[np.random.randint(0, len(self.classes) - 1)]
         return clone
 
-
     def get_label_table(self):
         return self.label_table
 
     def get_num_classes(self):
-        return len( self.label_table )
+        return len(self.label_table)
 
     def get_class_probability(self):
-        return self.per_class_count/sum(self.per_class_count)
+        return self.per_class_count / sum(self.per_class_count)
 
     ### ACCESS DATA AND SHAPES ###
     def get_num_samples(self):
         return self.dataset_x.shape[0]
 
     def get_image_shape(self):
-        return [self.dataset_x.shape[1], self.dataset_x.shape[2], self.dataset_x.shape[3]]
+        return [
+            self.dataset_x.shape[1],
+            self.dataset_x.shape[2],
+            self.dataset_x.shape[3],
+        ]
 
     def next_batch(self):
         dataset_x = self.dataset_x
@@ -175,12 +188,15 @@ class BatchGenerator:
         np.random.shuffle(indices)
         # np.random.shuffle(indices2)
 
-        for start_idx in range(0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size):
-            access_pattern = indices[start_idx:start_idx + self.batch_size]
+        for start_idx in range(
+            0, dataset_x.shape[0] - self.batch_size + 1, self.batch_size
+        ):
+            access_pattern = indices[start_idx : start_idx + self.batch_size]
             # access_pattern2 = indices2[start_idx:start_idx + self.batch_size]
 
             yield (
-                dataset_x[access_pattern, :, :, :], labels[access_pattern],
+                dataset_x[access_pattern, :, :, :],
+                labels[access_pattern],
                 # dataset_x[access_pattern2, :, :, :], labels[access_pattern2]
             )
 
@@ -190,7 +206,10 @@ class BatchGenerator:
             np.random.shuffle(self.per_class_ids[label])
             for i in range(2):
                 selected = self.per_class_ids[label][i]
-                if original is None or not (original[idx] == self.dataset_x[selected]).all():
+                if (
+                    original is None
+                    or not (original[idx] == self.dataset_x[selected]).all()
+                ):
                     ids.append(selected)
                     break
 
