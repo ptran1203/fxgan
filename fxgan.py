@@ -642,10 +642,10 @@ class FXGAN:
 
         kernel_size = 5
         de = self._dc_block(
-            latent, init_channels, kernel_size, activation=activation, norm="in"
+            latent, init_channels, kernel_size, activation=activation, norm=self.norm
         )
         de = self._dc_block(
-            de, init_channels, kernel_size, activation=activation, norm="in"
+            de, init_channels, kernel_size, activation=activation, norm=self.norm
         )
 
         if self.attention:
@@ -656,7 +656,7 @@ class FXGAN:
             init_channels //= 2
             output_shape *= 2
             de = self._dc_block(
-                de, init_channels, kernel_size, activation=activation, norm="in"
+                de, init_channels, kernel_size, activation=activation, norm=self.norm
             )
 
         final = self._dc_block(
@@ -687,11 +687,11 @@ class FXGAN:
         interpolation = "nearest"
         # de = Add()([de, connections[-1]])
         de = self._up_resblock(
-            latent, init_channels, kernel_size, activation=activation, norm="in"
+            latent, init_channels, kernel_size, activation=activation, norm=self.norm
         )
         # de = Add()([de, connections[-2]])
         de = self._up_resblock(
-            de, init_channels, kernel_size, activation=activation, norm="in"
+            de, init_channels, kernel_size, activation=activation, norm=self.norm
         )
         # de = Add()([de, connections[-3]])
 
@@ -701,7 +701,7 @@ class FXGAN:
         while de.shape[-2] != self.resolution:
             init_channels //= 2
             de = self._up_resblock(
-                de, init_channels, kernel_size, activation=activation, norm="in"
+                de, init_channels, kernel_size, activation=activation, norm=self.norm
             )
 
         de = self._norm()(de)
